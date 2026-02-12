@@ -38,6 +38,7 @@ export function mapArrivalDto(dto: ArrivalDto): Arrival {
     lineCode: dto.lineCode,
     stationCode: dto.stationCode,
     directionId: dto.directionId,
+    platformCode: dto.platformCode,
     destination: dto.destination,
     etaSec: dto.etaSec,
     sourceTimestampMs: dto.sourceTimestampMs,

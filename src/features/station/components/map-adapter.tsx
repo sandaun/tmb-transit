@@ -77,7 +77,9 @@ export function MapAdapter({ stations, segments, targetStationCode, vehicles }: 
         <Marker
           key={vehicle.id}
           coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
-          anchor={{ x: 0.5, y: 0.5 }}>
+          anchor={{ x: 0.5, y: 0.5 }}
+          zIndex={30}
+          tracksViewChanges={false}>
           <View style={styles.vehicleDot} />
         </Marker>
       ))}
@@ -92,10 +94,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   vehicleDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
     backgroundColor: '#FF7A00',
   },

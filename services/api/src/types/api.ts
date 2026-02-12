@@ -35,6 +35,7 @@ export interface ArrivalDto {
   lineCode: string;
   stationCode: string;
   directionId: string;
+  platformCode?: string;
   destination: string;
   etaSec: number;
   sourceTimestampMs: number;

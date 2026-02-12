@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useMetroLinesQuery } from '@/src/features/catalog/hooks/use-metro-lines-query';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
@@ -51,83 +52,89 @@ export function HomeScreen() {
   const canNavigate = Boolean(lineCode && selectedStationCode);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>TMB Transit MVP</Text>
-      <Text style={styles.subtitle}>Selecciona línia i estació (L3 per defecte)</Text>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <View style={styles.container}>
+        <Text style={styles.title}>TMB Transit MVP</Text>
+        <Text style={styles.subtitle}>Selecciona línia i estació (L3 per defecte)</Text>
 
-      <Text style={styles.sectionTitle}>Línies metro</Text>
-      <View style={styles.lineList}>
-        {lines.map((line) => {
-          const selected = line.code === lineCode;
+        <Text style={styles.sectionTitle}>Línies metro</Text>
+        <View style={styles.lineList}>
+          {lines.map((line) => {
+            const selected = line.code === lineCode;
 
-          return (
-            <Pressable
-              key={line.code}
-              style={[styles.lineChip, selected ? styles.lineChipSelected : null]}
-              onPress={() => setSelection(line.code, '')}>
-              <Text style={[styles.lineChipText, selected ? styles.lineChipTextSelected : null]}>
-                {line.name || line.code}
-              </Text>
-            </Pressable>
-          );
-        })}
+            return (
+              <Pressable
+                key={line.code}
+                style={[styles.lineChip, selected ? styles.lineChipSelected : null]}
+                onPress={() => setSelection(line.code, '')}>
+                <Text style={[styles.lineChipText, selected ? styles.lineChipTextSelected : null]}>
+                  {line.name || line.code}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {linesLoading ? <Text style={styles.meta}>Carregant línies...</Text> : null}
+        {linesError ? <Text style={styles.error}>Error carregant línies.</Text> : null}
+
+        <Text style={styles.sectionTitle}>Estacions</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Cerca estació"
+          value={query}
+          onChangeText={setQuery}
+        />
+
+        {stationsLoading ? <Text style={styles.meta}>Carregant estacions...</Text> : null}
+        {stationsError ? <Text style={styles.error}>Error carregant estacions.</Text> : null}
+
+        <FlatList
+          data={filteredStations}
+          keyExtractor={(item) => item.code}
+          style={styles.stationList}
+          renderItem={({ item }) => {
+            const selected = item.code === selectedStationCode;
+
+            return (
+              <Pressable
+                style={[styles.stationItem, selected ? styles.stationItemSelected : null]}
+                onPress={() => setSelection(lineCode ?? item.lineCode, item.code)}>
+                <Text style={styles.stationName}>{item.name}</Text>
+                <Text style={styles.stationMeta}>{item.code}</Text>
+              </Pressable>
+            );
+          }}
+        />
+
+        <Pressable
+          style={[styles.openButton, !canNavigate ? styles.openButtonDisabled : null]}
+          disabled={!canNavigate}
+          onPress={() => {
+            if (!lineCode || !selectedStationCode) {
+              return;
+            }
+
+            router.push({
+              pathname: `/station/${lineCode}/${selectedStationCode}` as never,
+            });
+          }}>
+          <Text style={styles.openButtonText}>Obrir estació</Text>
+        </Pressable>
       </View>
-
-      {linesLoading ? <Text style={styles.meta}>Carregant línies...</Text> : null}
-      {linesError ? <Text style={styles.error}>Error carregant línies.</Text> : null}
-
-      <Text style={styles.sectionTitle}>Estacions</Text>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Cerca estació"
-        value={query}
-        onChangeText={setQuery}
-      />
-
-      {stationsLoading ? <Text style={styles.meta}>Carregant estacions...</Text> : null}
-      {stationsError ? <Text style={styles.error}>Error carregant estacions.</Text> : null}
-
-      <FlatList
-        data={filteredStations}
-        keyExtractor={(item) => item.code}
-        style={styles.stationList}
-        renderItem={({ item }) => {
-          const selected = item.code === selectedStationCode;
-
-          return (
-            <Pressable
-              style={[styles.stationItem, selected ? styles.stationItemSelected : null]}
-              onPress={() => setSelection(lineCode ?? item.lineCode, item.code)}>
-              <Text style={styles.stationName}>{item.name}</Text>
-              <Text style={styles.stationMeta}>{item.code}</Text>
-            </Pressable>
-          );
-        }}
-      />
-
-      <Pressable
-        style={[styles.openButton, !canNavigate ? styles.openButtonDisabled : null]}
-        disabled={!canNavigate}
-        onPress={() => {
-          if (!lineCode || !selectedStationCode) {
-            return;
-          }
-
-          router.push({
-            pathname: `/station/${lineCode}/${selectedStationCode}` as never,
-          });
-        }}>
-        <Text style={styles.openButtonText}>Obrir estació</Text>
-      </Pressable>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F4F7FB',
+  },
   container: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: 8,
     backgroundColor: '#F4F7FB',
   },
   title: {

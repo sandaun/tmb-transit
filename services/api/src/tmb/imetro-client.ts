@@ -37,6 +37,7 @@ export interface ParsedIMetroArrival {
   lineCode: string;
   stationCode: string;
   directionId: string;
+  platformCode?: string;
   destination: string;
   serviceId?: string;
   etaSec: number;
@@ -91,6 +92,7 @@ export async function fetchArrivalsByStation(
 
       for (const path of station.linies_trajectes ?? []) {
         const directionId = normalizeCode(station.id_sentit) ?? '1';
+        const platformCode = normalizeCode(station.codi_via) ?? undefined;
         const destination = path.desti_trajecte ?? 'Unknown destination';
 
         for (const train of path.propers_trens ?? []) {
@@ -104,6 +106,7 @@ export async function fetchArrivalsByStation(
             lineCode: lineCodeFilter,
             stationCode,
             directionId,
+            platformCode,
             destination,
             serviceId: train.codi_servei,
             etaSec,

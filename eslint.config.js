@@ -6,5 +6,9 @@ module.exports = defineConfig([
   expoConfig,
   {
     ignores: ['dist/*'],
+    rules: {
+      // Expo managed projects with TS path aliases and RN package exports can trigger false positives.
+      'import/no-unresolved': 'off',
+    },
   },
 ]);

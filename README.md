@@ -1,50 +1,105 @@
-# Welcome to your Expo app 👋
+# TMB Transit MVP
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo React Native MVP for Barcelona metro with:
+- Metro line/station catalog
+- Station arrivals via iMetro
+- Estimated vehicle positions (ETA-based simulation, no GPS)
+- Thin Fastify proxy backend with short cache and single-flight dedupe
 
-## Get started
+## Project layout
 
-1. Install dependencies
+- `/Users/oriolcarbo/code/Projectes/tmb-transit/app` Expo Router routes
+- `/Users/oriolcarbo/code/Projectes/tmb-transit/src/domain` pure domain logic
+- `/Users/oriolcarbo/code/Projectes/tmb-transit/src/data` API client, DTO mapping, cache
+- `/Users/oriolcarbo/code/Projectes/tmb-transit/src/features` screen features and hooks
+- `/Users/oriolcarbo/code/Projectes/tmb-transit/services/api` Fastify proxy
 
-   ```bash
-   npm install
-   ```
+## Mobile setup
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+1. Install dependencies:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Start Expo:
 
-## Learn more
+```bash
+npm run start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+3. Set backend URL for device/simulator:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3001 npm run start
+```
 
-## Join the community
+If you run on a physical device, use your LAN IP instead of `localhost`.
 
-Join our community of developers creating universal apps.
+## Backend setup
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+1. Install backend dependencies:
+
+```bash
+npm --prefix ./services/api install
+```
+
+2. Configure env:
+
+```bash
+cp ./services/api/.env.example ./services/api/.env
+```
+
+Fill:
+- `TMB_APP_ID`
+- `TMB_APP_KEY`
+
+Optional:
+- `TMB_TRANSIT_BASE_URL` (default `https://api.tmb.cat/v1/transit`)
+- `TMB_IMETRO_BASE_URL` (default `https://api.tmb.cat/v1/itransit`)
+
+3. Run backend:
+
+```bash
+npm run api:dev
+```
+
+## API exposed by backend
+
+- `GET /health`
+- `GET /v1/catalog/metro/lines`
+- `GET /v1/catalog/metro/lines/:lineCode/stations`
+- `GET /v1/catalog/metro/lines/:lineCode/segments`
+- `GET /v1/realtime/metro/arrivals?lineCode={lineCode}&stationCode={stationCode}`
+
+## ETA vehicle simulation
+
+Implemented in `/Users/oriolcarbo/code/Projectes/tmb-transit/src/domain/realtime/estimate-vehicles.ts`:
+
+- ordered stations per direction
+- `avgSegmentSec = 90` (configurable)
+- `segmentsBehind = floor(etaSec / avgSegmentSec)`
+- `progress = 1 - ((etaSec % avgSegmentSec) / avgSegmentSec)`
+- `segmentIndex = targetStationIndex - segmentsBehind - 1`
+- no render when `segmentIndex < 0`
+
+UI label shown on station screen:
+
+`Estimated position (based on ETA).`
+
+## Realtime cache strategy (backend)
+
+Implemented in `/Users/oriolcarbo/code/Projectes/tmb-transit/services/api/src/routes/realtime.ts`:
+
+- cache key: `arrivals:{lineCode}:{stationCode}`
+- fresh TTL: `8s`
+- single-flight dedupe: one upstream request per key while in flight
+- stale fallback: return last value up to `30s` when upstream fails
+
+## Tests
+
+Backend unit test included for cache behavior:
+
+```bash
+npm --prefix ./services/api run test
+```

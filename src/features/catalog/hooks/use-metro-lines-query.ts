@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { APP_CONFIG } from '@/src/config/app-config';
 import { readCatalogCache, writeCatalogCache } from '@/src/data/cache/catalog-cache';
-import { fetchMetroLines } from '@/src/data/tmb/client';
+import { fetchMetroLines } from '@/src/data/tmb/data-source';
 import type { Line } from '@/src/domain/catalog/models';
 
 const queryKey = ['catalog', 'metro', 'lines'] as const;

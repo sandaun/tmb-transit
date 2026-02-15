@@ -24,6 +24,15 @@ interface ArrivalGroup {
 
 function formatEta(etaSec: number): string {
   const safe = Math.max(0, etaSec);
+
+  if (safe <= 45) {
+    return 'Ara';
+  }
+
+  if (safe >= 5 * 60) {
+    return `${Math.floor(safe / 60)} min`;
+  }
+
   const minutes = Math.floor(safe / 60);
   const seconds = safe % 60;
 

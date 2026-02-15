@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchLineSegments } from '@/src/data/tmb/client';
+import { fetchLineSegments } from '@/src/data/tmb/data-source';
 
 export function useLineSegmentsQuery(lineCode: string | null) {
   return useQuery({

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { APP_CONFIG } from '@/src/config/app-config';
 import { readCatalogCache, writeCatalogCache } from '@/src/data/cache/catalog-cache';
-import { fetchLineStations } from '@/src/data/tmb/client';
+import { fetchLineStations } from '@/src/data/tmb/data-source';
 import type { Station } from '@/src/domain/catalog/models';
 
 function isFresh(createdAt: number): boolean {

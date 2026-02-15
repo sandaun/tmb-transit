@@ -36,6 +36,40 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:3001 npm run start
 
 If you run on a physical device, use your LAN IP instead of `localhost`.
 
+## Frontend env and mock mode
+
+The app reads frontend flags from env via `/Users/oriolcarbo/code/Projectes/tmb-transit/src/config/app-config.ts`.
+
+Current flags:
+- `EXPO_PUBLIC_API_BASE_URL`
+- `EXPO_PUBLIC_USE_MOCK`
+
+Recommended setup:
+- `.env.development` (shared defaults for dev)
+- `.env.local` (personal overrides, ignored by git)
+
+For predictable behavior, use `.env.local` as the source of truth for local mode:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Set:
+- `EXPO_PUBLIC_USE_MOCK=true` for mock mode
+- `EXPO_PUBLIC_USE_MOCK=false` for real backend mode
+
+Then start with:
+
+```bash
+npm run start
+```
+
+If you need to reset Metro cache, run:
+
+```bash
+npx expo start --clear
+```
+
 ## Backend setup
 
 1. Install backend dependencies:

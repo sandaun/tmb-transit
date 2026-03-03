@@ -17,6 +17,8 @@ export default function StationRoute() {
     <StationScreen
       lineCode={ensureString(params.lineCode)}
       stationCode={ensureString(params.stationCode)}
+      showBackButton
+      syncRoute
     />
   );
 }

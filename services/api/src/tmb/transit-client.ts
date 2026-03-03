@@ -107,6 +107,19 @@ export async function getMetroLineStations(lineCode: string): Promise<StationDto
       lat: point.lat,
       lon: point.lon,
       order: getNumber(props, ['ORDRE_ESTACIO', 'ordre_estacio', 'ORDRE', 'ordre']),
+      accessibilityTypeId: getNumber(props, [
+        'ID_TIPUS_ACCESSIBILITAT',
+        'id_tipus_accessibilitat',
+      ]),
+      accessibilityLabel: getString(props, [
+        'NOM_TIPUS_ACCESSIBILITAT',
+        'nom_tipus_accessibilitat',
+      ]),
+      statusTypeId: getNumber(props, ['ID_TIPUS_ESTAT', 'id_tipus_estat']),
+      statusLabel: getString(props, ['NOM_TIPUS_ESTAT', 'nom_tipus_estat']),
+      serviceDescription: getString(props, ['DESC_SERVEI', 'desc_servei']),
+      serviceOrigin: getString(props, ['ORIGEN_SERVEI', 'origen_servei']),
+      serviceDestination: getString(props, ['DESTI_SERVEI', 'desti_servei']),
     });
   }
 

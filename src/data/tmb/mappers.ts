@@ -20,6 +20,13 @@ export function mapStationDto(dto: StationDto): Station {
     lat: dto.lat,
     lon: dto.lon,
     order: dto.order,
+    accessibilityTypeId: dto.accessibilityTypeId,
+    accessibilityLabel: dto.accessibilityLabel,
+    statusTypeId: dto.statusTypeId,
+    statusLabel: dto.statusLabel,
+    serviceDescription: dto.serviceDescription,
+    serviceOrigin: dto.serviceOrigin,
+    serviceDestination: dto.serviceDestination,
   };
 }
 

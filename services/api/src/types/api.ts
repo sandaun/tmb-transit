@@ -21,6 +21,13 @@ export interface StationDto {
   lat: number;
   lon: number;
   order?: number;
+  accessibilityTypeId?: number;
+  accessibilityLabel?: string;
+  statusTypeId?: number;
+  statusLabel?: string;
+  serviceDescription?: string;
+  serviceOrigin?: string;
+  serviceDestination?: string;
 }
 
 export interface SegmentDto {

@@ -12,4 +12,11 @@ export interface Station extends LatLng {
   lineCode: string;
   name: string;
   order?: number;
+  accessibilityTypeId?: number;
+  accessibilityLabel?: string;
+  statusTypeId?: number;
+  statusLabel?: string;
+  serviceDescription?: string;
+  serviceOrigin?: string;
+  serviceDestination?: string;
 }

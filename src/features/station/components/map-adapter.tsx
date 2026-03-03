@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 
@@ -9,19 +9,32 @@ import type { VehicleEstimate } from '@/src/domain/realtime/models';
 interface MapAdapterProps {
   stations: Station[];
   segments: Segment[];
-  targetStationCode: string;
+  selectedStationCode: string;
   vehicles: VehicleEstimate[];
+  onStationPress: (stationCode: string) => void;
 }
 
 function getFallbackPolyline(stations: Station[]) {
-  return stations.map((station) => ({ latitude: station.lat, longitude: station.lon }));
+  return stations.map((station) => ({
+    latitude: station.lat,
+    longitude: station.lon,
+  }));
 }
 
-export function MapAdapter({ stations, segments, targetStationCode, vehicles }: MapAdapterProps) {
-  const targetStation = stations.find((station) => station.code === targetStationCode);
+export function MapAdapter({
+  stations,
+  segments,
+  selectedStationCode,
+  vehicles,
+  onStationPress,
+}: MapAdapterProps) {
+  const mapRef = useRef<MapView | null>(null);
+  const selectedStation = stations.find(
+    (station) => station.code === selectedStationCode,
+  );
 
   const initialRegion = useMemo(() => {
-    const center = targetStation ?? stations[0];
+    const center = selectedStation ?? stations[0];
 
     if (!center) {
       return {
@@ -38,38 +51,52 @@ export function MapAdapter({ stations, segments, targetStationCode, vehicles }: 
       latitudeDelta: 0.05,
       longitudeDelta: 0.05,
     };
-  }, [stations, targetStation]);
+  }, [selectedStation, stations]);
+
+  useEffect(() => {
+    if (!selectedStation || !mapRef.current) {
+      return;
+    }
+
+    mapRef.current.animateToRegion({
+      latitude: selectedStation.lat,
+      longitude: selectedStation.lon,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    });
+  }, [selectedStation]);
 
   const hasSegments = segments.some((segment) => segment.points.length > 1);
 
   return (
-    <MapView style={styles.map} initialRegion={initialRegion}>
-      {hasSegments
-        ? segments.map((segment) => (
-            <Polyline
-              key={segment.id}
-              coordinates={segment.points.map((point) => ({
-                latitude: point.lat,
-                longitude: point.lon,
-              }))}
-              strokeWidth={4}
-              strokeColor="#008DDA"
-            />
-          ))
-        : (
-            <Polyline
-              coordinates={getFallbackPolyline(stations)}
-              strokeWidth={4}
-              strokeColor="#008DDA"
-            />
-          )}
+    <MapView ref={mapRef} style={styles.map} initialRegion={initialRegion}>
+      {hasSegments ? (
+        segments.map((segment) => (
+          <Polyline
+            key={segment.id}
+            coordinates={segment.points.map((point) => ({
+              latitude: point.lat,
+              longitude: point.lon,
+            }))}
+            strokeWidth={4}
+            strokeColor="#1595FF"
+          />
+        ))
+      ) : (
+        <Polyline
+          coordinates={getFallbackPolyline(stations)}
+          strokeWidth={4}
+          strokeColor="#1595FF"
+        />
+      )}
 
       {stations.map((station) => (
         <Marker
           key={station.code}
           coordinate={{ latitude: station.lat, longitude: station.lon }}
-          pinColor={station.code === targetStationCode ? '#E63946' : '#1D3557'}
+          pinColor={station.code === selectedStationCode ? '#2A70FF' : '#304157'}
           title={station.name}
+          onPress={() => onStationPress(station.code)}
         />
       ))}
 
@@ -89,9 +116,7 @@ export function MapAdapter({ stations, segments, targetStationCode, vehicles }: 
 
 const styles = StyleSheet.create({
   map: {
-    width: '100%',
-    height: 330,
-    borderRadius: 12,
+    ...StyleSheet.absoluteFillObject,
   },
   vehicleDot: {
     width: 16,

@@ -1,8 +1,14 @@
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { StationScreen } from '@/src/features/station/components/station-screen';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useMetroLinesQuery } from '@/src/features/catalog/hooks/use-metro-lines-query';
+import {
+  LocalBottomSheet,
+  type LocalBottomSheetHandle,
+} from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
+import { MapScreen } from '@/src/features/station/components/map-screen';
+import { StationContent } from '@/src/features/station/components/station-content';
 import { useTransitStore } from '@/src/state/store';
 
 function pickDefaultLineCode(lineCodes: string[]): string | null {
@@ -12,18 +18,19 @@ function pickDefaultLineCode(lineCodes: string[]): string | null {
   return l3 ?? lineCodes[0] ?? null;
 }
 
-export default function IndexRoute() {
+export default function MapTabScreen() {
   const {
     data: lines = [],
     isLoading: linesLoading,
     error: linesError,
   } = useMetroLinesQuery();
-  const selectedLineCode = useTransitStore((state) => state.selectedLineCode);
-  const selectedStationCode = useTransitStore((state) => state.selectedStationCode);
-  const setSelection = useTransitStore((state) => state.setSelection);
+
+  const selectedLineCode = useTransitStore((s) => s.selectedLineCode);
+  const selectedStationCode = useTransitStore((s) => s.selectedStationCode);
+  const setSelection = useTransitStore((s) => s.setSelection);
 
   const lineCode =
-    selectedLineCode ?? pickDefaultLineCode(lines.map((line) => line.code));
+    selectedLineCode ?? pickDefaultLineCode(lines.map((l) => l.code));
 
   const {
     data: stations = [],
@@ -33,10 +40,26 @@ export default function IndexRoute() {
 
   const stationCode =
     (selectedStationCode &&
-      stations.some((station) => station.code === selectedStationCode) &&
+      stations.some((s) => s.code === selectedStationCode) &&
       selectedStationCode) ||
     stations[0]?.code ||
     null;
+
+  const sheetRef = useRef<LocalBottomSheetHandle>(null);
+  const [detentIndex, setDetentIndex] = useState(0);
+
+  const handleDetentChange = useCallback((nextDetentIndex: number) => {
+    setDetentIndex(nextDetentIndex);
+  }, []);
+
+  const handleStationChange = useCallback(
+    (nextStationCode: string) => {
+      if (!lineCode) return;
+      setSelection(lineCode, nextStationCode);
+      sheetRef.current?.resize(1);
+    },
+    [lineCode, setSelection],
+  );
 
   if (linesError || stationsError) {
     return (
@@ -58,19 +81,47 @@ export default function IndexRoute() {
     );
   }
 
+  const isCollapsed = detentIndex === 0;
+
   return (
-    <StationScreen
-      lineCode={lineCode}
-      stationCode={stationCode}
-      showBackButton={false}
-      onStationChange={(nextStationCode) => {
-        setSelection(lineCode, nextStationCode);
-      }}
-    />
+    <View style={styles.root}>
+      <MapScreen
+        lineCode={lineCode}
+        stationCode={stationCode}
+        showBackButton={false}
+        onStationChange={handleStationChange}
+      />
+
+      <LocalBottomSheet
+        ref={sheetRef}
+        detents={[0.1, 0.5, 1]}
+        initialDetentIndex={0}
+        onDetentChange={handleDetentChange}
+      >
+        <View
+          style={isCollapsed ? styles.contentHidden : styles.contentVisible}
+          pointerEvents={isCollapsed ? 'none' : 'auto'}
+        >
+          <StationContent />
+        </View>
+      </LocalBottomSheet>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#09111E',
+  },
+  contentVisible: {
+    flex: 1,
+  },
+  contentHidden: {
+    flex: 0,
+    height: 0,
+    opacity: 0,
+  },
   loading: {
     flex: 1,
     alignItems: 'center',

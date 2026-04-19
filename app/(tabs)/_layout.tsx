@@ -1,0 +1,65 @@
+import { DynamicColorIOS, Platform } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import {
+  Icon,
+  Label,
+  NativeTabs,
+  VectorIcon,
+} from 'expo-router/unstable-native-tabs';
+
+function getLiquidGlassColor() {
+  if (Platform.OS === 'ios') {
+    return DynamicColorIOS({
+      light: '#0B1220',
+      dark: '#FFFFFF',
+    });
+  }
+
+  return '#0B1220';
+}
+
+const liquidGlassColor = getLiquidGlassColor();
+
+export default function TabsLayout() {
+  return (
+    <NativeTabs
+      disableTransparentOnScrollEdge
+      labelStyle={{
+        color: liquidGlassColor,
+      }}
+      tintColor={liquidGlassColor}
+    >
+      <NativeTabs.Trigger name="index">
+        <Icon
+          sf={{ default: 'map', selected: 'map.fill' }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="map" />}
+        />
+        <Label>Map</Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="lines">
+        <Icon
+          sf={{ default: 'tram', selected: 'tram.fill' }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="train" />}
+        />
+        <Label>Lines</Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="saved">
+        <Icon
+          sf={{ default: 'star', selected: 'star.fill' }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="star" />}
+        />
+        <Label>Saved</Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="you">
+        <Icon
+          sf={{ default: 'person', selected: 'person.fill' }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="person" />}
+        />
+        <Label>You</Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
+  );
+}

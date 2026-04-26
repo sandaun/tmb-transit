@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MetroLineBadge } from '@/src/features/catalog/components/metro-line-badge';
 import { useMetroLinesQuery } from '@/src/features/catalog/hooks/use-metro-lines-query';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useTransitStore } from '@/src/state/store';
+
+const TAB_BAR_CLEARANCE = 72;
 
 function pickDefaultLineCode(lineCodes: string[]): string | null {
   const l3 = lineCodes.find((code) => code.toLowerCase() === 'l3' || code === '3');
@@ -13,6 +16,7 @@ function pickDefaultLineCode(lineCodes: string[]): string | null {
 }
 
 export function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const { data: lines = [], isLoading: linesLoading, error: linesError } = useMetroLinesQuery();
   const [query, setQuery] = useState('');
 
@@ -52,7 +56,7 @@ export function HomeScreen() {
   const canNavigate = Boolean(lineCode && selectedStationCode);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.container}>
         <Text style={styles.title}>TMB Transit MVP</Text>
         <Text style={styles.subtitle}>Selecciona línia i estació (L3 per defecte)</Text>
@@ -67,9 +71,7 @@ export function HomeScreen() {
                 key={line.code}
                 style={[styles.lineChip, selected ? styles.lineChipSelected : null]}
                 onPress={() => setSelection(line.code, '')}>
-                <Text style={[styles.lineChipText, selected ? styles.lineChipTextSelected : null]}>
-                  {line.name || line.code}
-                </Text>
+                <MetroLineBadge color={line.color} lineCode={line.code} size="small" />
               </Pressable>
             );
           })}
@@ -107,20 +109,22 @@ export function HomeScreen() {
           }}
         />
 
-        <Pressable
-          style={[styles.openButton, !canNavigate ? styles.openButtonDisabled : null]}
-          disabled={!canNavigate}
-          onPress={() => {
-            if (!lineCode || !selectedStationCode) {
-              return;
-            }
+        <View style={[styles.footer, { paddingBottom: insets.bottom + TAB_BAR_CLEARANCE }]}>
+          <Pressable
+            style={[styles.openButton, !canNavigate ? styles.openButtonDisabled : null]}
+            disabled={!canNavigate}
+            onPress={() => {
+              if (!lineCode || !selectedStationCode) {
+                return;
+              }
 
-            router.push({
-              pathname: `/station/${lineCode}/${selectedStationCode}` as never,
-            });
-          }}>
-          <Text style={styles.openButtonText}>Obrir estació</Text>
-        </Pressable>
+              router.push({
+                pathname: `/station/${lineCode}/${selectedStationCode}` as never,
+              });
+            }}>
+            <Text style={styles.openButtonText}>Veure estació al mapa</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -160,23 +164,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   lineChip: {
-    borderRadius: 999,
+    alignItems: 'center',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#CED4DA',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    padding: 4,
     backgroundColor: '#FFFFFF',
   },
   lineChipSelected: {
-    backgroundColor: '#0B5FFF',
-    borderColor: '#0B5FFF',
-  },
-  lineChipText: {
-    fontWeight: '600',
-    color: '#1D3557',
-  },
-  lineChipTextSelected: {
-    color: '#FFFFFF',
+    borderColor: '#14213D',
   },
   meta: {
     marginTop: 8,
@@ -197,6 +193,14 @@ const styles = StyleSheet.create({
   stationList: {
     marginTop: 10,
     flex: 1,
+  },
+  footer: {
+    backgroundColor: '#F4F7FB',
+    borderTopColor: '#E4E7EB',
+    borderTopWidth: 1,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   stationItem: {
     padding: 12,
@@ -219,7 +223,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   openButton: {
-    marginVertical: 12,
     borderRadius: 12,
     backgroundColor: '#0B5FFF',
     alignItems: 'center',

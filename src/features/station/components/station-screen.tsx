@@ -19,6 +19,8 @@ import {
 
 import type { Station } from '@/src/domain/catalog/models';
 import type { Arrival } from '@/src/domain/realtime/models';
+import { MetroLineBadge } from '@/src/features/catalog/components/metro-line-badge';
+import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { MapAdapter } from '@/src/features/station/components/map-adapter';
 import { useEstimatedVehicles } from '@/src/features/station/hooks/use-estimated-vehicles';
@@ -112,8 +114,8 @@ function SearchShell({ lineCode }: { lineCode: string }) {
         <View style={[styles.modeChip, styles.modeChipActive]}>
           <Text style={[styles.modeChipText, styles.modeChipTextActive]}>Metro</Text>
         </View>
-        <View style={styles.modeChip}>
-          <Text style={styles.modeChipText}>Line {lineCode}</Text>
+        <View style={styles.lineModeChip}>
+          <MetroLineBadge lineCode={lineCode} size="small" />
         </View>
         <View style={styles.modeChip}>
           <Text style={styles.modeChipText}>Realtime</Text>
@@ -155,6 +157,7 @@ export function StationScreen({
   syncRoute = false,
   onStationChange,
 }: StationScreenProps) {
+  const lineBrand = getMetroLineBrand(lineCode);
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [now, setNow] = useState(Date.now());
@@ -469,7 +472,7 @@ export function StationScreen({
                       {activeStation?.name ?? activeStationCode}
                     </Text>
                     <Text style={styles.stationMetaText}>
-                      {headerMeta || `Line ${lineCode}`}
+                      {headerMeta || `Line ${lineBrand.label}`}
                     </Text>
                   </View>
                   <Pressable style={styles.quickAction} onPress={hideSheet}>
@@ -508,9 +511,7 @@ export function StationScreen({
                       key={makeArrivalKey(arrival, index)}
                       style={styles.compactRow}>
                       <View style={styles.compactRowLeft}>
-                        <View style={styles.routeBadge}>
-                          <Text style={styles.routeBadgeText}>{lineCode}</Text>
-                        </View>
+                        <MetroLineBadge lineCode={lineCode} size="medium" />
                         <View style={styles.compactTextWrap}>
                           <Text style={styles.compactRouteText}>
                             {arrival.destination}
@@ -556,8 +557,8 @@ export function StationScreen({
                       </View>
                     ) : null}
 
-                    <View style={styles.infoPill}>
-                      <Text style={styles.infoPillText}>Line {lineCode}</Text>
+                    <View style={styles.lineInfoPill}>
+                      <MetroLineBadge lineCode={lineCode} size="small" />
                     </View>
                   </View>
 
@@ -570,9 +571,7 @@ export function StationScreen({
                   {nextArrival ? (
                     <View style={styles.groupCard}>
                       <View style={styles.heroRow}>
-                        <View style={styles.routeBadgeLarge}>
-                          <Text style={styles.routeBadgeLargeText}>{lineCode}</Text>
-                        </View>
+                        <MetroLineBadge lineCode={lineCode} size="large" />
                         <View style={styles.heroTextWrap}>
                           <Text style={styles.heroEyebrow}>Next train</Text>
                           <Text style={styles.groupTitle}>{nextArrival.destination}</Text>
@@ -593,9 +592,7 @@ export function StationScreen({
                           style={styles.groupRow}>
                           <View style={styles.groupRowLeft}>
                             <View style={styles.groupLineRow}>
-                              <View style={styles.routeBadgeMini}>
-                                <Text style={styles.routeBadgeMiniText}>{lineCode}</Text>
-                              </View>
+                              <MetroLineBadge lineCode={lineCode} size="small" />
                               <Text style={styles.groupDestination}>
                                 {arrival.destination}
                               </Text>
@@ -750,6 +747,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 11,
+    backgroundColor: 'rgba(9, 18, 36, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  lineModeChip: {
+    alignItems: 'center',
+    borderRadius: 14,
+    padding: 4,
     backgroundColor: 'rgba(9, 18, 36, 0.8)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -917,19 +922,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  routeBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E03A31',
-  },
-  routeBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-  },
   expandedScroll: {
     flex: 1,
   },
@@ -948,21 +940,31 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   infoRow: {
+    alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   infoPill: {
+    alignItems: 'center',
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     backgroundColor: 'rgba(28, 42, 70, 0.76)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  lineInfoPill: {
+    borderRadius: 14,
+    padding: 0,
+    backgroundColor: 'transparent',
   },
   infoPillText: {
     fontSize: 14,
     fontWeight: '700',
+    lineHeight: 18,
   },
   serviceText: {
     color: '#AFC0DE',
@@ -1015,36 +1017,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
   },
-  routeBadgeLarge: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E03A31',
-  },
-  routeBadgeLargeText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '800',
-  },
   groupLineRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  routeBadgeMini: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E03A31',
-  },
-  routeBadgeMiniText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
   },
   groupRow: {
     flexDirection: 'row',

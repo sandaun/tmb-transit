@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { MetroLineBadge } from '@/src/features/catalog/components/metro-line-badge';
+
 export function SearchShell({ lineCode }: { lineCode: string }) {
   return (
     <>
@@ -17,8 +19,8 @@ export function SearchShell({ lineCode }: { lineCode: string }) {
         <View style={[styles.modeChip, styles.modeChipActive]}>
           <Text style={[styles.modeChipText, styles.modeChipTextActive]}>Metro</Text>
         </View>
-        <View style={styles.modeChip}>
-          <Text style={styles.modeChipText}>Line {lineCode}</Text>
+        <View style={styles.lineModeChip}>
+          <MetroLineBadge lineCode={lineCode} size="small" />
         </View>
         <View style={styles.modeChip}>
           <Text style={styles.modeChipText}>Realtime</Text>
@@ -84,6 +86,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 11,
+    backgroundColor: 'rgba(9, 18, 36, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  lineModeChip: {
+    alignItems: 'center',
+    borderRadius: 14,
+    padding: 4,
     backgroundColor: 'rgba(9, 18, 36, 0.8)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',

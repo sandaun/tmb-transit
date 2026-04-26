@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { APP_CONFIG } from '@/src/config/app-config';
 import { fetchStationArrivals } from '@/src/data/tmb/data-source';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
+import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
 import {
   sortArrivalsByEta,
   formatEta,
@@ -61,6 +62,7 @@ export function StationContent() {
     return <View />;
   }
 
+  const lineBrand = getMetroLineBrand(lineCode);
   const nextArrival = orderedArrivals[0];
   const followingArrivals = orderedArrivals.slice(1, 6);
 
@@ -84,7 +86,7 @@ export function StationContent() {
     >
       <View style={styles.header}>
         <Text style={styles.title}>{station?.name ?? stationCode}</Text>
-        <Text style={styles.meta}>{meta || `Line ${lineCode}`}</Text>
+        <Text style={styles.meta}>{meta || `Line ${lineBrand.label}`}</Text>
       </View>
 
       <View style={styles.infoRow}>
@@ -107,8 +109,8 @@ export function StationContent() {
             </Text>
           </View>
         ) : null}
-        <View style={styles.pill}>
-          <Text style={styles.pillText}>Line {lineCode}</Text>
+        <View style={styles.linePill}>
+          <RouteBadge lineCode={lineCode} size="small" />
         </View>
       </View>
 
@@ -203,20 +205,30 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   infoRow: {
+    alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   pill: {
+    alignItems: 'center',
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     backgroundColor: 'rgba(120, 120, 128, 0.12)',
+    justifyContent: 'center',
+    minHeight: 34,
+  },
+  linePill: {
+    borderRadius: 14,
+    padding: 0,
+    backgroundColor: 'transparent',
   },
   pillText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#000000',
+    lineHeight: 18,
   },
   serviceText: {
     color: '#8E8E93',

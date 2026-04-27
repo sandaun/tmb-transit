@@ -7,6 +7,7 @@ import type { Segment } from '@/src/domain/geo/models';
 import type { VehicleEstimate } from '@/src/domain/realtime/models';
 
 interface MapAdapterProps {
+  lineCode: string;
   stations: Station[];
   segments: Segment[];
   selectedStationCode: string;
@@ -22,6 +23,7 @@ function getFallbackPolyline(stations: Station[]) {
 }
 
 export function MapAdapter({
+  lineCode,
   stations,
   segments,
   selectedStationCode,
@@ -66,14 +68,29 @@ export function MapAdapter({
     });
   }, [selectedStation]);
 
-  const hasSegments = segments.some((segment) => segment.points.length > 1);
+  const validSegments = segments
+    .map((segment) => ({
+      ...segment,
+      points: segment.points.filter(
+        (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon),
+      ),
+    }))
+    .filter((segment) => segment.points.length > 1);
+  const fallbackPolyline = getFallbackPolyline(stations).filter(
+    (point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude),
+  );
 
   return (
-    <MapView ref={mapRef} style={styles.map} initialRegion={initialRegion}>
-      {hasSegments ? (
-        segments.map((segment) => (
+    <MapView
+      key={lineCode}
+      ref={mapRef}
+      style={styles.map}
+      initialRegion={initialRegion}
+    >
+      {validSegments.length > 0 ? (
+        validSegments.map((segment) => (
           <Polyline
-            key={segment.id}
+            key={`${lineCode}:segment:${segment.id}`}
             coordinates={segment.points.map((point) => ({
               latitude: point.lat,
               longitude: point.lon,
@@ -82,34 +99,44 @@ export function MapAdapter({
             strokeColor="#1595FF"
           />
         ))
-      ) : (
+      ) : fallbackPolyline.length > 1 ? (
         <Polyline
-          coordinates={getFallbackPolyline(stations)}
+          key={`${lineCode}:fallback-route`}
+          coordinates={fallbackPolyline}
           strokeWidth={4}
           strokeColor="#1595FF"
         />
-      )}
+      ) : null}
 
-      {stations.map((station) => (
-        <Marker
-          key={station.code}
-          coordinate={{ latitude: station.lat, longitude: station.lon }}
-          pinColor={station.code === selectedStationCode ? '#2A70FF' : '#304157'}
-          title={station.name}
-          onPress={() => onStationPress(station.code)}
-        />
-      ))}
+      {stations
+        .filter(
+          (station) => Number.isFinite(station.lat) && Number.isFinite(station.lon),
+        )
+        .map((station) => (
+          <Marker
+            key={`${lineCode}:station:${station.code}`}
+            coordinate={{ latitude: station.lat, longitude: station.lon }}
+            pinColor={station.code === selectedStationCode ? '#2A70FF' : '#304157'}
+            title={station.name}
+            onPress={() => onStationPress(station.code)}
+          />
+        ))}
 
-      {vehicles.map((vehicle) => (
-        <Marker
-          key={vehicle.id}
-          coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
-          anchor={{ x: 0.5, y: 0.5 }}
-          zIndex={30}
-          tracksViewChanges={false}>
-          <View style={styles.vehicleDot} />
-        </Marker>
-      ))}
+      {vehicles
+        .filter(
+          (vehicle) => Number.isFinite(vehicle.lat) && Number.isFinite(vehicle.lon),
+        )
+        .map((vehicle) => (
+          <Marker
+            key={`${lineCode}:vehicle:${vehicle.id}`}
+            coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={30}
+            tracksViewChanges={false}
+          >
+            <View style={styles.vehicleDot} />
+          </Marker>
+        ))}
     </MapView>
   );
 }

@@ -1,8 +1,19 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import type { Line } from '@/src/domain/catalog/models';
 import { MetroLineBadge } from '@/src/features/catalog/components/metro-line-badge';
 
-export function SearchShell({ lineCode }: { lineCode: string }) {
+interface SearchShellProps {
+  lineCode: string;
+  lines?: Line[];
+  onLineChange?: (lineCode: string) => void;
+}
+
+export function SearchShell({
+  lineCode,
+  lines = [],
+  onLineChange,
+}: SearchShellProps) {
   return (
     <>
       <View style={styles.searchBar}>
@@ -19,9 +30,41 @@ export function SearchShell({ lineCode }: { lineCode: string }) {
         <View style={[styles.modeChip, styles.modeChipActive]}>
           <Text style={[styles.modeChipText, styles.modeChipTextActive]}>Metro</Text>
         </View>
-        <View style={styles.lineModeChip}>
-          <MetroLineBadge lineCode={lineCode} size="small" />
-        </View>
+        {lines.length > 0 ? (
+          <ScrollView
+            horizontal
+            style={styles.lineSelectorViewport}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.lineSelector}
+          >
+            {lines.map((line) => {
+              const selected = line.code === lineCode;
+
+              return (
+                <Pressable
+                  key={line.code}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  style={[
+                    styles.lineModeChip,
+                    selected ? styles.lineModeChipActive : null,
+                  ]}
+                  onPress={() => onLineChange?.(line.code)}
+                >
+                  <MetroLineBadge
+                    color={line.color}
+                    lineCode={line.code}
+                    size="small"
+                  />
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : (
+          <View style={styles.lineModeChip}>
+            <MetroLineBadge lineCode={lineCode} size="small" />
+          </View>
+        )}
         <View style={styles.modeChip}>
           <Text style={styles.modeChipText}>Realtime</Text>
         </View>
@@ -80,6 +123,7 @@ const styles = StyleSheet.create({
   modeRow: {
     marginTop: 12,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   modeChip: {
@@ -97,6 +141,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(9, 18, 36, 0.8)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  lineModeChipActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  lineSelector: {
+    gap: 8,
+    paddingRight: 2,
+  },
+  lineSelectorViewport: {
+    flexShrink: 1,
   },
   modeChipActive: {
     backgroundColor: '#2A70FF',

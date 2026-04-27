@@ -407,6 +407,7 @@ export function StationScreen({
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.root}>
         <MapAdapter
+          lineCode={lineCode}
           stations={stations}
           segments={segmentsQuery.data ?? []}
           selectedStationCode={activeStationCode}

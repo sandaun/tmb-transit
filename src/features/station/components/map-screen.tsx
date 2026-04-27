@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MapAdapter } from '@/src/features/station/components/map-adapter';
 import { SearchShell } from '@/src/features/station/components/search-shell';
+import type { Line } from '@/src/domain/catalog/models';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
 import { useStationArrivalsQuery } from '@/src/features/station/hooks/use-station-arrivals-query';
@@ -15,15 +16,19 @@ const EMPTY_ARRIVALS: Arrival[] = [];
 
 interface MapScreenProps {
   lineCode: string;
+  lines?: Line[];
   stationCode: string;
   showBackButton?: boolean;
+  onLineChange?: (lineCode: string) => void;
   onStationChange?: (stationCode: string) => void;
 }
 
 export function MapScreen({
   lineCode,
+  lines,
   stationCode,
   showBackButton = true,
+  onLineChange,
   onStationChange,
 }: MapScreenProps) {
   const insets = useSafeAreaInsets();
@@ -52,6 +57,7 @@ export function MapScreen({
   return (
     <View style={styles.root}>
       <MapAdapter
+        lineCode={lineCode}
         stations={stations}
         segments={segmentsQuery.data ?? []}
         selectedStationCode={stationCode}
@@ -65,7 +71,11 @@ export function MapScreen({
             <Text style={styles.backButtonText}>{'<'}</Text>
           </Pressable>
         ) : (
-          <SearchShell lineCode={lineCode} />
+          <SearchShell
+            lineCode={lineCode}
+            lines={lines}
+            onLineChange={onLineChange}
+          />
         )}
       </View>
     </View>

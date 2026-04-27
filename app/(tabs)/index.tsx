@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
@@ -48,9 +48,29 @@ export default function MapTabScreen() {
   const sheetRef = useRef<LocalBottomSheetHandle>(null);
   const [detentIndex, setDetentIndex] = useState(0);
 
+  useEffect(() => {
+    if (!lineCode || !stationCode) {
+      return;
+    }
+
+    if (selectedLineCode === lineCode && selectedStationCode === stationCode) {
+      return;
+    }
+
+    setSelection(lineCode, stationCode);
+  }, [lineCode, selectedLineCode, selectedStationCode, setSelection, stationCode]);
+
   const handleDetentChange = useCallback((nextDetentIndex: number) => {
     setDetentIndex(nextDetentIndex);
   }, []);
+
+  const handleLineChange = useCallback(
+    (nextLineCode: string) => {
+      setSelection(nextLineCode, '');
+      sheetRef.current?.resize(0);
+    },
+    [setSelection],
+  );
 
   const handleStationChange = useCallback(
     (nextStationCode: string) => {
@@ -87,8 +107,10 @@ export default function MapTabScreen() {
     <View style={styles.root}>
       <MapScreen
         lineCode={lineCode}
+        lines={lines}
         stationCode={stationCode}
         showBackButton={false}
+        onLineChange={handleLineChange}
         onStationChange={handleStationChange}
       />
 

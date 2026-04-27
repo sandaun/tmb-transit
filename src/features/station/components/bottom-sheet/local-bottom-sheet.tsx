@@ -5,6 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import {
   forwardRef,
   type ReactNode,
@@ -107,7 +108,7 @@ export const LocalBottomSheet = forwardRef<
   return (
     <View
       pointerEvents="box-none"
-      style={StyleSheet.absoluteFill}
+      style={styles.overlay}
       onLayout={(event) => {
         setContainerHeight(event.nativeEvent.layout.height);
       }}
@@ -121,6 +122,8 @@ export const LocalBottomSheet = forwardRef<
           },
         ]}
       >
+        <BlurView intensity={58} tint="dark" style={StyleSheet.absoluteFillObject} />
+
         <Pressable
           style={styles.handleButton}
           onPress={handleCycleDetent}
@@ -139,23 +142,32 @@ export const LocalBottomSheet = forwardRef<
 });
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    elevation: 40,
+    zIndex: 40,
+  },
   sheet: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(248, 250, 255, 0.96)',
+    left: 10,
+    right: 10,
+    bottom: 8,
+    backgroundColor: 'rgba(10, 19, 36, 0.12)',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
+    shadowColor: '#00102B',
+    shadowOpacity: 0.42,
+    shadowRadius: 28,
     shadowOffset: {
       width: 0,
-      height: -8,
+      height: 18,
     },
-    elevation: 12,
+    elevation: 24,
   },
   handleButton: {
     alignItems: 'center',
@@ -167,13 +179,13 @@ const styles = StyleSheet.create({
     width: 42,
     height: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(60, 60, 67, 0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.34)',
   },
   content: {
     flex: 1,
     minHeight: 0,
   },
   footer: {
-    backgroundColor: 'rgba(248, 250, 255, 0.98)',
+    backgroundColor: 'transparent',
   },
 });

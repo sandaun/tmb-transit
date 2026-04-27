@@ -118,9 +118,7 @@ export function HomeScreen() {
                 return;
               }
 
-              router.push({
-                pathname: `/station/${lineCode}/${selectedStationCode}` as never,
-              });
+              router.navigate('/' as never);
             }}>
             <Text style={styles.openButtonText}>Veure estació al mapa</Text>
           </Pressable>

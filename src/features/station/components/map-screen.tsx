@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MapAdapter } from '@/src/features/station/components/map-adapter';
 import { SearchShell } from '@/src/features/station/components/search-shell';
@@ -50,35 +50,29 @@ export function MapScreen({
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.root}>
-        <MapAdapter
-          stations={stations}
-          segments={segmentsQuery.data ?? []}
-          selectedStationCode={stationCode}
-          vehicles={vehicles}
-          onStationPress={handleStationPress}
-        />
+    <View style={styles.root}>
+      <MapAdapter
+        stations={stations}
+        segments={segmentsQuery.data ?? []}
+        selectedStationCode={stationCode}
+        vehicles={vehicles}
+        onStationPress={handleStationPress}
+      />
 
-        <View style={[styles.topOverlay, { top: insets.top + 8 }]}>
-          {showBackButton ? (
-            <Pressable style={styles.backButton} onPress={() => router.back()}>
-              <Text style={styles.backButtonText}>{'<'}</Text>
-            </Pressable>
-          ) : (
-            <SearchShell lineCode={lineCode} />
-          )}
-        </View>
+      <View style={[styles.topOverlay, { top: insets.top + 8 }]}>
+        {showBackButton ? (
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>{'<'}</Text>
+          </Pressable>
+        ) : (
+          <SearchShell lineCode={lineCode} />
+        )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#09111E',
-  },
   root: {
     flex: 1,
     backgroundColor: '#09111E',

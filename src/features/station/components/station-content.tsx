@@ -197,10 +197,10 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.7,
-    color: '#000000',
+    color: '#F4F8FF',
   },
   meta: {
-    color: '#8E8E93',
+    color: '#90A5C8',
     fontSize: 14,
     lineHeight: 19,
   },
@@ -215,7 +215,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+    backgroundColor: 'rgba(28, 42, 70, 0.76)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     minHeight: 34,
   },
@@ -227,11 +229,10 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#000000',
     lineHeight: 18,
   },
   serviceText: {
-    color: '#8E8E93',
+    color: '#AFC0DE',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   feedbackText: {
-    color: '#8E8E93',
+    color: '#93A8CB',
     fontSize: 15,
   },
   errorText: {
@@ -249,9 +250,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 16,
-    backgroundColor: 'rgba(120, 120, 128, 0.12)',
+    backgroundColor: 'rgba(24, 38, 64, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     gap: 10,
   },
   heroRow: {
@@ -263,7 +266,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroEyebrow: {
-    color: '#8E8E93',
+    color: '#90A5C8',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.1,
@@ -274,22 +277,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
-    color: '#000000',
+    color: '#F4F8FF',
   },
   heroSubtitle: {
     marginTop: 2,
-    color: '#8E8E93',
+    color: '#93A8CB',
     fontSize: 12,
     fontWeight: '600',
   },
   heroEta: {
-    color: '#007AFF',
+    color: '#4B94FF',
     fontSize: 24,
     fontWeight: '800',
   },
   divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(120, 120, 128, 0.2)',
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     marginVertical: 4,
   },
   row: {
@@ -309,16 +312,16 @@ const styles = StyleSheet.create({
   rowDestination: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000000',
+    color: '#F4F8FF',
   },
   rowPlatform: {
-    color: '#8E8E93',
+    color: '#92A6C8',
     fontSize: 13,
     marginTop: 2,
   },
   rowEta: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000000',
+    color: '#EAF1FF',
   },
 });

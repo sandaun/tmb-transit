@@ -11,6 +11,15 @@ export function formatEta(etaSec: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+export function getLiveEtaSec(arrival: Arrival, nowMs: number): number {
+  const elapsedSec = Math.max(
+    0,
+    Math.floor((nowMs - arrival.sourceTimestampMs) / 1_000),
+  );
+
+  return Math.max(0, arrival.etaSec - elapsedSec);
+}
+
 export function sortArrivalsByEta(arrivals: Arrival[]): Arrival[] {
   return [...arrivals].sort((a, b) => a.etaSec - b.etaSec);
 }

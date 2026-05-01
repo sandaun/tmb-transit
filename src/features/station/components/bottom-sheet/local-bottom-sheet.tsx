@@ -1,7 +1,7 @@
 import {
   Animated,
   Easing,
-  Pressable,
+  PanResponder,
   StyleSheet,
   View,
 } from 'react-native';
@@ -49,6 +49,9 @@ export const LocalBottomSheet = forwardRef<
   const [containerHeight, setContainerHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState(initialDetentIndex);
   const animatedHeight = useRef(new Animated.Value(MIN_SHEET_HEIGHT)).current;
+  const activeIndexRef = useRef(initialDetentIndex);
+  const currentHeightRef = useRef(MIN_SHEET_HEIGHT);
+  const dragStartHeightRef = useRef(MIN_SHEET_HEIGHT);
 
   const snapHeights = useMemo(() => {
     if (containerHeight <= 0) {
@@ -57,7 +60,7 @@ export const LocalBottomSheet = forwardRef<
 
     const usableHeight = Math.max(
       MIN_SHEET_HEIGHT,
-      containerHeight - Math.max(insets.top + 16, 48),
+      containerHeight - Math.max(insets.top, 48),
     );
 
     return detents.map((detent) =>
@@ -73,6 +76,7 @@ export const LocalBottomSheet = forwardRef<
       );
       const nextHeight = snapHeights[boundedIndex] ?? MIN_SHEET_HEIGHT;
 
+      activeIndexRef.current = boundedIndex;
       setActiveIndex(boundedIndex);
       onDetentChange?.(boundedIndex);
 
@@ -84,6 +88,83 @@ export const LocalBottomSheet = forwardRef<
       }).start();
     },
     [animatedHeight, detents.length, onDetentChange, snapHeights],
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dy) > 4 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+          Math.abs(gestureState.dy) > 4 &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        onPanResponderGrant: () => {
+          dragStartHeightRef.current = currentHeightRef.current;
+          animatedHeight.stopAnimation((height) => {
+            currentHeightRef.current = height;
+            dragStartHeightRef.current = height;
+          });
+        },
+        onPanResponderMove: (_, gestureState) => {
+          const minHeight = snapHeights[0] ?? MIN_SHEET_HEIGHT;
+          const maxHeight =
+            snapHeights[snapHeights.length - 1] ?? MIN_SHEET_HEIGHT;
+          const nextHeight = Math.min(
+            Math.max(dragStartHeightRef.current - gestureState.dy, minHeight),
+            maxHeight,
+          );
+
+          currentHeightRef.current = nextHeight;
+          animatedHeight.setValue(nextHeight);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const isTap =
+            Math.abs(gestureState.dx) < 6 && Math.abs(gestureState.dy) < 6;
+
+          if (isTap) {
+            const nextIndex =
+              activeIndexRef.current >= detents.length - 1
+                ? 0
+                : activeIndexRef.current + 1;
+            animateToIndex(nextIndex);
+            return;
+          }
+
+          if (gestureState.vy < -0.75) {
+            animateToIndex(activeIndexRef.current + 1);
+            return;
+          }
+
+          if (gestureState.vy > 0.75) {
+            animateToIndex(activeIndexRef.current - 1);
+            return;
+          }
+
+          const nearestIndex = snapHeights.reduce(
+            (nearest, height, index) => {
+              const nearestDistance = Math.abs(
+                height - currentHeightRef.current,
+              );
+              const previousDistance = Math.abs(
+                snapHeights[nearest] - currentHeightRef.current,
+              );
+
+              return nearestDistance < previousDistance ? index : nearest;
+            },
+            0,
+          );
+
+          animateToIndex(nearestIndex);
+        },
+        onPanResponderTerminate: () => {
+          animateToIndex(activeIndexRef.current);
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [animateToIndex, animatedHeight, detents.length, snapHeights],
   );
 
   useImperativeHandle(
@@ -100,10 +181,15 @@ export const LocalBottomSheet = forwardRef<
     animateToIndex(activeIndex);
   }, [activeIndex, animateToIndex, snapHeights]);
 
-  const handleCycleDetent = useCallback(() => {
-    const nextIndex = activeIndex >= detents.length - 1 ? 0 : activeIndex + 1;
-    animateToIndex(nextIndex);
-  }, [activeIndex, animateToIndex, detents.length]);
+  useEffect(() => {
+    const listenerId = animatedHeight.addListener(({ value }) => {
+      currentHeightRef.current = value;
+    });
+
+    return () => {
+      animatedHeight.removeListener(listenerId);
+    };
+  }, [animatedHeight]);
 
   return (
     <View
@@ -124,14 +210,14 @@ export const LocalBottomSheet = forwardRef<
       >
         <BlurView intensity={58} tint="dark" style={StyleSheet.absoluteFillObject} />
 
-        <Pressable
+        <View
+          {...panResponder.panHandlers}
           style={styles.handleButton}
-          onPress={handleCycleDetent}
           accessibilityRole="button"
-          accessibilityLabel="Resize bottom sheet"
+          accessibilityLabel="Drag to resize bottom sheet"
         >
           <View style={styles.handle} />
-        </Pressable>
+        </View>
 
         <View style={styles.content}>{children}</View>
 
@@ -149,14 +235,14 @@ const styles = StyleSheet.create({
   },
   sheet: {
     position: 'absolute',
-    left: 10,
-    right: 10,
-    bottom: 8,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(10, 19, 36, 0.12)',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',

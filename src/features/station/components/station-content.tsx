@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -6,19 +7,20 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { APP_CONFIG } from '@/src/config/app-config';
 import { fetchStationArrivals } from '@/src/data/tmb/data-source';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
+import { RouteBadge } from '@/src/features/station/components/bottom-sheet/route-badge';
 import {
-  sortArrivalsByEta,
   formatEta,
+  getLiveEtaSec,
   makeArrivalKey,
+  sortArrivalsByEta,
 } from '@/src/features/station/utils/arrival-helpers';
 import { getStationStatusColor } from '@/src/features/station/utils/station-helpers';
-import { RouteBadge } from '@/src/features/station/components/bottom-sheet/route-badge';
 import { useTransitStore } from '@/src/state/store';
 
 /**
@@ -39,6 +41,7 @@ function useSheetArrivals(lineCode: string | null, stationCode: string | null) {
 }
 
 export function StationContent() {
+  const insets = useSafeAreaInsets();
   const lineCode = useTransitStore((s) => s.selectedLineCode);
   const stationCode = useTransitStore((s) => s.selectedStationCode);
 
@@ -81,7 +84,10 @@ export function StationContent() {
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + 32 },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
@@ -144,7 +150,9 @@ export function StationContent() {
                   : `Direction ${nextArrival.directionId}`}
               </Text>
             </View>
-            <Text style={styles.heroEta}>{formatEta(nextArrival.etaSec)}</Text>
+            <Text style={styles.heroEta}>
+              {formatEta(getLiveEtaSec(nextArrival, now))}
+            </Text>
           </View>
 
           {followingArrivals.length > 0 && <View style={styles.divider} />}
@@ -164,7 +172,9 @@ export function StationContent() {
                     : `Direction ${arrival.directionId}`}
                 </Text>
               </View>
-              <Text style={styles.rowEta}>{formatEta(arrival.etaSec)}</Text>
+              <Text style={styles.rowEta}>
+                {formatEta(getLiveEtaSec(arrival, now))}
+              </Text>
             </View>
           ))}
         </View>

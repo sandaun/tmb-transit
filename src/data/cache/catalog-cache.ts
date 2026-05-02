@@ -1,12 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { APP_CONFIG } from '@/src/config/app-config';
+
 interface CachedPayload<T> {
   createdAt: number;
   data: T;
 }
 
+const cacheNamespace = APP_CONFIG.useMock ? 'mock' : `api:${APP_CONFIG.apiBaseUrl}`;
+
 function keyFor(baseKey: string): string {
-  return `tmb:catalog:${baseKey}`;
+  return `tmb:catalog:v2:${cacheNamespace}:${baseKey}`;
 }
 
 export async function readCatalogCache<T>(baseKey: string): Promise<CachedPayload<T> | null> {

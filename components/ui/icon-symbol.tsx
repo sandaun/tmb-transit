@@ -22,6 +22,7 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'map.fill': 'map',
+  'location.fill': 'my-location',
   'tram.fill': 'tram',
   'star.fill': 'star',
   'person.fill': 'person',

@@ -1,7 +1,21 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import MapView, {
+  Marker,
+  Polyline,
+  type LatLng,
+  type UserLocationChangeEvent,
+} from 'react-native-maps';
 
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Station } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import type { VehicleEstimate } from '@/src/domain/realtime/models';
@@ -14,6 +28,7 @@ interface MapAdapterProps {
   segments: Segment[];
   selectedStationCode: string;
   stationInterchanges?: StationInterchange[];
+  locationButtonTop?: number;
   vehicles: VehicleEstimate[];
   onStationPress: (stationCode: string) => void;
 }
@@ -25,16 +40,28 @@ function getFallbackPolyline(stations: Station[]) {
   }));
 }
 
+const USER_LOCATION_TIMEOUT_MS = 10_000;
+
 export function MapAdapter({
   lineCode,
   stations,
   segments,
   selectedStationCode,
   stationInterchanges = [],
+  locationButtonTop = 148,
   vehicles,
   onStationPress,
 }: MapAdapterProps) {
   const mapRef = useRef<MapView | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [hasLocationPermission, setHasLocationPermission] = useState(
+    Platform.OS !== 'android',
+  );
+  const [isWaitingForUserLocation, setIsWaitingForUserLocation] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const shouldCenterOnNextUserLocationRef = useRef(false);
+  const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [userCoordinate, setUserCoordinate] = useState<LatLng | null>(null);
   const selectedStation = stations.find(
     (station) => station.code === selectedStationCode,
   );
@@ -60,17 +87,156 @@ export function MapAdapter({
   }, [selectedStation, stations]);
 
   useEffect(() => {
-    if (!selectedStation || !mapRef.current) {
+    if (Platform.OS !== 'android') {
       return;
     }
 
-    mapRef.current.animateToRegion({
+    let isMounted = true;
+
+    PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION)
+      .then((isGranted) => {
+        if (isMounted) {
+          setHasLocationPermission(isGranted);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setHasLocationPermission(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (userLocationTimeoutRef.current) {
+        clearTimeout(userLocationTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  const requestAndroidLocationPermission = useCallback(async () => {
+    if (Platform.OS !== 'android') {
+      setHasLocationPermission(true);
+      return true;
+    }
+
+    try {
+      const status = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Location access',
+          message: 'TMB Transit uses your location to center the map around you.',
+          buttonPositive: 'Allow',
+          buttonNegative: 'Not now',
+        },
+      );
+      const isGranted = status === PermissionsAndroid.RESULTS.GRANTED;
+
+      setHasLocationPermission(isGranted);
+      return isGranted;
+    } catch {
+      setHasLocationPermission(false);
+      return false;
+    }
+  }, []);
+
+  const centerMap = useCallback((coordinate: LatLng, delta = 0.05) => {
+    mapRef.current?.animateToRegion(
+      {
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+        latitudeDelta: delta,
+        longitudeDelta: delta,
+      },
+      450,
+    );
+  }, []);
+
+  const stopWaitingForUserLocation = useCallback((message: string | null) => {
+    shouldCenterOnNextUserLocationRef.current = false;
+    setIsWaitingForUserLocation(false);
+    setLocationMessage(message);
+
+    if (userLocationTimeoutRef.current) {
+      clearTimeout(userLocationTimeoutRef.current);
+      userLocationTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedStation || !isMapReady) {
+      return;
+    }
+
+    centerMap({
       latitude: selectedStation.lat,
       longitude: selectedStation.lon,
-      latitudeDelta: 0.05,
-      longitudeDelta: 0.05,
     });
-  }, [selectedStation]);
+  }, [centerMap, isMapReady, selectedStation]);
+
+  const handleUserLocationChange = useCallback(
+    (event: UserLocationChangeEvent) => {
+      const coordinate = event.nativeEvent.coordinate;
+
+      if (!coordinate) {
+        return;
+      }
+
+      setUserCoordinate({
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      });
+      setLocationMessage(null);
+
+      if (shouldCenterOnNextUserLocationRef.current) {
+        stopWaitingForUserLocation(null);
+        centerMap(coordinate, 0.025);
+      }
+    },
+    [centerMap, stopWaitingForUserLocation],
+  );
+
+  const handleCenterUserLocation = useCallback(async () => {
+    setLocationMessage(null);
+
+    const isGranted = hasLocationPermission
+      ? true
+      : await requestAndroidLocationPermission();
+
+    if (!isGranted) {
+      stopWaitingForUserLocation('Location permission is needed to center the map.');
+      return;
+    }
+
+    if (userCoordinate) {
+      centerMap(userCoordinate, 0.025);
+      return;
+    }
+
+    shouldCenterOnNextUserLocationRef.current = true;
+    setIsWaitingForUserLocation(true);
+
+    if (userLocationTimeoutRef.current) {
+      clearTimeout(userLocationTimeoutRef.current);
+    }
+
+    userLocationTimeoutRef.current = setTimeout(() => {
+      stopWaitingForUserLocation(
+        'Current location is not available. Check location services and try again.',
+      );
+    }, USER_LOCATION_TIMEOUT_MS);
+  }, [
+    centerMap,
+    hasLocationPermission,
+    requestAndroidLocationPermission,
+    stopWaitingForUserLocation,
+    userCoordinate,
+  ]);
 
   const validSegments = segments
     .map((segment) => ({
@@ -99,76 +265,112 @@ export function MapAdapter({
   }, [stationInterchanges]);
 
   return (
-    <MapView
-      key={lineCode}
-      ref={mapRef}
-      style={styles.map}
-      initialRegion={initialRegion}
-    >
-      {validSegments.length > 0 ? (
-        validSegments.map((segment) => (
+    <View style={styles.root}>
+      <MapView
+        key={lineCode}
+        ref={mapRef}
+        style={styles.map}
+        initialRegion={initialRegion}
+        onMapReady={() => setIsMapReady(true)}
+        onUserLocationChange={handleUserLocationChange}
+        showsUserLocation={hasLocationPermission || isWaitingForUserLocation}
+        userLocationPriority="balanced"
+      >
+        {validSegments.length > 0 ? (
+          validSegments.map((segment) => (
+            <Polyline
+              key={`${lineCode}:segment:${segment.id}`}
+              coordinates={segment.points.map((point) => ({
+                latitude: point.lat,
+                longitude: point.lon,
+              }))}
+              strokeWidth={4}
+              strokeColor="#1595FF"
+            />
+          ))
+        ) : fallbackPolyline.length > 1 ? (
           <Polyline
-            key={`${lineCode}:segment:${segment.id}`}
-            coordinates={segment.points.map((point) => ({
-              latitude: point.lat,
-              longitude: point.lon,
-            }))}
+            key={`${lineCode}:fallback-route`}
+            coordinates={fallbackPolyline}
             strokeWidth={4}
             strokeColor="#1595FF"
           />
-        ))
-      ) : fallbackPolyline.length > 1 ? (
-        <Polyline
-          key={`${lineCode}:fallback-route`}
-          coordinates={fallbackPolyline}
-          strokeWidth={4}
-          strokeColor="#1595FF"
-        />
-      ) : null}
+        ) : null}
 
-      {stations
-        .filter(
-          (station) => Number.isFinite(station.lat) && Number.isFinite(station.lon),
-        )
-        .map((station) => {
-          const isSelected = station.code === selectedStationCode;
-          const interchange = interchangeByStationKey.get(
-            `${lineCode}:${station.code}`,
-          );
-          const lineCodes =
-            interchange?.members.map((member) => member.line.code) ?? [lineCode];
+        {stations
+          .filter(
+            (station) => Number.isFinite(station.lat) && Number.isFinite(station.lon),
+          )
+          .map((station) => {
+            const isSelected = station.code === selectedStationCode;
+            const interchange = interchangeByStationKey.get(
+              `${lineCode}:${station.code}`,
+            );
+            const lineCodes =
+              interchange?.members.map((member) => member.line.code) ?? [lineCode];
 
-          return (
+            return (
+              <Marker
+                key={`${lineCode}:station:${station.code}`}
+                coordinate={{ latitude: station.lat, longitude: station.lon }}
+                zIndex={isSelected ? 20 : 10}
+                onPress={() => onStationPress(station.code)}
+              >
+                <StationMarker
+                  isSelected={isSelected}
+                  lineCodes={lineCodes}
+                />
+              </Marker>
+            );
+          })}
+
+        {vehicles
+          .filter(
+            (vehicle) => Number.isFinite(vehicle.lat) && Number.isFinite(vehicle.lon),
+          )
+          .map((vehicle) => (
             <Marker
-              key={`${lineCode}:station:${station.code}`}
-              coordinate={{ latitude: station.lat, longitude: station.lon }}
-              zIndex={isSelected ? 20 : 10}
-              onPress={() => onStationPress(station.code)}
+              key={`${lineCode}:vehicle:${vehicle.id}`}
+              coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
+              anchor={{ x: 0.5, y: 0.5 }}
+              zIndex={30}
+              tracksViewChanges={false}
             >
-              <StationMarker
-                isSelected={isSelected}
-                lineCodes={lineCodes}
-              />
+              <View style={styles.vehicleDot} />
             </Marker>
-          );
-        })}
+          ))}
+      </MapView>
 
-      {vehicles
-        .filter(
-          (vehicle) => Number.isFinite(vehicle.lat) && Number.isFinite(vehicle.lon),
-        )
-        .map((vehicle) => (
-          <Marker
-            key={`${lineCode}:vehicle:${vehicle.id}`}
-            coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
-            anchor={{ x: 0.5, y: 0.5 }}
-            zIndex={30}
-            tracksViewChanges={false}
-          >
-            <View style={styles.vehicleDot} />
-          </Marker>
-        ))}
-    </MapView>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Center map on your current location"
+        style={[
+          styles.locationButton,
+          { top: locationButtonTop },
+          !userCoordinate && !isWaitingForUserLocation && styles.locationButtonIdle,
+        ]}
+        onPress={handleCenterUserLocation}
+      >
+        {isWaitingForUserLocation ? (
+          <ActivityIndicator color="#F4F8FF" />
+        ) : (
+          <IconSymbol
+            name="location.fill"
+            size={22}
+            color={userCoordinate ? '#F4F8FF' : '#AFC2E8'}
+            weight="semibold"
+          />
+        )}
+      </Pressable>
+      {locationMessage ? (
+        <View
+          pointerEvents="none"
+          style={[styles.locationMessage, { top: locationButtonTop + 56 }]}
+        >
+          <Text style={styles.locationMessageText}>{locationMessage}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -225,8 +427,50 @@ function StationMarker({
 }
 
 const styles = StyleSheet.create({
+  root: {
+    ...StyleSheet.absoluteFillObject,
+  },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  locationButton: {
+    position: 'absolute',
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 19, 36, 0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    elevation: 8,
+    zIndex: 15,
+  },
+  locationButtonIdle: {
+    opacity: 0.82,
+  },
+  locationMessage: {
+    position: 'absolute',
+    right: 16,
+    maxWidth: 240,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: 'rgba(10, 19, 36, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 15,
+  },
+  locationMessageText: {
+    color: '#D7E5FF',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
   },
   stationMarker: {
     alignItems: 'center',

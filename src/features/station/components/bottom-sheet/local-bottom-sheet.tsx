@@ -1,10 +1,3 @@
-import {
-  Animated,
-  Easing,
-  PanResponder,
-  StyleSheet,
-  View,
-} from 'react-native';
 import { BlurView } from 'expo-blur';
 import {
   forwardRef,
@@ -16,6 +9,13 @@ import {
   useRef,
   useState,
 } from 'react';
+import {
+  Animated,
+  Easing,
+  PanResponder,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface LocalBottomSheetProps {
@@ -30,7 +30,7 @@ export interface LocalBottomSheetHandle {
   resize: (index: number) => void;
 }
 
-const MIN_SHEET_HEIGHT = 104;
+const MIN_SHEET_HEIGHT = 116;
 
 export const LocalBottomSheet = forwardRef<
   LocalBottomSheetHandle,
@@ -258,8 +258,7 @@ const styles = StyleSheet.create({
   handleButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 10,
-    paddingBottom: 6,
+    height: 32,
   },
   handle: {
     width: 42,

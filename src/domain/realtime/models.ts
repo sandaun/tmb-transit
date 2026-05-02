@@ -8,14 +8,3 @@ export interface Arrival {
   sourceTimestampMs: number;
   serviceId?: string;
 }
-
-export interface VehicleEstimate {
-  id: string;
-  directionId: string;
-  etaSec: number;
-  segmentIndex: number;
-  progress01: number;
-  lat: number;
-  lon: number;
-  isEstimated: true;
-}

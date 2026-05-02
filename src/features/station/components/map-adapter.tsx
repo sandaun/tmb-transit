@@ -18,7 +18,6 @@ import MapView, {
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Station } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
-import type { VehicleEstimate } from '@/src/domain/realtime/models';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
 
@@ -29,7 +28,6 @@ interface MapAdapterProps {
   selectedStationCode: string;
   stationInterchanges?: StationInterchange[];
   locationButtonTop?: number;
-  vehicles: VehicleEstimate[];
   onStationPress: (stationCode: string) => void;
 }
 
@@ -49,7 +47,6 @@ export function MapAdapter({
   selectedStationCode,
   stationInterchanges = [],
   locationButtonTop = 148,
-  vehicles,
   onStationPress,
 }: MapAdapterProps) {
   const mapRef = useRef<MapView | null>(null);
@@ -324,21 +321,6 @@ export function MapAdapter({
             );
           })}
 
-        {vehicles
-          .filter(
-            (vehicle) => Number.isFinite(vehicle.lat) && Number.isFinite(vehicle.lon),
-          )
-          .map((vehicle) => (
-            <Marker
-              key={`${lineCode}:vehicle:${vehicle.id}`}
-              coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
-              anchor={{ x: 0.5, y: 0.5 }}
-              zIndex={30}
-              tracksViewChanges={false}
-            >
-              <View style={styles.vehicleDot} />
-            </Marker>
-          ))}
       </MapView>
 
       <Pressable
@@ -532,13 +514,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 8,
     fontWeight: '900',
-  },
-  vehicleDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    backgroundColor: '#FF7A00',
   },
 });

@@ -3,8 +3,4 @@ export const APP_CONFIG = {
   useMock: process.env.EXPO_PUBLIC_USE_MOCK === 'true',
   catalogTtlMs: 7 * 24 * 60 * 60 * 1000,
   arrivalsPollIntervalMs: 30_000,
-  avgSegmentSec: 90,
-  reconcileDurationMs: 400,
-  vehicleTickMs: 1_000,
-  maxVehiclesPerDirection: 3,
 } as const;

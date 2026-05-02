@@ -8,12 +8,7 @@ import { SearchShell } from '@/src/features/station/components/search-shell';
 import type { Line } from '@/src/domain/catalog/models';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
-import { useStationArrivalsQuery } from '@/src/features/station/hooks/use-station-arrivals-query';
-import { useEstimatedVehicles } from '@/src/features/station/hooks/use-estimated-vehicles';
-import type { Arrival } from '@/src/domain/realtime/models';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
-
-const EMPTY_ARRIVALS: Arrival[] = [];
 
 interface MapScreenProps {
   lineCode: string;
@@ -40,15 +35,6 @@ export function MapScreen({
   const segmentsQuery = useLineSegmentsQuery(lineCode);
   const stations = useMemo(() => stationsQuery.data ?? [], [stationsQuery.data]);
 
-  const arrivalsQuery = useStationArrivalsQuery(lineCode || null, stationCode || null);
-  const arrivals = useMemo(() => arrivalsQuery.data ?? EMPTY_ARRIVALS, [arrivalsQuery.data]);
-
-  const { vehicles } = useEstimatedVehicles({
-    arrivals,
-    stations,
-    targetStationCode: stationCode,
-  });
-
   const handleStationPress = useCallback(
     (nextStationCode: string) => {
       if (!nextStationCode) return;
@@ -66,7 +52,6 @@ export function MapScreen({
         selectedStationCode={stationCode}
         stationInterchanges={stationInterchanges}
         locationButtonTop={showBackButton ? insets.top + 72 : insets.top + 154}
-        vehicles={vehicles}
         onStationPress={handleStationPress}
       />
 

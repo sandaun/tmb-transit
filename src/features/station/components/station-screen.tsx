@@ -23,9 +23,14 @@ import { MetroLineBadge } from '@/src/features/catalog/components/metro-line-bad
 import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { MapAdapter } from '@/src/features/station/components/map-adapter';
-import { useEstimatedVehicles } from '@/src/features/station/hooks/use-estimated-vehicles';
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
 import { useStationArrivalsQuery } from '@/src/features/station/hooks/use-station-arrivals-query';
+import {
+  formatEta,
+  getLiveEtaSec,
+  makeArrivalKey,
+  sortArrivalsByEta,
+} from '@/src/features/station/utils/arrival-helpers';
 
 interface StationScreenProps {
   lineCode: string;
@@ -57,36 +62,6 @@ function toSheetSnap(value: number, minSnap: SheetSnap): SheetSnap {
   }
 
   return 0;
-}
-
-function formatEta(etaSec: number): string {
-  const safe = Math.max(0, etaSec);
-
-  if (safe <= 45) {
-    return 'Now';
-  }
-
-  if (safe >= 5 * 60) {
-    return `${Math.floor(safe / 60)} min`;
-  }
-
-  const minutes = Math.floor(safe / 60);
-  const seconds = safe % 60;
-
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-}
-
-function sortArrivalsByEta(arrivals: Arrival[]): Arrival[] {
-  return [...arrivals].sort((a, b) => a.etaSec - b.etaSec);
-}
-
-function makeArrivalKey(arrival: Arrival, index: number): string {
-  return [
-    arrival.directionId,
-    arrival.platformCode ?? 'na',
-    arrival.serviceId ?? arrival.destination,
-    String(index),
-  ].join(':');
 }
 
 function getStationStatusColor(station: Station | undefined): string {
@@ -302,15 +277,15 @@ export function StationScreen({
     [arrivalsQuery.data],
   );
 
-  const { vehicles, simulatedArrivals } = useEstimatedVehicles({
-    arrivals,
-    stations,
-    targetStationCode: activeStationCode,
-  });
-
   const orderedArrivals = useMemo(
-    () => sortArrivalsByEta(simulatedArrivals),
-    [simulatedArrivals],
+    () =>
+      sortArrivalsByEta(
+        arrivals.map((arrival) => ({
+          ...arrival,
+          etaSec: getLiveEtaSec(arrival, now),
+        })),
+      ),
+    [arrivals, now],
   );
   const topArrivals = useMemo(() => orderedArrivals.slice(0, 2), [orderedArrivals]);
   const detailedArrivals = useMemo(
@@ -411,7 +386,6 @@ export function StationScreen({
           stations={stations}
           segments={segmentsQuery.data ?? []}
           selectedStationCode={activeStationCode}
-          vehicles={vehicles}
           onStationPress={handleStationPress}
         />
         <Animated.View
@@ -482,7 +456,7 @@ export function StationScreen({
                 </View>
               </View>
 
-              {arrivalsQuery.isLoading && simulatedArrivals.length === 0 ? (
+              {arrivalsQuery.isLoading && orderedArrivals.length === 0 ? (
                 <View style={styles.feedbackRow}>
                   <ActivityIndicator color="#2F7DFF" />
                   <Text style={styles.feedbackInlineText}>
@@ -499,7 +473,7 @@ export function StationScreen({
 
               {!arrivalsQuery.isLoading &&
               !arrivalsQuery.isError &&
-              simulatedArrivals.length === 0 ? (
+              orderedArrivals.length === 0 ? (
                 <Text style={styles.feedbackText}>
                   No realtime arrivals for this stop right now.
                 </Text>

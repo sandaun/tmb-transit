@@ -62,6 +62,7 @@ export function MapAdapter({
   const selectedStation = stations.find(
     (station) => station.code === selectedStationCode,
   );
+  const lineBrand = getMetroLineBrand(lineCode);
 
   const initialRegion = useMemo(() => {
     const center = selectedStation ?? stations[0];
@@ -282,7 +283,7 @@ export function MapAdapter({
                 longitude: point.lon,
               }))}
               strokeWidth={4}
-              strokeColor="#1595FF"
+              strokeColor={lineBrand.backgroundColor}
             />
           ))
         ) : fallbackPolyline.length > 1 ? (
@@ -290,7 +291,7 @@ export function MapAdapter({
             key={`${lineCode}:fallback-route`}
             coordinates={fallbackPolyline}
             strokeWidth={4}
-            strokeColor="#1595FF"
+            strokeColor={lineBrand.backgroundColor}
           />
         ) : null}
 
@@ -315,6 +316,7 @@ export function MapAdapter({
               >
                 <StationMarker
                   isSelected={isSelected}
+                  selectedColor={lineBrand.backgroundColor}
                   lineCodes={lineCodes}
                 />
               </Marker>
@@ -358,9 +360,11 @@ export function MapAdapter({
 
 function StationMarker({
   isSelected,
+  selectedColor,
   lineCodes,
 }: {
   isSelected: boolean;
+  selectedColor: string;
   lineCodes: string[];
 }) {
   const visibleLineCodes = lineCodes.slice(0, 3);
@@ -372,6 +376,7 @@ function StationMarker({
         style={[
           styles.stationCore,
           isSelected && styles.stationCoreSelected,
+          isSelected && { backgroundColor: selectedColor },
         ]}
       />
       {lineCodes.length > 1 ? (
@@ -477,7 +482,6 @@ const styles = StyleSheet.create({
     height: 21,
     borderRadius: 11,
     borderWidth: 4,
-    backgroundColor: '#2A70FF',
   },
   transferBadgeRow: {
     position: 'absolute',

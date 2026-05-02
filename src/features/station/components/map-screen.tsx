@@ -11,6 +11,7 @@ import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segm
 import { useStationArrivalsQuery } from '@/src/features/station/hooks/use-station-arrivals-query';
 import { useEstimatedVehicles } from '@/src/features/station/hooks/use-estimated-vehicles';
 import type { Arrival } from '@/src/domain/realtime/models';
+import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 
 const EMPTY_ARRIVALS: Arrival[] = [];
 
@@ -19,6 +20,7 @@ interface MapScreenProps {
   lines?: Line[];
   stationCode: string;
   showBackButton?: boolean;
+  stationInterchanges?: StationInterchange[];
   onLineChange?: (lineCode: string) => void;
   onStationChange?: (stationCode: string) => void;
 }
@@ -28,6 +30,7 @@ export function MapScreen({
   lines,
   stationCode,
   showBackButton = true,
+  stationInterchanges,
   onLineChange,
   onStationChange,
 }: MapScreenProps) {
@@ -61,6 +64,7 @@ export function MapScreen({
         stations={stations}
         segments={segmentsQuery.data ?? []}
         selectedStationCode={stationCode}
+        stationInterchanges={stationInterchanges}
         vehicles={vehicles}
         onStationPress={handleStationPress}
       />

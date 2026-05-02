@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { useAllLineStationsQuery } from '@/src/features/catalog/hooks/use-all-line-stations-query';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useMetroLinesQuery } from '@/src/features/catalog/hooks/use-metro-lines-query';
 import {
@@ -9,6 +10,7 @@ import {
 } from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
 import { MapScreen } from '@/src/features/station/components/map-screen';
 import { StationContent } from '@/src/features/station/components/station-content';
+import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
 import { useTransitStore } from '@/src/state/store';
 
 function pickDefaultLineCode(lineCodes: string[]): string | null {
@@ -37,6 +39,11 @@ export default function MapTabScreen() {
     isLoading: stationsLoading,
     error: stationsError,
   } = useLineStationsQuery(lineCode);
+  const allStationsQuery = useAllLineStationsQuery(lines);
+  const stationInterchanges = useMemo(
+    () => buildStationInterchanges(lines, allStationsQuery.stationsByLine),
+    [allStationsQuery.stationsByLine, lines],
+  );
 
   const stationCode =
     (selectedStationCode &&
@@ -80,6 +87,13 @@ export default function MapTabScreen() {
     },
     [lineCode, setSelection],
   );
+  const handleLineStationSelect = useCallback(
+    (nextLineCode: string, nextStationCode: string) => {
+      setSelection(nextLineCode, nextStationCode);
+      sheetRef.current?.resize(1);
+    },
+    [setSelection],
+  );
 
   if (linesError || stationsError) {
     return (
@@ -110,6 +124,7 @@ export default function MapTabScreen() {
         lines={lines}
         stationCode={stationCode}
         showBackButton={false}
+        stationInterchanges={stationInterchanges}
         onLineChange={handleLineChange}
         onStationChange={handleStationChange}
       />
@@ -124,7 +139,11 @@ export default function MapTabScreen() {
           style={isCollapsed ? styles.contentHidden : styles.contentVisible}
           pointerEvents={isCollapsed ? 'none' : 'auto'}
         >
-          <StationContent />
+          <StationContent
+            lines={lines}
+            stationInterchanges={stationInterchanges}
+            onLineStationSelect={handleLineStationSelect}
+          />
         </View>
       </LocalBottomSheet>
     </View>

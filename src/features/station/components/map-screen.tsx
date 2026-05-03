@@ -51,6 +51,7 @@ export function MapScreen({
         segments={segmentsQuery.data ?? []}
         selectedStationCode={stationCode}
         stationInterchanges={stationInterchanges}
+        isRouteLoading={segmentsQuery.isLoading}
         locationButtonTop={showBackButton ? insets.top + 72 : insets.top + 154}
         onStationPress={handleStationPress}
       />

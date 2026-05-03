@@ -386,6 +386,7 @@ export function StationScreen({
           stations={stations}
           segments={segmentsQuery.data ?? []}
           selectedStationCode={activeStationCode}
+          isRouteLoading={segmentsQuery.isLoading}
           onStationPress={handleStationPress}
         />
         <Animated.View

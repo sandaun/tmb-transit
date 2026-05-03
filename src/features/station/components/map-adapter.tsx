@@ -27,15 +27,43 @@ interface MapAdapterProps {
   segments: Segment[];
   selectedStationCode: string;
   stationInterchanges?: StationInterchange[];
+  isRouteLoading?: boolean;
   locationButtonTop?: number;
   onStationPress: (stationCode: string) => void;
 }
 
-function getFallbackPolyline(stations: Station[]) {
-  return stations.map((station) => ({
-    latitude: station.lat,
-    longitude: station.lon,
-  }));
+interface RoutePolyline {
+  id: string;
+  coordinates: LatLng[];
+}
+
+function toMapCoordinate(point: { lat: number; lon: number }): LatLng {
+  return {
+    latitude: point.lat,
+    longitude: point.lon,
+  };
+}
+
+function hasFiniteCoordinate(coordinate: LatLng): boolean {
+  return Number.isFinite(coordinate.latitude) && Number.isFinite(coordinate.longitude);
+}
+
+function getFallbackPolyline(stations: Station[]): RoutePolyline | null {
+  const coordinates = stations
+    .map((station) => ({
+      latitude: station.lat,
+      longitude: station.lon,
+    }))
+    .filter(hasFiniteCoordinate);
+
+  if (coordinates.length < 2) {
+    return null;
+  }
+
+  return {
+    id: 'stations',
+    coordinates,
+  };
 }
 
 const USER_LOCATION_TIMEOUT_MS = 10_000;
@@ -46,6 +74,7 @@ export function MapAdapter({
   segments,
   selectedStationCode,
   stationInterchanges = [],
+  isRouteLoading = false,
   locationButtonTop = 148,
   onStationPress,
 }: MapAdapterProps) {
@@ -236,17 +265,38 @@ export function MapAdapter({
     userCoordinate,
   ]);
 
-  const validSegments = segments
-    .map((segment) => ({
-      ...segment,
-      points: segment.points.filter(
-        (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon),
-      ),
-    }))
-    .filter((segment) => segment.points.length > 1);
-  const fallbackPolyline = getFallbackPolyline(stations).filter(
-    (point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude),
-  );
+  const routePolylines = useMemo<RoutePolyline[]>(() => {
+    const segmentPolylines = segments
+      .filter((segment) => segment.lineCode === lineCode)
+      .map((segment) => ({
+        id: `segment:${segment.id}`,
+        coordinates: segment.points.map(toMapCoordinate).filter(hasFiniteCoordinate),
+      }))
+      .filter((polyline) => polyline.coordinates.length > 1);
+
+    if (segmentPolylines.length > 0) {
+      return segmentPolylines;
+    }
+
+    if (isRouteLoading) {
+      return [];
+    }
+
+    const fallbackPolyline = getFallbackPolyline(stations);
+    return fallbackPolyline ? [fallbackPolyline] : [];
+  }, [isRouteLoading, lineCode, segments, stations]);
+  const routeLayerKey = routePolylines
+    .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
+    .join('|');
+  const mapKey = `${lineCode}:${isRouteLoading ? 'route-loading' : routeLayerKey}`;
+  const routeStrokeColor = lineBrand.backgroundColor;
+  const selectedStationColor = lineBrand.backgroundColor;
+  const selectedStationBorderColor =
+    lineBrand.textColor === '#111827' ? '#111827' : '#FFFFFF';
+  const selectedStationHaloColor =
+    lineBrand.textColor === '#111827'
+      ? 'rgba(17, 24, 39, 0.16)'
+      : 'rgba(255, 255, 255, 0.2)';
   const interchangeByStationKey = useMemo(() => {
     const nextInterchangeByStationKey = new Map<string, StationInterchange>();
 
@@ -265,7 +315,7 @@ export function MapAdapter({
   return (
     <View style={styles.root}>
       <MapView
-        key={lineCode}
+        key={mapKey}
         ref={mapRef}
         style={styles.map}
         initialRegion={initialRegion}
@@ -274,26 +324,17 @@ export function MapAdapter({
         showsUserLocation={hasLocationPermission || isWaitingForUserLocation}
         userLocationPriority="balanced"
       >
-        {validSegments.length > 0 ? (
-          validSegments.map((segment) => (
+        {routePolylines.map((polyline) => (
             <Polyline
-              key={`${lineCode}:segment:${segment.id}`}
-              coordinates={segment.points.map((point) => ({
-                latitude: point.lat,
-                longitude: point.lon,
-              }))}
-              strokeWidth={4}
-              strokeColor={lineBrand.backgroundColor}
+              key={`${lineCode}:route:${routeLayerKey}:${polyline.id}`}
+              coordinates={polyline.coordinates}
+              lineCap="round"
+              lineJoin="round"
+              strokeWidth={5}
+              strokeColor={routeStrokeColor}
+              zIndex={5}
             />
-          ))
-        ) : fallbackPolyline.length > 1 ? (
-          <Polyline
-            key={`${lineCode}:fallback-route`}
-            coordinates={fallbackPolyline}
-            strokeWidth={4}
-            strokeColor={lineBrand.backgroundColor}
-          />
-        ) : null}
+        ))}
 
         {stations
           .filter(
@@ -316,7 +357,9 @@ export function MapAdapter({
               >
                 <StationMarker
                   isSelected={isSelected}
-                  selectedColor={lineBrand.backgroundColor}
+                  selectedColor={selectedStationColor}
+                  selectedBorderColor={selectedStationBorderColor}
+                  selectedHaloColor={selectedStationHaloColor}
                   lineCodes={lineCodes}
                 />
               </Marker>
@@ -361,10 +404,14 @@ export function MapAdapter({
 function StationMarker({
   isSelected,
   selectedColor,
+  selectedBorderColor,
+  selectedHaloColor,
   lineCodes,
 }: {
   isSelected: boolean;
   selectedColor: string;
+  selectedBorderColor: string;
+  selectedHaloColor: string;
   lineCodes: string[];
 }) {
   const visibleLineCodes = lineCodes.slice(0, 3);
@@ -372,11 +419,27 @@ function StationMarker({
 
   return (
     <View style={[styles.stationMarker, isSelected && styles.stationMarkerSelected]}>
+      {isSelected ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.stationSelectionHalo,
+            {
+              backgroundColor: selectedHaloColor,
+              borderColor: selectedColor,
+            },
+          ]}
+        />
+      ) : null}
       <View
         style={[
           styles.stationCore,
           isSelected && styles.stationCoreSelected,
-          isSelected && { backgroundColor: selectedColor },
+          isSelected && {
+            backgroundColor: selectedColor,
+            borderColor: selectedBorderColor,
+            shadowColor: selectedColor,
+          },
         ]}
       />
       {lineCodes.length > 1 ? (
@@ -468,6 +531,13 @@ const styles = StyleSheet.create({
   stationMarkerSelected: {
     minWidth: 34,
     minHeight: 34,
+  },
+  stationSelectionHalo: {
+    position: 'absolute',
+    width: 31,
+    height: 31,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   stationCore: {
     width: 15,

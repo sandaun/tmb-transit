@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  type ImageRequireSource,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -67,6 +68,33 @@ function getFallbackPolyline(stations: Station[]): RoutePolyline | null {
 }
 
 const USER_LOCATION_TIMEOUT_MS = 10_000;
+const MAP_CENTER_ANIMATION_MS = 450;
+const STATION_MARKER_ANCHOR = { x: 0.5, y: 0.5 };
+const STATION_MARKER_CENTER_OFFSET = { x: 0, y: 0 };
+const STATION_BADGE_ANCHOR = { x: 0, y: 1 };
+const STATION_MARKER_IMAGE = require('@/assets/map/station-marker-large.png') as ImageRequireSource;
+const SELECTED_STATION_MARKER_IMAGES: Record<string, ImageRequireSource> = {
+  L1: require('@/assets/map/station-marker-selected-large-l1.png') as ImageRequireSource,
+  L2: require('@/assets/map/station-marker-selected-large-l2.png') as ImageRequireSource,
+  L3: require('@/assets/map/station-marker-selected-large-l3.png') as ImageRequireSource,
+  L4: require('@/assets/map/station-marker-selected-large-l4.png') as ImageRequireSource,
+  L5: require('@/assets/map/station-marker-selected-large-l5.png') as ImageRequireSource,
+  L9N: require('@/assets/map/station-marker-selected-large-l9.png') as ImageRequireSource,
+  L9S: require('@/assets/map/station-marker-selected-large-l9.png') as ImageRequireSource,
+  L10N: require('@/assets/map/station-marker-selected-large-l10.png') as ImageRequireSource,
+  L10S: require('@/assets/map/station-marker-selected-large-l10.png') as ImageRequireSource,
+  L11: require('@/assets/map/station-marker-selected-large-l11.png') as ImageRequireSource,
+  FM: require('@/assets/map/station-marker-selected-large-fm.png') as ImageRequireSource,
+};
+const FALLBACK_SELECTED_STATION_MARKER_IMAGE = require('@/assets/map/station-marker-selected-large-fallback.png') as ImageRequireSource;
+
+function getStationMarkerImage(lineLabel: string, isSelected: boolean): ImageRequireSource {
+  if (!isSelected) {
+    return STATION_MARKER_IMAGE;
+  }
+
+  return SELECTED_STATION_MARKER_IMAGES[lineLabel] ?? FALLBACK_SELECTED_STATION_MARKER_IMAGE;
+}
 
 export function MapAdapter({
   lineCode,
@@ -172,6 +200,36 @@ export function MapAdapter({
     }
   }, []);
 
+  const visibleStations = useMemo(
+    () =>
+      stations.filter(
+        (station) => Number.isFinite(station.lat) && Number.isFinite(station.lon),
+      ),
+    [stations],
+  );
+  const interchangeByStationKey = useMemo(() => {
+    const nextInterchangeByStationKey = new Map<string, StationInterchange>();
+
+    stationInterchanges.forEach((interchange) => {
+      interchange.members.forEach((member) => {
+        nextInterchangeByStationKey.set(
+          `${member.line.code}:${member.station.code}`,
+          interchange,
+        );
+      });
+    });
+
+    return nextInterchangeByStationKey;
+  }, [stationInterchanges]);
+  const badgeStations = useMemo(
+    () =>
+      visibleStations.filter((station) => {
+        const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
+        return (interchange?.members.length ?? 1) > 1;
+      }),
+    [interchangeByStationKey, lineCode, visibleStations],
+  );
+
   const centerMap = useCallback((coordinate: LatLng, delta = 0.05) => {
     mapRef.current?.animateToRegion(
       {
@@ -180,7 +238,7 @@ export function MapAdapter({
         latitudeDelta: delta,
         longitudeDelta: delta,
       },
-      450,
+      MAP_CENTER_ANIMATION_MS,
     );
   }, []);
 
@@ -205,6 +263,13 @@ export function MapAdapter({
       longitude: selectedStation.lon,
     });
   }, [centerMap, isMapReady, selectedStation]);
+
+  const handleStationPress = useCallback(
+    (stationCode: string) => {
+      onStationPress(stationCode);
+    },
+    [onStationPress],
+  );
 
   const handleUserLocationChange = useCallback(
     (event: UserLocationChangeEvent) => {
@@ -290,27 +355,6 @@ export function MapAdapter({
     .join('|');
   const mapKey = `${lineCode}:${isRouteLoading ? 'route-loading' : routeLayerKey}`;
   const routeStrokeColor = lineBrand.backgroundColor;
-  const selectedStationColor = lineBrand.backgroundColor;
-  const selectedStationBorderColor =
-    lineBrand.textColor === '#111827' ? '#111827' : '#FFFFFF';
-  const selectedStationHaloColor =
-    lineBrand.textColor === '#111827'
-      ? 'rgba(17, 24, 39, 0.16)'
-      : 'rgba(255, 255, 255, 0.2)';
-  const interchangeByStationKey = useMemo(() => {
-    const nextInterchangeByStationKey = new Map<string, StationInterchange>();
-
-    stationInterchanges.forEach((interchange) => {
-      interchange.members.forEach((member) => {
-        nextInterchangeByStationKey.set(
-          `${member.line.code}:${member.station.code}`,
-          interchange,
-        );
-      });
-    });
-
-    return nextInterchangeByStationKey;
-  }, [stationInterchanges]);
 
   return (
     <View style={styles.root}>
@@ -336,35 +380,42 @@ export function MapAdapter({
             />
         ))}
 
-        {stations
-          .filter(
-            (station) => Number.isFinite(station.lat) && Number.isFinite(station.lon),
-          )
-          .map((station) => {
-            const isSelected = station.code === selectedStationCode;
-            const interchange = interchangeByStationKey.get(
-              `${lineCode}:${station.code}`,
-            );
-            const lineCodes =
-              interchange?.members.map((member) => member.line.code) ?? [lineCode];
+        {visibleStations.map((station) => {
+          const isSelected = station.code === selectedStationCode;
 
-            return (
-              <Marker
-                key={`${lineCode}:station:${station.code}`}
-                coordinate={{ latitude: station.lat, longitude: station.lon }}
-                zIndex={isSelected ? 20 : 10}
-                onPress={() => onStationPress(station.code)}
-              >
-                <StationMarker
-                  isSelected={isSelected}
-                  selectedColor={selectedStationColor}
-                  selectedBorderColor={selectedStationBorderColor}
-                  selectedHaloColor={selectedStationHaloColor}
-                  lineCodes={lineCodes}
-                />
-              </Marker>
-            );
-          })}
+          return (
+            <Marker
+              key={`${lineCode}:station:${station.code}`}
+              anchor={STATION_MARKER_ANCHOR}
+              centerOffset={STATION_MARKER_CENTER_OFFSET}
+              coordinate={{ latitude: station.lat, longitude: station.lon }}
+              image={getStationMarkerImage(lineBrand.label, isSelected)}
+              tracksViewChanges={false}
+              zIndex={isSelected ? 20 : 10}
+              onPress={() => handleStationPress(station.code)}
+            />
+          );
+        })}
+
+        {badgeStations.map((station) => {
+          const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
+          const lineCodes =
+            interchange?.members.map((member) => member.line.code) ?? [lineCode];
+
+          return (
+            <Marker
+              key={`${lineCode}:station-badges:${station.code}:${lineCodes.join('-')}`}
+              anchor={STATION_BADGE_ANCHOR}
+              centerOffset={STATION_MARKER_CENTER_OFFSET}
+              coordinate={{ latitude: station.lat, longitude: station.lon }}
+              tracksViewChanges={false}
+              zIndex={30}
+              onPress={() => handleStationPress(station.code)}
+            >
+              <StationTransferBadges lineCodes={lineCodes} />
+            </Marker>
+          );
+        })}
 
       </MapView>
 
@@ -401,77 +452,40 @@ export function MapAdapter({
   );
 }
 
-function StationMarker({
-  isSelected,
-  selectedColor,
-  selectedBorderColor,
-  selectedHaloColor,
-  lineCodes,
-}: {
-  isSelected: boolean;
-  selectedColor: string;
-  selectedBorderColor: string;
-  selectedHaloColor: string;
-  lineCodes: string[];
-}) {
+function StationTransferBadges({ lineCodes }: { lineCodes: string[] }) {
   const visibleLineCodes = lineCodes.slice(0, 3);
   const extraCount = Math.max(0, lineCodes.length - visibleLineCodes.length);
 
   return (
-    <View style={[styles.stationMarker, isSelected && styles.stationMarkerSelected]}>
-      {isSelected ? (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.stationSelectionHalo,
-            {
-              backgroundColor: selectedHaloColor,
-              borderColor: selectedColor,
-            },
-          ]}
-        />
-      ) : null}
-      <View
-        style={[
-          styles.stationCore,
-          isSelected && styles.stationCoreSelected,
-          isSelected && {
-            backgroundColor: selectedColor,
-            borderColor: selectedBorderColor,
-            shadowColor: selectedColor,
-          },
-        ]}
-      />
-      {lineCodes.length > 1 ? (
-        <View style={styles.transferBadgeRow}>
-          {visibleLineCodes.map((lineCode) => {
-            const brand = getMetroLineBrand(lineCode);
+    <View style={styles.transferBadgeAnchorBox}>
+      <View style={styles.transferBadgeRow}>
+        {visibleLineCodes.map((lineCode) => {
+          const brand = getMetroLineBrand(lineCode);
 
-            return (
-              <View
-                key={lineCode}
-                style={[
-                  styles.transferBadge,
-                  { backgroundColor: brand.backgroundColor },
-                ]}
+          return (
+            <View
+              key={lineCode}
+              style={[
+                styles.transferBadge,
+                { backgroundColor: brand.backgroundColor },
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={[styles.transferBadgeText, { color: brand.textColor }]}
               >
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  style={[styles.transferBadgeText, { color: brand.textColor }]}
-                >
-                  {brand.label}
-                </Text>
-              </View>
-            );
-          })}
-          {extraCount > 0 ? (
-            <View style={styles.extraBadge}>
-              <Text style={styles.extraBadgeText}>+{extraCount}</Text>
+                {brand.label}
+              </Text>
             </View>
-          ) : null}
-        </View>
-      ) : null}
+          );
+        })}
+        {extraCount > 0 ? (
+          <View style={styles.extraBadge}>
+            <Text style={styles.extraBadgeText}>+{extraCount}</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -522,42 +536,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 16,
   },
-  stationMarker: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 26,
-    minHeight: 26,
-  },
-  stationMarkerSelected: {
-    minWidth: 34,
-    minHeight: 34,
-  },
-  stationSelectionHalo: {
-    position: 'absolute',
-    width: 31,
-    height: 31,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  stationCore: {
-    width: 15,
-    height: 15,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    backgroundColor: '#304157',
-  },
-  stationCoreSelected: {
-    width: 21,
-    height: 21,
-    borderRadius: 11,
-    borderWidth: 4,
-  },
   transferBadgeRow: {
-    position: 'absolute',
-    top: -14,
     flexDirection: 'row',
     gap: 2,
+  },
+  transferBadgeAnchorBox: {
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    minWidth: 28,
+    minHeight: 18,
+    paddingLeft: 16,
+    paddingBottom: 9,
   },
   transferBadge: {
     minWidth: 20,

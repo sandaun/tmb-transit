@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  type ImageRequireSource,
   PermissionsAndroid,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type ImageRequireSource,
 } from 'react-native';
 import MapView, {
   Marker,
@@ -19,8 +19,8 @@ import MapView, {
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Station } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
-import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
+import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 
 interface MapAdapterProps {
   lineCode: string;
@@ -72,6 +72,8 @@ const MAP_CENTER_ANIMATION_MS = 450;
 const STATION_MARKER_ANCHOR = { x: 0.5, y: 0.5 };
 const STATION_MARKER_CENTER_OFFSET = { x: 0, y: 0 };
 const STATION_BADGE_ANCHOR = { x: 0, y: 1 };
+const STATION_NAME_ANCHOR = { x: 0.5, y: 0 };
+const STATION_NAME_CENTER_OFFSET = { x: 0, y: 26 };
 const STATION_MARKER_IMAGE = require('@/assets/map/station-marker-large.png') as ImageRequireSource;
 const SELECTED_STATION_MARKER_IMAGES: Record<string, ImageRequireSource> = {
   L1: require('@/assets/map/station-marker-selected-large-l1.png') as ImageRequireSource,
@@ -417,6 +419,23 @@ export function MapAdapter({
           );
         })}
 
+        {selectedStation ? (
+          <Marker
+            key={`${lineCode}:station-name:${selectedStation.code}`}
+            anchor={STATION_NAME_ANCHOR}
+            centerOffset={STATION_NAME_CENTER_OFFSET}
+            coordinate={{ latitude: selectedStation.lat, longitude: selectedStation.lon }}
+            tracksViewChanges={false}
+            zIndex={40}
+            onPress={() => handleStationPress(selectedStation.code)}
+          >
+            <StationNameLabel
+              lineColor={lineBrand.backgroundColor}
+              stationName={selectedStation.name}
+            />
+          </Marker>
+        ) : null}
+
       </MapView>
 
       <Pressable
@@ -490,6 +509,23 @@ function StationTransferBadges({ lineCodes }: { lineCodes: string[] }) {
   );
 }
 
+function StationNameLabel({
+  lineColor,
+  stationName,
+}: {
+  lineColor: string;
+  stationName: string;
+}) {
+  return (
+    <View style={styles.stationNameLabel}>
+      <View style={[styles.stationNameAccent, { backgroundColor: lineColor }]} />
+      <Text numberOfLines={1} style={styles.stationNameText}>
+        {stationName}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
@@ -543,39 +579,61 @@ const styles = StyleSheet.create({
   transferBadgeAnchorBox: {
     alignItems: 'flex-start',
     justifyContent: 'flex-end',
-    minWidth: 28,
-    minHeight: 18,
-    paddingLeft: 16,
-    paddingBottom: 9,
+    minWidth: 34,
+    minHeight: 23,
+    paddingLeft: 22,
+    paddingBottom: 11,
   },
   transferBadge: {
-    minWidth: 20,
-    height: 16,
-    borderRadius: 5,
+    minWidth: 24,
+    height: 19,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
     borderWidth: 1,
     borderColor: '#FFFFFF',
   },
   transferBadgeText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '900',
   },
   extraBadge: {
-    minWidth: 18,
-    height: 16,
-    borderRadius: 5,
+    minWidth: 21,
+    height: 19,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
     backgroundColor: '#152136',
     borderWidth: 1,
     borderColor: '#FFFFFF',
   },
   extraBadgeText: {
     color: '#FFFFFF',
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '900',
+  },
+  stationNameLabel: {
+    maxWidth: 176,
+    minHeight: 24,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(10, 19, 36, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  stationNameAccent: {
+    width: 4,
+    alignSelf: 'stretch',
+  },
+  stationNameText: {
+    color: '#F4F8FF',
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
 });

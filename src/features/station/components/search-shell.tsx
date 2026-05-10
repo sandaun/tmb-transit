@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Line } from '@/src/domain/catalog/models';
 import { MetroLineBadge } from '@/src/features/catalog/components/metro-line-badge';
@@ -14,93 +15,78 @@ export function SearchShell({
   lines = [],
   onLineChange,
 }: SearchShellProps) {
-  return (
-    <View style={styles.modeRow}>
-      <View style={[styles.modeChip, styles.modeChipActive]}>
-        <Text style={[styles.modeChipText, styles.modeChipTextActive]}>Metro</Text>
-      </View>
-      {lines.length > 0 ? (
-        <ScrollView
-          horizontal
-          style={styles.lineSelectorViewport}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.lineSelector}
-        >
-          {lines.map((line) => {
-            const selected = line.code === lineCode;
-
-            return (
-              <Pressable
-                key={line.code}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                style={[
-                  styles.lineModeChip,
-                  selected ? styles.lineModeChipActive : null,
-                ]}
-                onPress={() => onLineChange?.(line.code)}
-              >
-                <MetroLineBadge
-                  color={line.color}
-                  lineCode={line.code}
-                  size="small"
-                />
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ) : (
-        <View style={styles.lineModeChip}>
-          <MetroLineBadge lineCode={lineCode} size="small" />
+  if (lines.length === 0) {
+    return (
+      <View style={styles.container}>
+        <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
+        <View style={styles.row}>
+          <View style={styles.chip}>
+            <MetroLineBadge lineCode={lineCode} size="small" />
+          </View>
         </View>
-      )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+      >
+        {lines.map((line) => {
+          const selected = line.code === lineCode;
+
+          return (
+            <Pressable
+              key={line.code}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              style={[styles.chip, selected ? styles.chipActive : null]}
+              onPress={() => onLineChange?.(line.code)}
+            >
+              <MetroLineBadge
+                color={line.color}
+                lineCode={line.code}
+                size="small"
+              />
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  modeRow: {
+  container: {
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  row: {
+    alignItems: 'center',
     flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  chip: {
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    borderRadius: 12,
+    padding: 3,
+    backgroundColor: 'transparent',
   },
-  modeChip: {
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    backgroundColor: 'rgba(9, 18, 36, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  lineModeChip: {
-    alignItems: 'center',
-    borderRadius: 14,
-    padding: 4,
-    backgroundColor: 'rgba(9, 18, 36, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  lineModeChipActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
-  },
-  lineSelector: {
-    gap: 8,
-    paddingRight: 2,
-  },
-  lineSelectorViewport: {
-    flexShrink: 1,
-  },
-  modeChipActive: {
-    backgroundColor: '#2A70FF',
-    borderColor: '#2A70FF',
-  },
-  modeChipText: {
-    color: '#D5E2FF',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  modeChipTextActive: {
-    color: '#FFFFFF',
+  chipActive: {
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
   },
 });

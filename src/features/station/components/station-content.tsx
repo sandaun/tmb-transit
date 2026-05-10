@@ -128,13 +128,17 @@ export function StationContent({
     ? Math.max(0, Math.floor((now - arrivalsQuery.dataUpdatedAt) / 1_000))
     : null;
 
-  const meta = [
-    station?.accessibilityLabel,
-    station?.statusLabel,
-    updatedAgoSec !== null ? `Updated ${updatedAgoSec}s ago` : null,
-  ]
-    .filter(Boolean)
-    .join('  \u2022  ');
+  const statusColor = station ? getStationStatusColor(station) : '#86F0B4';
+  const metaParts: { key: string; label: string }[] = [];
+  if (station?.statusLabel) {
+    metaParts.push({ key: 'status', label: station.statusLabel });
+  }
+  if (station?.accessibilityLabel) {
+    metaParts.push({ key: 'access', label: station.accessibilityLabel });
+  }
+  if (updatedAgoSec !== null) {
+    metaParts.push({ key: 'updated', label: `Updated ${updatedAgoSec}s ago` });
+  }
 
   return (
     <ScrollView
@@ -147,7 +151,19 @@ export function StationContent({
     >
       <View style={styles.header}>
         <Text style={styles.title}>{stationName}</Text>
-        <Text style={styles.meta}>{meta || `Line ${lineBrand.label}`}</Text>
+        {metaParts.length > 0 ? (
+          <View style={styles.metaRow}>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            {metaParts.map((part, index) => (
+              <View key={part.key} style={styles.metaItem}>
+                {index > 0 ? <Text style={styles.metaSep}>{'\u00b7'}</Text> : null}
+                <Text style={styles.metaText}>{part.label}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.metaText}>Line {lineBrand.label}</Text>
+        )}
       </View>
 
       {hasMultipleLines ? (
@@ -186,31 +202,6 @@ export function StationContent({
           </View>
         </View>
       ) : null}
-
-      <View style={styles.infoRow}>
-        {station?.accessibilityLabel ? (
-          <View style={styles.pill}>
-            <Text style={[styles.pillText, { color: '#86F0B4' }]}>
-              {station.accessibilityLabel}
-            </Text>
-          </View>
-        ) : null}
-        {station?.statusLabel ? (
-          <View style={styles.pill}>
-            <Text
-              style={[
-                styles.pillText,
-                { color: getStationStatusColor(station) },
-              ]}
-            >
-              {station.statusLabel}
-            </Text>
-          </View>
-        ) : null}
-        <View style={styles.linePill}>
-          <RouteBadge lineCode={lineCode} size="small" />
-        </View>
-      </View>
 
       {station?.serviceDescription ? (
         <Text style={styles.serviceText}>{station.serviceDescription}</Text>
@@ -330,13 +321,13 @@ function InterchangeArrivalSection({
           <Text style={styles.interchangeDestination}>
             {firstArrival?.destination ?? member.line.name}
           </Text>
-          <Text style={styles.interchangePlatform}>
-            {firstArrival?.platformCode
-              ? `Platform ${firstArrival.platformCode}`
-              : firstArrival
-                ? `Direction ${firstArrival.directionId}`
-                : member.station.name}
-          </Text>
+          {firstArrival ? (
+            <Text style={styles.interchangePlatform}>
+              {firstArrival.platformCode
+                ? `Platform ${firstArrival.platformCode}`
+                : `Direction ${firstArrival.directionId}`}
+            </Text>
+          ) : null}
         </View>
         {firstArrival ? (
           <Text style={styles.interchangeEta}>
@@ -404,16 +395,33 @@ const styles = StyleSheet.create({
     letterSpacing: -0.7,
     color: '#F4F8FF',
   },
-  meta: {
-    color: '#90A5C8',
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  infoRow: {
+  metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
+    marginTop: 2,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaText: {
+    color: '#90A5C8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  metaSep: {
+    color: '#5C7099',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    marginRight: 2,
   },
   sectionLabel: {
     color: '#90A5C8',
@@ -455,27 +463,6 @@ const styles = StyleSheet.create({
   },
   lineOptionTextActive: {
     color: '#F4F8FF',
-  },
-  pill: {
-    alignItems: 'center',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    backgroundColor: 'rgba(28, 42, 70, 0.76)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    justifyContent: 'center',
-    minHeight: 34,
-  },
-  linePill: {
-    borderRadius: 14,
-    padding: 0,
-    backgroundColor: 'transparent',
-  },
-  pillText: {
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 18,
   },
   serviceText: {
     color: '#AFC0DE',

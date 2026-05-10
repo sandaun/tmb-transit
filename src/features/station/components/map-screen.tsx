@@ -52,7 +52,7 @@ export function MapScreen({
         selectedStationCode={stationCode}
         stationInterchanges={stationInterchanges}
         isRouteLoading={segmentsQuery.isLoading}
-        locationButtonTop={showBackButton ? insets.top + 72 : insets.top + 154}
+        locationButtonTop={insets.top + 72}
         onStationPress={handleStationPress}
       />
 

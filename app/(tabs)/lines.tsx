@@ -1,5 +1,5 @@
-import { HomeScreen } from '@/src/features/catalog/components/home-screen';
+import { LinesScreen } from '@/src/features/catalog/components/lines-screen';
 
 export default function LinesTabScreen() {
-  return <HomeScreen />;
+  return <LinesScreen />;
 }

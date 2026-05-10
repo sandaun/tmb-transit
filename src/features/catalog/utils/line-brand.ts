@@ -1,10 +1,12 @@
-export interface MetroLineBrand {
+import type { TransportMode } from '@/src/domain/catalog/models';
+
+export interface LineBrand {
   backgroundColor: string;
   label: string;
   textColor: string;
 }
 
-const TMB_METRO_LINE_BRANDS: Record<string, MetroLineBrand> = {
+const TMB_METRO_LINE_BRANDS: Record<string, LineBrand> = {
   L1: { label: 'L1', backgroundColor: '#CE1126', textColor: '#FFFFFF' },
   L2: { label: 'L2', backgroundColor: '#93248F', textColor: '#FFFFFF' },
   L3: { label: 'L3', backgroundColor: '#1EB53A', textColor: '#FFFFFF' },
@@ -32,6 +34,9 @@ const numericMetroLineKeys: Record<string, string> = {
   '104': 'L10N',
 };
 
+const BUS_FALLBACK_BACKGROUND = '#1F4FB6';
+const METRO_FALLBACK_BACKGROUND = '#24304A';
+
 function normalizeMetroLineKey(lineCode: string): string {
   const normalized = lineCode.trim().toUpperCase().replace(/\s+/g, '');
 
@@ -47,10 +52,7 @@ function toHexColor(color: string | undefined): string | null {
   return /^[0-9A-Fa-f]{6}$/.test(normalized) ? `#${normalized.toUpperCase()}` : null;
 }
 
-export function getMetroLineBrand(
-  lineCode: string,
-  color?: string,
-): MetroLineBrand {
+function getMetroBrand(lineCode: string, color?: string): LineBrand {
   const key = normalizeMetroLineKey(lineCode);
   const brand = TMB_METRO_LINE_BRANDS[key];
   const apiColor = toHexColor(color);
@@ -65,7 +67,24 @@ export function getMetroLineBrand(
 
   return {
     label: key || lineCode,
-    backgroundColor: apiColor ?? '#24304A',
+    backgroundColor: apiColor ?? METRO_FALLBACK_BACKGROUND,
     textColor: '#FFFFFF',
   };
+}
+
+function getBusBrand(lineCode: string, color?: string): LineBrand {
+  const apiColor = toHexColor(color);
+  return {
+    label: lineCode.trim().toUpperCase() || lineCode,
+    backgroundColor: apiColor ?? BUS_FALLBACK_BACKGROUND,
+    textColor: '#FFFFFF',
+  };
+}
+
+export function getLineBrand(
+  mode: TransportMode,
+  lineCode: string,
+  color?: string,
+): LineBrand {
+  return mode === 'bus' ? getBusBrand(lineCode, color) : getMetroBrand(lineCode, color);
 }

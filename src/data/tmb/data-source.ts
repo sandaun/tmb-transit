@@ -2,35 +2,39 @@ import { APP_CONFIG } from '@/src/config/app-config';
 import {
   fetchLineSegments as fetchLineSegmentsFromApi,
   fetchLineStations as fetchLineStationsFromApi,
-  fetchMetroLines as fetchMetroLinesFromApi,
+  fetchLines as fetchLinesFromApi,
   fetchStationArrivals as fetchStationArrivalsFromApi,
 } from '@/src/data/tmb/client';
 import {
   fetchLineSegmentsFromMock,
   fetchLineStationsFromMock,
-  fetchMetroLinesFromMock,
+  fetchLinesFromMock,
   fetchStationArrivalsFromMock,
 } from '@/src/data/tmb/mock-client';
-import type { Line, Station } from '@/src/domain/catalog/models';
+import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import type { Arrival } from '@/src/domain/realtime/models';
 
 interface TmbDataSource {
-  fetchMetroLines: () => Promise<Line[]>;
-  fetchLineStations: (lineCode: string) => Promise<Station[]>;
-  fetchLineSegments: (lineCode: string) => Promise<Segment[]>;
-  fetchStationArrivals: (lineCode: string, stationCode: string) => Promise<Arrival[]>;
+  fetchLines: (mode: TransportMode) => Promise<Line[]>;
+  fetchLineStations: (mode: TransportMode, lineCode: string) => Promise<Station[]>;
+  fetchLineSegments: (mode: TransportMode, lineCode: string) => Promise<Segment[]>;
+  fetchStationArrivals: (
+    mode: TransportMode,
+    lineCode: string,
+    stationCode: string,
+  ) => Promise<Arrival[]>;
 }
 
 const apiDataSource: TmbDataSource = {
-  fetchMetroLines: fetchMetroLinesFromApi,
+  fetchLines: fetchLinesFromApi,
   fetchLineStations: fetchLineStationsFromApi,
   fetchLineSegments: fetchLineSegmentsFromApi,
   fetchStationArrivals: fetchStationArrivalsFromApi,
 };
 
 const mockDataSource: TmbDataSource = {
-  fetchMetroLines: fetchMetroLinesFromMock,
+  fetchLines: fetchLinesFromMock,
   fetchLineStations: fetchLineStationsFromMock,
   fetchLineSegments: fetchLineSegmentsFromMock,
   fetchStationArrivals: fetchStationArrivalsFromMock,
@@ -46,18 +50,22 @@ export function getTmbDataSource(): TmbDataSource {
   return DATA_SOURCE_MODE === 'mock' ? mockDataSource : apiDataSource;
 }
 
-export async function fetchMetroLines() {
-  return getTmbDataSource().fetchMetroLines();
+export async function fetchLines(mode: TransportMode) {
+  return getTmbDataSource().fetchLines(mode);
 }
 
-export async function fetchLineStations(lineCode: string) {
-  return getTmbDataSource().fetchLineStations(lineCode);
+export async function fetchLineStations(mode: TransportMode, lineCode: string) {
+  return getTmbDataSource().fetchLineStations(mode, lineCode);
 }
 
-export async function fetchLineSegments(lineCode: string) {
-  return getTmbDataSource().fetchLineSegments(lineCode);
+export async function fetchLineSegments(mode: TransportMode, lineCode: string) {
+  return getTmbDataSource().fetchLineSegments(mode, lineCode);
 }
 
-export async function fetchStationArrivals(lineCode: string, stationCode: string) {
-  return getTmbDataSource().fetchStationArrivals(lineCode, stationCode);
+export async function fetchStationArrivals(
+  mode: TransportMode,
+  lineCode: string,
+  stationCode: string,
+) {
+  return getTmbDataSource().fetchStationArrivals(mode, lineCode, stationCode);
 }

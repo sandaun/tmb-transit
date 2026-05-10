@@ -3,9 +3,11 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { TtlCache } from '../cache/ttl-cache';
 import { runtimeConfig } from '../config/env';
+import { fetchBusArrivalsByStation } from '../tmb/ibus-client';
 import { fetchArrivalsByStation } from '../tmb/imetro-client';
-import type { ArrivalDto } from '../types/api';
+import type { ArrivalDto, TransportMode } from '../types/api';
 
+const modeParams = z.object({ mode: z.enum(['metro', 'bus']) });
 const querySchema = z.object({
   lineCode: z.string().min(1),
   stationCode: z.string().min(1),
@@ -14,14 +16,27 @@ const querySchema = z.object({
 const cache = new TtlCache<ArrivalDto[]>();
 const inFlight = new Map<string, Promise<ArrivalDto[]>>();
 
-function cacheKey(lineCode: string, stationCode: string): string {
-  return `arrivals:${lineCode}:${stationCode}`;
+function cacheKey(mode: TransportMode, lineCode: string, stationCode: string): string {
+  return `arrivals:${mode}:${lineCode}:${stationCode}`;
+}
+
+async function fetchArrivals(
+  mode: TransportMode,
+  lineCode: string,
+  stationCode: string,
+): Promise<ArrivalDto[]> {
+  if (mode === 'bus') {
+    return fetchBusArrivalsByStation(stationCode, lineCode);
+  }
+
+  return fetchArrivalsByStation(stationCode, lineCode);
 }
 
 export const realtimeRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.get('/v1/realtime/metro/arrivals', async (request, reply) => {
+  fastify.get('/v1/realtime/:mode/arrivals', async (request, reply) => {
+    const { mode } = modeParams.parse(request.params);
     const query = querySchema.parse(request.query);
-    const key = cacheKey(query.lineCode, query.stationCode);
+    const key = cacheKey(mode, query.lineCode, query.stationCode);
 
     const fresh = cache.getFresh(key);
     if (fresh) {
@@ -48,7 +63,7 @@ export const realtimeRoutes: FastifyPluginAsync = async (fastify) => {
       };
     }
 
-    const fetchPromise = fetchArrivalsByStation(query.stationCode, query.lineCode)
+    const fetchPromise = fetchArrivals(mode, query.lineCode, query.stationCode)
       .then((arrivals) => {
         cache.set(key, arrivals, runtimeConfig.realtimeCacheTtlMs);
         return arrivals;
@@ -64,7 +79,7 @@ export const realtimeRoutes: FastifyPluginAsync = async (fastify) => {
       return {
         data: arrivals,
         meta: {
-          source: 'tmb-imetro',
+          source: mode === 'bus' ? 'tmb-ibus' : 'tmb-imetro',
           stale: false,
           fetchedAt: new Date().toISOString(),
         },

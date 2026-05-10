@@ -36,6 +36,7 @@ interface IMetroResponseRaw {
 export interface ParsedIMetroArrival {
   lineCode: string;
   stationCode: string;
+  mode: 'metro';
   directionId: string;
   platformCode?: string;
   destination: string;
@@ -105,6 +106,7 @@ export async function fetchArrivalsByStation(
           arrivals.push({
             lineCode: lineCodeFilter,
             stationCode,
+            mode: 'metro',
             directionId,
             platformCode,
             destination,

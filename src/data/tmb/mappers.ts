@@ -8,7 +8,7 @@ export function mapLineDto(dto: LineDto): Line {
     code: dto.code,
     name: dto.name,
     color: dto.color,
-    mode: 'metro',
+    mode: dto.mode,
   };
 }
 
@@ -16,6 +16,7 @@ export function mapStationDto(dto: StationDto): Station {
   return {
     code: dto.code,
     lineCode: dto.lineCode,
+    mode: dto.mode,
     name: dto.name,
     lat: dto.lat,
     lon: dto.lon,
@@ -34,6 +35,7 @@ export function mapSegmentDto(dto: SegmentDto): Segment {
   return {
     id: dto.id,
     lineCode: dto.lineCode,
+    mode: dto.mode,
     fromStationCode: dto.fromStationCode,
     toStationCode: dto.toStationCode,
     points: dto.points,
@@ -44,6 +46,7 @@ export function mapArrivalDto(dto: ArrivalDto): Arrival {
   return {
     lineCode: dto.lineCode,
     stationCode: dto.stationCode,
+    mode: dto.mode,
     directionId: dto.directionId,
     platformCode: dto.platformCode,
     destination: dto.destination,

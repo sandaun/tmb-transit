@@ -1,11 +1,18 @@
 import { router } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MapAdapter } from '@/src/features/station/components/map-adapter';
+import { ModeToggle } from '@/src/features/station/components/mode-toggle';
+import { FamilyFilter } from '@/src/features/station/components/family-filter';
 import { SearchShell } from '@/src/features/station/components/search-shell';
-import type { Line } from '@/src/domain/catalog/models';
+import type { Line, TransportMode } from '@/src/domain/catalog/models';
+import {
+  filterLinesByFamily,
+  listAvailableFamilies,
+  type BusLineFamily,
+} from '@/src/features/catalog/utils/bus-line-family';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
@@ -13,27 +20,45 @@ import type { StationInterchange } from '@/src/features/station/utils/station-in
 interface MapScreenProps {
   lineCode: string;
   lines?: Line[];
+  mode: TransportMode;
   stationCode: string;
   showBackButton?: boolean;
   stationInterchanges?: StationInterchange[];
   onLineChange?: (lineCode: string) => void;
+  onModeChange?: (mode: TransportMode) => void;
   onStationChange?: (stationCode: string) => void;
 }
 
 export function MapScreen({
   lineCode,
   lines,
+  mode,
   stationCode,
   showBackButton = true,
   stationInterchanges,
   onLineChange,
+  onModeChange,
   onStationChange,
 }: MapScreenProps) {
   const insets = useSafeAreaInsets();
 
-  const stationsQuery = useLineStationsQuery(lineCode);
-  const segmentsQuery = useLineSegmentsQuery(lineCode);
+  const stationsQuery = useLineStationsQuery(mode, lineCode);
+  const segmentsQuery = useLineSegmentsQuery(mode, lineCode);
   const stations = useMemo(() => stationsQuery.data ?? [], [stationsQuery.data]);
+
+  const [busFamily, setBusFamily] = useState<BusLineFamily | null>(null);
+
+  const availableFamilies = useMemo(
+    () => (mode === 'bus' ? listAvailableFamilies(lines ?? []) : []),
+    [lines, mode],
+  );
+
+  const visibleLines = useMemo(() => {
+    if (mode !== 'bus' || !lines) {
+      return lines ?? [];
+    }
+    return filterLinesByFamily(lines, busFamily);
+  }, [busFamily, lines, mode]);
 
   const handleStationPress = useCallback(
     (nextStationCode: string) => {
@@ -43,16 +68,20 @@ export function MapScreen({
     [onStationChange],
   );
 
+  const showFamilyFilter = mode === 'bus' && availableFamilies.length > 0;
+  const overlayOffsetExtra = (onModeChange ? 56 : 0) + (showFamilyFilter ? 48 : 0);
+
   return (
     <View style={styles.root}>
       <MapAdapter
         lineCode={lineCode}
+        mode={mode}
         stations={stations}
         segments={segmentsQuery.data ?? []}
         selectedStationCode={stationCode}
         stationInterchanges={stationInterchanges}
         isRouteLoading={segmentsQuery.isLoading}
-        locationButtonTop={insets.top + 72}
+        locationButtonTop={insets.top + 76 + overlayOffsetExtra}
         onStationPress={handleStationPress}
       />
 
@@ -62,11 +91,24 @@ export function MapScreen({
             <Text style={styles.backButtonText}>{'<'}</Text>
           </Pressable>
         ) : (
-          <SearchShell
-            lineCode={lineCode}
-            lines={lines}
-            onLineChange={onLineChange}
-          />
+          <View style={styles.controls}>
+            {onModeChange ? (
+              <ModeToggle mode={mode} onChange={onModeChange} />
+            ) : null}
+            {showFamilyFilter ? (
+              <FamilyFilter
+                available={availableFamilies}
+                selected={busFamily}
+                onChange={setBusFamily}
+              />
+            ) : null}
+            <SearchShell
+              lineCode={lineCode}
+              lines={visibleLines}
+              mode={mode}
+              onLineChange={onLineChange}
+            />
+          </View>
         )}
       </View>
     </View>
@@ -83,6 +125,9 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 20,
+  },
+  controls: {
+    gap: 8,
   },
   backButton: {
     width: 48,

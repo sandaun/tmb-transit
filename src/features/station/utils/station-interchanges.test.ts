@@ -22,6 +22,7 @@ function makeStation(
   return {
     code,
     lineCode,
+    mode: 'metro',
     name,
     lat,
     lon,

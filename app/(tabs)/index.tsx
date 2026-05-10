@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useAllLineStationsQuery } from '@/src/features/catalog/hooks/use-all-line-stations-query';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
-import { useMetroLinesQuery } from '@/src/features/catalog/hooks/use-metro-lines-query';
+import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
 import {
   LocalBottomSheet,
   type LocalBottomSheetHandle,
@@ -13,40 +14,57 @@ import { StationContent } from '@/src/features/station/components/station-conten
 import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
 import { useTransitStore } from '@/src/state/store';
 
-function pickDefaultLineCode(lineCodes: string[]): string | null {
-  const l3 = lineCodes.find(
-    (code) => code.toLowerCase() === 'l3' || code === '3',
-  );
-  return l3 ?? lineCodes[0] ?? null;
+const DEFAULT_MODE: TransportMode = 'metro';
+
+function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null {
+  if (!lines.length) {
+    return null;
+  }
+
+  if (mode === 'metro') {
+    const l3 = lines.find(
+      (line) => line.code.toLowerCase() === 'l3' || line.code === '3',
+    );
+    return (l3 ?? lines[0]).code;
+  }
+
+  return lines[0].code;
 }
 
 export default function MapTabScreen() {
-  const {
-    data: lines = [],
-    isLoading: linesLoading,
-    error: linesError,
-  } = useMetroLinesQuery();
-
+  const selectedMode = useTransitStore((s) => s.selectedMode);
   const selectedLineCode = useTransitStore((s) => s.selectedLineCode);
   const selectedStationCode = useTransitStore((s) => s.selectedStationCode);
   const setSelection = useTransitStore((s) => s.setSelection);
 
+  const [browseMode, setBrowseMode] = useState<TransportMode>(selectedMode ?? DEFAULT_MODE);
+  const mode = browseMode;
+
+  const {
+    data: lines = [],
+    isLoading: linesLoading,
+    error: linesError,
+  } = useLinesQuery(mode);
+
   const lineCode =
-    selectedLineCode ?? pickDefaultLineCode(lines.map((l) => l.code));
+    (selectedMode === mode && selectedLineCode) ||
+    pickDefaultLineCode(mode, lines);
 
   const {
     data: stations = [],
     isLoading: stationsLoading,
     error: stationsError,
-  } = useLineStationsQuery(lineCode);
-  const allStationsQuery = useAllLineStationsQuery(lines);
+  } = useLineStationsQuery(mode, lineCode);
+  const interchangeLines = mode === 'metro' ? lines : [];
+  const allStationsQuery = useAllLineStationsQuery(interchangeLines);
   const stationInterchanges = useMemo(
-    () => buildStationInterchanges(lines, allStationsQuery.stationsByLine),
-    [allStationsQuery.stationsByLine, lines],
+    () => buildStationInterchanges(interchangeLines, allStationsQuery.stationsByLine),
+    [allStationsQuery.stationsByLine, interchangeLines],
   );
 
   const stationCode =
-    (selectedStationCode &&
+    (selectedMode === mode &&
+      selectedStationCode &&
       stations.some((s) => s.code === selectedStationCode) &&
       selectedStationCode) ||
     stations[0]?.code ||
@@ -60,36 +78,59 @@ export default function MapTabScreen() {
       return;
     }
 
-    if (selectedLineCode === lineCode && selectedStationCode === stationCode) {
+    if (
+      selectedMode === mode &&
+      selectedLineCode === lineCode &&
+      selectedStationCode === stationCode
+    ) {
       return;
     }
 
-    setSelection(lineCode, stationCode);
-  }, [lineCode, selectedLineCode, selectedStationCode, setSelection, stationCode]);
+    setSelection(mode, lineCode, stationCode);
+  }, [
+    lineCode,
+    mode,
+    selectedLineCode,
+    selectedMode,
+    selectedStationCode,
+    setSelection,
+    stationCode,
+  ]);
 
   const handleDetentChange = useCallback((nextDetentIndex: number) => {
     setDetentIndex(nextDetentIndex);
   }, []);
 
-  const handleLineChange = useCallback(
-    (nextLineCode: string) => {
-      setSelection(nextLineCode, '');
+  const handleModeChange = useCallback(
+    (nextMode: TransportMode) => {
+      if (nextMode === browseMode) return;
+      setBrowseMode(nextMode);
       sheetRef.current?.resize(0);
     },
-    [setSelection],
+    [browseMode],
+  );
+
+  const handleLineChange = useCallback(
+    (nextLineCode: string) => {
+      const nextLine = lines.find((line) => line.code === nextLineCode);
+      setSelection(nextLine?.mode ?? mode, nextLineCode, '');
+      sheetRef.current?.resize(0);
+    },
+    [lines, mode, setSelection],
   );
 
   const handleStationChange = useCallback(
     (nextStationCode: string) => {
       if (!lineCode) return;
-      setSelection(lineCode, nextStationCode);
+      setSelection(mode, lineCode, nextStationCode);
       sheetRef.current?.resize(1);
     },
-    [lineCode, setSelection],
+    [lineCode, mode, setSelection],
   );
   const handleLineStationSelect = useCallback(
-    (nextLineCode: string, nextStationCode: string) => {
-      setSelection(nextLineCode, nextStationCode);
+    (nextMode: TransportMode, nextLineCode: string, nextStationCode: string) => {
+      setBrowseMode(nextMode);
+      setSelection(nextMode, nextLineCode, nextStationCode);
       sheetRef.current?.resize(1);
     },
     [setSelection],
@@ -122,10 +163,12 @@ export default function MapTabScreen() {
       <MapScreen
         lineCode={lineCode}
         lines={lines}
+        mode={mode}
         stationCode={stationCode}
         showBackButton={false}
         stationInterchanges={stationInterchanges}
         onLineChange={handleLineChange}
+        onModeChange={handleModeChange}
         onStationChange={handleStationChange}
       />
 

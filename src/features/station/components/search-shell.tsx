@@ -1,18 +1,20 @@
 import { BlurView } from 'expo-blur';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import type { Line } from '@/src/domain/catalog/models';
-import { MetroLineBadge } from '@/src/features/catalog/components/metro-line-badge';
+import type { Line, TransportMode } from '@/src/domain/catalog/models';
+import { LineBadge } from '@/src/features/catalog/components/line-badge';
 
 interface SearchShellProps {
   lineCode: string;
   lines?: Line[];
+  mode: TransportMode;
   onLineChange?: (lineCode: string) => void;
 }
 
 export function SearchShell({
   lineCode,
   lines = [],
+  mode,
   onLineChange,
 }: SearchShellProps) {
   if (lines.length === 0) {
@@ -21,7 +23,7 @@ export function SearchShell({
         <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
         <View style={styles.row}>
           <View style={styles.chip}>
-            <MetroLineBadge lineCode={lineCode} size="small" />
+            <LineBadge lineCode={lineCode} mode={mode} size="small" />
           </View>
         </View>
       </View>
@@ -47,9 +49,10 @@ export function SearchShell({
               style={[styles.chip, selected ? styles.chipActive : null]}
               onPress={() => onLineChange?.(line.code)}
             >
-              <MetroLineBadge
+              <LineBadge
                 color={line.color}
                 lineCode={line.code}
+                mode={line.mode}
                 size="small"
               />
             </Pressable>

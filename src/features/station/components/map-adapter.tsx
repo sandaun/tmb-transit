@@ -17,13 +17,14 @@ import MapView, {
 } from 'react-native-maps';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import type { Station } from '@/src/domain/catalog/models';
+import type { Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
-import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
+import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 
 interface MapAdapterProps {
   lineCode: string;
+  mode: TransportMode;
   stations: Station[];
   segments: Segment[];
   selectedStationCode: string;
@@ -100,6 +101,7 @@ function getStationMarkerImage(lineLabel: string, isSelected: boolean): ImageReq
 
 export function MapAdapter({
   lineCode,
+  mode,
   stations,
   segments,
   selectedStationCode,
@@ -121,7 +123,7 @@ export function MapAdapter({
   const selectedStation = stations.find(
     (station) => station.code === selectedStationCode,
   );
-  const lineBrand = getMetroLineBrand(lineCode);
+  const lineBrand = getLineBrand(mode, lineCode);
 
   const initialRegion = useMemo(() => {
     const center = selectedStation ?? stations[0];
@@ -414,7 +416,7 @@ export function MapAdapter({
               zIndex={30}
               onPress={() => handleStationPress(station.code)}
             >
-              <StationTransferBadges lineCodes={lineCodes} />
+              <StationTransferBadges lineCodes={lineCodes} mode={mode} />
             </Marker>
           );
         })}
@@ -471,7 +473,13 @@ export function MapAdapter({
   );
 }
 
-function StationTransferBadges({ lineCodes }: { lineCodes: string[] }) {
+function StationTransferBadges({
+  lineCodes,
+  mode,
+}: {
+  lineCodes: string[];
+  mode: TransportMode;
+}) {
   const visibleLineCodes = lineCodes.slice(0, 3);
   const extraCount = Math.max(0, lineCodes.length - visibleLineCodes.length);
 
@@ -479,7 +487,7 @@ function StationTransferBadges({ lineCodes }: { lineCodes: string[] }) {
     <View style={styles.transferBadgeAnchorBox}>
       <View style={styles.transferBadgeRow}>
         {visibleLineCodes.map((lineCode) => {
-          const brand = getMetroLineBrand(lineCode);
+          const brand = getLineBrand(mode, lineCode);
 
           return (
             <View

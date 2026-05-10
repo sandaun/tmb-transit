@@ -7,6 +7,7 @@ import { getLiveEtaSec } from '@/src/features/station/utils/arrival-helpers';
 const arrival: Arrival = {
   lineCode: 'L3',
   stationCode: '001',
+  mode: 'metro',
   directionId: '1',
   destination: 'Zona Universitaria',
   etaSec: 90,

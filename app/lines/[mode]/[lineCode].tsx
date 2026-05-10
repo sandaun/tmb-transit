@@ -1,13 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 
 import type { TransportMode } from '@/src/domain/catalog/models';
-import { StationScreen } from '@/src/features/station/components/station-screen';
+import { LineStationsScreen } from '@/src/features/catalog/components/line-stations-screen';
 
 function ensureString(value: string | string[] | undefined): string {
   if (Array.isArray(value)) {
     return value[0] ?? '';
   }
-
   return value ?? '';
 }
 
@@ -16,20 +15,16 @@ function parseMode(value: string | string[] | undefined): TransportMode {
   return raw === 'bus' ? 'bus' : 'metro';
 }
 
-export default function StationRoute() {
+export default function LineStationsRoute() {
   const params = useLocalSearchParams<{
-    lineCode?: string | string[];
-    stationCode?: string | string[];
     mode?: string | string[];
+    lineCode?: string | string[];
   }>();
 
   return (
-    <StationScreen
-      lineCode={ensureString(params.lineCode)}
+    <LineStationsScreen
       mode={parseMode(params.mode)}
-      stationCode={ensureString(params.stationCode)}
-      showBackButton
-      syncRoute
+      lineCode={ensureString(params.lineCode)}
     />
   );
 }

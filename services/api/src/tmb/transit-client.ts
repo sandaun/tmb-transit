@@ -103,6 +103,7 @@ export async function getMetroLineStations(lineCode: string): Promise<StationDto
     stations.push({
       code,
       lineCode,
+      mode: 'metro',
       name: getString(props, ['NOM_ESTACIO', 'nom_estacio', 'DESC_ESTACIO']) ?? `Estació ${code}`,
       lat: point.lat,
       lon: point.lon,
@@ -157,6 +158,7 @@ export async function getMetroLineSegments(lineCode: string): Promise<SegmentDto
     segments.push({
       id: segmentId,
       lineCode,
+      mode: 'metro',
       fromStationCode: getString(props, ['CODI_ESTACIO_ORIGEN', 'codi_estacio_origen']),
       toStationCode: getString(props, ['CODI_ESTACIO_DESTI', 'codi_estacio_desti']),
       points,

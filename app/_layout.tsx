@@ -21,6 +21,10 @@ export default function RootLayout() {
               name="station/[lineCode]/[stationCode]"
               options={{ title: 'Station', headerShown: false }}
             />
+            <Stack.Screen
+              name="lines/[mode]/[lineCode]"
+              options={{ headerShown: false, animation: 'slide_from_right' }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

@@ -1,25 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { APP_CONFIG } from '@/src/config/app-config';
 import { readCatalogCache, writeCatalogCache } from '@/src/data/cache/catalog-cache';
-import { fetchMetroLines } from '@/src/data/tmb/data-source';
-import type { Line } from '@/src/domain/catalog/models';
-
-const queryKey = ['catalog', 'metro', 'lines'] as const;
+import { fetchLines } from '@/src/data/tmb/data-source';
+import type { Line, TransportMode } from '@/src/domain/catalog/models';
 
 function isFresh(createdAt: number): boolean {
   return Date.now() - createdAt < APP_CONFIG.catalogTtlMs;
 }
 
-export function useMetroLinesQuery() {
+export function useLinesQuery(mode: TransportMode) {
   const queryClient = useQueryClient();
+  const queryKey = useMemo(() => ['catalog', mode, 'lines'] as const, [mode]);
+  const cacheKey = `lines:${mode}`;
 
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      const lines = await fetchMetroLines();
-      await writeCatalogCache<Line[]>('lines', lines);
+      const lines = await fetchLines(mode);
+      await writeCatalogCache<Line[]>(cacheKey, lines);
       return lines;
     },
     enabled: false,
@@ -30,7 +30,7 @@ export function useMetroLinesQuery() {
     let isCancelled = false;
 
     async function bootstrap() {
-      const cached = await readCatalogCache<Line[]>('lines');
+      const cached = await readCatalogCache<Line[]>(cacheKey);
 
       if (!cached || isCancelled) {
         await refetch();
@@ -49,7 +49,7 @@ export function useMetroLinesQuery() {
     return () => {
       isCancelled = true;
     };
-  }, [queryClient, refetch]);
+  }, [cacheKey, queryClient, queryKey, refetch]);
 
   return query;
 }

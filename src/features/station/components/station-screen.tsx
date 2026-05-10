@@ -17,10 +17,10 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import type { Station } from '@/src/domain/catalog/models';
+import type { Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Arrival } from '@/src/domain/realtime/models';
-import { MetroLineBadge } from '@/src/features/catalog/components/metro-line-badge';
-import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
+import { LineBadge } from '@/src/features/catalog/components/line-badge';
+import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { MapAdapter } from '@/src/features/station/components/map-adapter';
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
@@ -34,6 +34,7 @@ import {
 
 interface StationScreenProps {
   lineCode: string;
+  mode: TransportMode;
   stationCode: string;
   showBackButton?: boolean;
   syncRoute?: boolean;
@@ -72,14 +73,16 @@ function getStationStatusColor(station: Station | undefined): string {
   return station.statusLabel.toLowerCase() === 'operatiu' ? '#86F0B4' : '#FFD38E';
 }
 
-function SearchShell({ lineCode }: { lineCode: string }) {
+function SearchShell({ lineCode, mode }: { lineCode: string; mode: TransportMode }) {
   return (
     <View style={styles.modeRow}>
       <View style={[styles.modeChip, styles.modeChipActive]}>
-        <Text style={[styles.modeChipText, styles.modeChipTextActive]}>Metro</Text>
+        <Text style={[styles.modeChipText, styles.modeChipTextActive]}>
+          {mode === 'bus' ? 'Bus' : 'Metro'}
+        </Text>
       </View>
       <View style={styles.lineModeChip}>
-        <MetroLineBadge lineCode={lineCode} size="small" />
+        <LineBadge lineCode={lineCode} mode={mode} size="small" />
       </View>
     </View>
   );
@@ -112,12 +115,13 @@ function MapTabBar({ bottomInset }: { bottomInset: number }) {
 
 export function StationScreen({
   lineCode,
+  mode,
   stationCode,
   showBackButton = true,
   syncRoute = false,
   onStationChange,
 }: StationScreenProps) {
-  const lineBrand = getMetroLineBrand(lineCode);
+  const lineBrand = getLineBrand(mode, lineCode);
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [now, setNow] = useState(Date.now());
@@ -224,8 +228,8 @@ export function StationScreen({
     }
   }, [animateToSnap, showBackButton, stationCode]);
 
-  const stationsQuery = useLineStationsQuery(lineCode);
-  const segmentsQuery = useLineSegmentsQuery(lineCode);
+  const stationsQuery = useLineStationsQuery(mode, lineCode);
+  const segmentsQuery = useLineSegmentsQuery(mode, lineCode);
   const stations = useMemo(() => stationsQuery.data ?? [], [stationsQuery.data]);
 
   useEffect(() => {
@@ -254,6 +258,7 @@ export function StationScreen({
   );
 
   const arrivalsQuery = useStationArrivalsQuery(
+    mode,
     lineCode || null,
     activeStationCode || null,
   );
@@ -368,6 +373,7 @@ export function StationScreen({
       <View style={styles.root}>
         <MapAdapter
           lineCode={lineCode}
+          mode={mode}
           stations={stations}
           segments={segmentsQuery.data ?? []}
           selectedStationCode={activeStationCode}
@@ -390,7 +396,7 @@ export function StationScreen({
               <Text style={styles.backButtonText}>{'<'}</Text>
             </Pressable>
           ) : (
-            <SearchShell lineCode={lineCode} />
+            <SearchShell lineCode={lineCode} mode={mode} />
           )}
         </View>
 
@@ -472,7 +478,7 @@ export function StationScreen({
                       key={makeArrivalKey(arrival, index)}
                       style={styles.compactRow}>
                       <View style={styles.compactRowLeft}>
-                        <MetroLineBadge lineCode={lineCode} size="medium" />
+                        <LineBadge lineCode={lineCode} mode={mode} size="medium" />
                         <View style={styles.compactTextWrap}>
                           <Text style={styles.compactRouteText}>
                             {arrival.destination}
@@ -519,7 +525,7 @@ export function StationScreen({
                     ) : null}
 
                     <View style={styles.lineInfoPill}>
-                      <MetroLineBadge lineCode={lineCode} size="small" />
+                      <LineBadge lineCode={lineCode} mode={mode} size="small" />
                     </View>
                   </View>
 
@@ -532,7 +538,7 @@ export function StationScreen({
                   {nextArrival ? (
                     <View style={styles.groupCard}>
                       <View style={styles.heroRow}>
-                        <MetroLineBadge lineCode={lineCode} size="large" />
+                        <LineBadge lineCode={lineCode} mode={mode} size="large" />
                         <View style={styles.heroTextWrap}>
                           <Text style={styles.heroEyebrow}>Next train</Text>
                           <Text style={styles.groupTitle}>{nextArrival.destination}</Text>
@@ -553,7 +559,7 @@ export function StationScreen({
                           style={styles.groupRow}>
                           <View style={styles.groupRowLeft}>
                             <View style={styles.groupLineRow}>
-                              <MetroLineBadge lineCode={lineCode} size="small" />
+                              <LineBadge lineCode={lineCode} mode={mode} size="small" />
                               <Text style={styles.groupDestination}>
                                 {arrival.destination}
                               </Text>

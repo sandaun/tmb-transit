@@ -12,9 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { APP_CONFIG } from '@/src/config/app-config';
 import { fetchStationArrivals } from '@/src/data/tmb/data-source';
-import type { Line } from '@/src/domain/catalog/models';
+import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
-import { getMetroLineBrand } from '@/src/features/catalog/utils/metro-line-brand';
+import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { RouteBadge } from '@/src/features/station/components/bottom-sheet/route-badge';
 import {
   formatEta,
@@ -35,12 +35,16 @@ import { useTransitStore } from '@/src/state/store';
  * The map keeps this panel mounted as an overlay, so polling is tied to the
  * current selection instead of screen focus events.
  */
-function useSheetArrivals(lineCode: string | null, stationCode: string | null) {
+function useSheetArrivals(
+  mode: TransportMode,
+  lineCode: string | null,
+  stationCode: string | null,
+) {
   const shouldPoll = Boolean(lineCode && stationCode);
 
   return useQuery({
-    queryKey: ['realtime', 'arrivals', lineCode, stationCode],
-    queryFn: () => fetchStationArrivals(lineCode!, stationCode!),
+    queryKey: ['realtime', mode, 'arrivals', lineCode, stationCode],
+    queryFn: () => fetchStationArrivals(mode, lineCode!, stationCode!),
     enabled: shouldPoll,
     staleTime: 5_000,
     refetchInterval: shouldPoll ? APP_CONFIG.arrivalsPollIntervalMs : false,
@@ -52,12 +56,13 @@ function useInterchangeArrivals(members: StationInterchangeMember[]) {
     queries: members.map((member) => ({
       queryKey: [
         'realtime',
+        member.line.mode,
         'arrivals',
         member.line.code,
         member.station.code,
       ] as const,
       queryFn: () =>
-        fetchStationArrivals(member.line.code, member.station.code),
+        fetchStationArrivals(member.line.mode, member.line.code, member.station.code),
       enabled: Boolean(member.line.code && member.station.code),
       staleTime: 5_000,
       refetchInterval: APP_CONFIG.arrivalsPollIntervalMs,
@@ -68,7 +73,7 @@ function useInterchangeArrivals(members: StationInterchangeMember[]) {
 interface StationContentProps {
   lines?: Line[];
   stationInterchanges?: StationInterchange[];
-  onLineStationSelect?: (lineCode: string, stationCode: string) => void;
+  onLineStationSelect?: (mode: TransportMode, lineCode: string, stationCode: string) => void;
 }
 
 export function StationContent({
@@ -77,13 +82,14 @@ export function StationContent({
   onLineStationSelect,
 }: StationContentProps) {
   const insets = useSafeAreaInsets();
+  const mode = useTransitStore((s) => s.selectedMode);
   const lineCode = useTransitStore((s) => s.selectedLineCode);
   const stationCode = useTransitStore((s) => s.selectedStationCode);
 
-  const stationsQuery = useLineStationsQuery(lineCode);
+  const stationsQuery = useLineStationsQuery(mode, lineCode);
   const station = stationsQuery.data?.find((s) => s.code === stationCode);
 
-  const arrivalsQuery = useSheetArrivals(lineCode, stationCode);
+  const arrivalsQuery = useSheetArrivals(mode, lineCode, stationCode);
   const selectedInterchange = useMemo(
     () => findStationInterchange(stationInterchanges, lineCode, stationCode),
     [lineCode, stationCode, stationInterchanges],
@@ -118,7 +124,7 @@ export function StationContent({
     return <View />;
   }
 
-  const lineBrand = getMetroLineBrand(lineCode);
+  const lineBrand = getLineBrand(mode, lineCode);
   const nextArrival = orderedArrivals[0];
   const followingArrivals = orderedArrivals.slice(1, 6);
   const stationName = selectedInterchange?.name ?? station?.name ?? stationCode;
@@ -182,12 +188,13 @@ export function StationContent({
                   ]}
                   onPress={() =>
                     onLineStationSelect?.(
+                      member.line.mode,
                       member.line.code,
                       member.station.code,
                     )
                   }
                 >
-                  <RouteBadge lineCode={member.line.code} size="small" />
+                  <RouteBadge lineCode={member.line.code} mode={member.line.mode} size="small" />
                   <Text
                     style={[
                       styles.lineOptionText,
@@ -230,7 +237,7 @@ export function StationContent({
               now={now}
               query={interchangeArrivalQueries[index]}
               onPress={() =>
-                onLineStationSelect?.(member.line.code, member.station.code)
+                onLineStationSelect?.(member.line.mode, member.line.code, member.station.code)
               }
             />
           ))}
@@ -238,7 +245,7 @@ export function StationContent({
       ) : nextArrival ? (
         <View style={styles.card}>
           <View style={styles.heroRow}>
-            <RouteBadge lineCode={lineCode} size="large" />
+            <RouteBadge lineCode={lineCode} mode={mode} size="large" />
             <View style={styles.heroTextWrap}>
               <Text style={styles.heroEyebrow}>Next train</Text>
               <Text style={styles.heroTitle}>{nextArrival.destination}</Text>
@@ -259,7 +266,7 @@ export function StationContent({
             <View key={makeArrivalKey(arrival, index)} style={styles.row}>
               <View style={styles.rowLeft}>
                 <View style={styles.lineRow}>
-                  <RouteBadge lineCode={lineCode} size="small" />
+                  <RouteBadge lineCode={lineCode} mode={mode} size="small" />
                   <Text style={styles.rowDestination}>
                     {arrival.destination}
                   </Text>
@@ -316,7 +323,7 @@ function InterchangeArrivalSection({
       onPress={onPress}
     >
       <View style={styles.interchangeHeader}>
-        <RouteBadge lineCode={member.line.code} size="large" />
+        <RouteBadge lineCode={member.line.code} mode={member.line.mode} size="large" />
         <View style={styles.interchangeHeaderText}>
           <Text style={styles.interchangeDestination}>
             {firstArrival?.destination ?? member.line.name}

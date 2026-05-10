@@ -18,6 +18,7 @@ export const env = {
   tmbAppKey: required('TMB_APP_KEY'),
   transitBaseUrl: process.env.TMB_TRANSIT_BASE_URL ?? 'https://api.tmb.cat/v1/transit',
   iMetroBaseUrl: process.env.TMB_IMETRO_BASE_URL ?? 'https://api.tmb.cat/v1/itransit',
+  iBusBaseUrl: process.env.TMB_IBUS_BASE_URL ?? 'https://api.tmb.cat/v1/ibus',
 } as const;
 
 export const runtimeConfig = {

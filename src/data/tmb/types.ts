@@ -1,13 +1,16 @@
+import type { TransportMode } from '@/src/domain/catalog/models';
+
 export interface LineDto {
   code: string;
   name: string;
   color?: string;
-  mode: 'metro';
+  mode: TransportMode;
 }
 
 export interface StationDto {
   code: string;
   lineCode: string;
+  mode: TransportMode;
   name: string;
   lat: number;
   lon: number;
@@ -29,6 +32,7 @@ export interface SegmentPointDto {
 export interface SegmentDto {
   id: string;
   lineCode: string;
+  mode: TransportMode;
   points: SegmentPointDto[];
   fromStationCode?: string;
   toStationCode?: string;
@@ -37,6 +41,7 @@ export interface SegmentDto {
 export interface ArrivalDto {
   lineCode: string;
   stationCode: string;
+  mode: TransportMode;
   directionId: string;
   platformCode?: string;
   destination: string;

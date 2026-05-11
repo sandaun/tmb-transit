@@ -13,6 +13,7 @@ import MapView, {
   Marker,
   Polyline,
   type LatLng,
+  type Region,
   type UserLocationChangeEvent,
 } from 'react-native-maps';
 
@@ -120,10 +121,15 @@ export function MapAdapter({
   const shouldCenterOnNextUserLocationRef = useRef(false);
   const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userCoordinate, setUserCoordinate] = useState<LatLng | null>(null);
+  const [latitudeDelta, setLatitudeDelta] = useState(0.05);
   const selectedStation = stations.find(
     (station) => station.code === selectedStationCode,
   );
   const lineBrand = getLineBrand(mode, lineCode);
+
+  const handleRegionChangeComplete = useCallback((region: Region) => {
+    setLatitudeDelta(region.latitudeDelta);
+  }, []);
 
   const initialRegion = useMemo(() => {
     const center = selectedStation ?? stations[0];
@@ -211,6 +217,41 @@ export function MapAdapter({
       ),
     [stations],
   );
+
+  const namedStations = useMemo(() => {
+    if (visibleStations.length === 0) {
+      return [];
+    }
+
+    const showAll = latitudeDelta <= 0.04;
+    const showEvery = latitudeDelta <= 0.08 ? 3 : 0;
+    const result = new Map<string, (typeof visibleStations)[number]>();
+
+    // Always show terminals.
+    result.set(visibleStations[0].code, visibleStations[0]);
+    result.set(
+      visibleStations[visibleStations.length - 1].code,
+      visibleStations[visibleStations.length - 1],
+    );
+
+    // Always show selected station.
+    if (selectedStation) {
+      result.set(selectedStation.code, selectedStation);
+    }
+
+    if (showAll) {
+      for (const station of visibleStations) {
+        result.set(station.code, station);
+      }
+    } else if (showEvery > 0) {
+      for (let index = 0; index < visibleStations.length; index += showEvery) {
+        const station = visibleStations[index];
+        result.set(station.code, station);
+      }
+    }
+
+    return Array.from(result.values());
+  }, [latitudeDelta, selectedStation, visibleStations]);
   const interchangeByStationKey = useMemo(() => {
     const nextInterchangeByStationKey = new Map<string, StationInterchange>();
 
@@ -368,6 +409,7 @@ export function MapAdapter({
         style={styles.map}
         initialRegion={initialRegion}
         onMapReady={() => setIsMapReady(true)}
+        onRegionChangeComplete={handleRegionChangeComplete}
         onUserLocationChange={handleUserLocationChange}
         showsUserLocation={hasLocationPermission || isWaitingForUserLocation}
         userLocationPriority="balanced"
@@ -421,22 +463,27 @@ export function MapAdapter({
           );
         })}
 
-        {selectedStation ? (
-          <Marker
-            key={`${lineCode}:station-name:${selectedStation.code}`}
-            anchor={STATION_NAME_ANCHOR}
-            centerOffset={STATION_NAME_CENTER_OFFSET}
-            coordinate={{ latitude: selectedStation.lat, longitude: selectedStation.lon }}
-            tracksViewChanges={false}
-            zIndex={40}
-            onPress={() => handleStationPress(selectedStation.code)}
-          >
-            <StationNameLabel
-              lineColor={lineBrand.backgroundColor}
-              stationName={selectedStation.name}
-            />
-          </Marker>
-        ) : null}
+        {namedStations.map((station) => {
+          const isSelected = station.code === selectedStationCode;
+
+          return (
+            <Marker
+              key={`${lineCode}:station-name:${station.code}`}
+              anchor={STATION_NAME_ANCHOR}
+              centerOffset={STATION_NAME_CENTER_OFFSET}
+              coordinate={{ latitude: station.lat, longitude: station.lon }}
+              tracksViewChanges={false}
+              zIndex={isSelected ? 40 : 35}
+              onPress={() => handleStationPress(station.code)}
+            >
+              <StationNameLabel
+                lineColor={lineBrand.backgroundColor}
+                stationName={station.name}
+                emphasized={isSelected}
+              />
+            </Marker>
+          );
+        })}
 
       </MapView>
 
@@ -520,14 +567,27 @@ function StationTransferBadges({
 function StationNameLabel({
   lineColor,
   stationName,
+  emphasized = false,
 }: {
   lineColor: string;
   stationName: string;
+  emphasized?: boolean;
 }) {
   return (
-    <View style={styles.stationNameLabel}>
-      <View style={[styles.stationNameAccent, { backgroundColor: lineColor }]} />
-      <Text numberOfLines={1} style={styles.stationNameText}>
+    <View
+      style={[
+        styles.stationNameLabel,
+        emphasized ? styles.stationNameLabelEmphasized : null,
+      ]}>
+      {emphasized ? (
+        <View style={[styles.stationNameAccent, { backgroundColor: lineColor }]} />
+      ) : null}
+      <Text
+        numberOfLines={2}
+        style={[
+          styles.stationNameText,
+          emphasized ? styles.stationNameTextEmphasized : null,
+        ]}>
         {stationName}
       </Text>
     </View>
@@ -623,25 +683,47 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   stationNameLabel: {
-    maxWidth: 176,
-    minHeight: 24,
-    borderRadius: 8,
+    maxWidth: 156,
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
-    backgroundColor: 'rgba(10, 19, 36, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: 7,
+    backgroundColor: 'rgba(11, 18, 32, 0.86)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    shadowColor: '#000000',
+    shadowOpacity: 0.28,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  stationNameLabelEmphasized: {
+    paddingLeft: 0,
+    backgroundColor: 'rgba(7, 12, 24, 0.94)',
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    transform: [{ scale: 1.04 }],
   },
   stationNameAccent: {
-    width: 4,
+    width: 3,
     alignSelf: 'stretch',
+    marginRight: 6,
+    borderTopLeftRadius: 7,
+    borderBottomLeftRadius: 7,
   },
   stationNameText: {
     color: '#F4F8FF',
-    fontSize: 11,
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'left',
+    letterSpacing: 0.1,
+  },
+  stationNameTextEmphasized: {
+    fontSize: 12,
     fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    color: '#FFFFFF',
   },
 });

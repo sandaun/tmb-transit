@@ -1,4 +1,5 @@
 import { BlurView } from 'expo-blur';
+import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
@@ -11,18 +12,36 @@ interface SearchShellProps {
   onLineChange?: (lineCode: string) => void;
 }
 
+const CHIP_WIDTH = 46;
+const CHIP_GAP = 6;
+const SIDE_PADDING = 8;
+
 export function SearchShell({
   lineCode,
   lines = [],
   mode,
   onLineChange,
 }: SearchShellProps) {
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (!lines.length) return;
+
+    const index = lines.findIndex((line) => line.code === lineCode);
+    if (index < 0) return;
+
+    scrollRef.current?.scrollTo({
+      x: Math.max(0, index * (CHIP_WIDTH + CHIP_GAP) - SIDE_PADDING),
+      animated: true,
+    });
+  }, [lineCode, lines]);
+
   if (lines.length === 0) {
     return (
       <View style={styles.container}>
         <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
         <View style={styles.row}>
-          <View style={styles.chip}>
+          <View style={[styles.chip, styles.chipActive]}>
             <LineBadge lineCode={lineCode} mode={mode} size="small" />
           </View>
         </View>
@@ -34,6 +53,7 @@ export function SearchShell({
     <View style={styles.container}>
       <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
@@ -46,7 +66,7 @@ export function SearchShell({
               key={line.code}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              style={[styles.chip, selected ? styles.chipActive : null]}
+              style={[styles.chip, selected ? styles.chipActive : styles.chipInactive]}
               onPress={() => onLineChange?.(line.code)}
             >
               <LineBadge
@@ -78,18 +98,28 @@ const styles = StyleSheet.create({
   row: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 6,
+    gap: CHIP_GAP,
+    paddingHorizontal: SIDE_PADDING,
     paddingVertical: 6,
   },
   chip: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    padding: 3,
-    backgroundColor: 'transparent',
+    width: CHIP_WIDTH,
+    height: CHIP_WIDTH,
+    borderRadius: 14,
+  },
+  chipInactive: {
+    opacity: 0.42,
   },
   chipActive: {
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#0B1220',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    transform: [{ scale: 1.04 }],
   },
 });

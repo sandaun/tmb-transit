@@ -14,8 +14,6 @@ import { StationContent } from '@/src/features/station/components/station-conten
 import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
 import { useTransitStore } from '@/src/state/store';
 
-const DEFAULT_MODE: TransportMode = 'metro';
-
 function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null {
   if (!lines.length) {
     return null;
@@ -32,13 +30,10 @@ function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null 
 }
 
 export default function MapTabScreen() {
-  const selectedMode = useTransitStore((s) => s.selectedMode);
+  const mode = useTransitStore((s) => s.selectedMode);
   const selectedLineCode = useTransitStore((s) => s.selectedLineCode);
   const selectedStationCode = useTransitStore((s) => s.selectedStationCode);
   const setSelection = useTransitStore((s) => s.setSelection);
-
-  const [browseMode, setBrowseMode] = useState<TransportMode>(selectedMode ?? DEFAULT_MODE);
-  const mode = browseMode;
 
   const {
     data: lines = [],
@@ -47,7 +42,7 @@ export default function MapTabScreen() {
   } = useLinesQuery(mode);
 
   const lineCode =
-    (selectedMode === mode && selectedLineCode) ||
+    (selectedLineCode && lines.some((line) => line.code === selectedLineCode) && selectedLineCode) ||
     pickDefaultLineCode(mode, lines);
 
   const {
@@ -63,8 +58,7 @@ export default function MapTabScreen() {
   );
 
   const stationCode =
-    (selectedMode === mode &&
-      selectedStationCode &&
+    (selectedStationCode &&
       stations.some((s) => s.code === selectedStationCode) &&
       selectedStationCode) ||
     stations[0]?.code ||
@@ -79,7 +73,6 @@ export default function MapTabScreen() {
     }
 
     if (
-      selectedMode === mode &&
       selectedLineCode === lineCode &&
       selectedStationCode === stationCode
     ) {
@@ -91,7 +84,6 @@ export default function MapTabScreen() {
     lineCode,
     mode,
     selectedLineCode,
-    selectedMode,
     selectedStationCode,
     setSelection,
     stationCode,
@@ -103,11 +95,11 @@ export default function MapTabScreen() {
 
   const handleModeChange = useCallback(
     (nextMode: TransportMode) => {
-      if (nextMode === browseMode) return;
-      setBrowseMode(nextMode);
+      if (nextMode === mode) return;
+      setSelection(nextMode, '', '');
       sheetRef.current?.resize(0);
     },
-    [browseMode],
+    [mode, setSelection],
   );
 
   const handleLineChange = useCallback(
@@ -129,7 +121,6 @@ export default function MapTabScreen() {
   );
   const handleLineStationSelect = useCallback(
     (nextMode: TransportMode, nextLineCode: string, nextStationCode: string) => {
-      setBrowseMode(nextMode);
       setSelection(nextMode, nextLineCode, nextStationCode);
       sheetRef.current?.resize(1);
     },

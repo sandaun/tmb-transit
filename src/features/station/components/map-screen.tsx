@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { SearchShell } from '@/src/features/station/components/search-shell';
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import {
   filterLinesByFamily,
+  getBusLineFamily,
   listAvailableFamilies,
   type BusLineFamily,
 } from '@/src/features/catalog/utils/bus-line-family';
@@ -47,6 +48,25 @@ export function MapScreen({
   const stations = useMemo(() => stationsQuery.data ?? [], [stationsQuery.data]);
 
   const [busFamily, setBusFamily] = useState<BusLineFamily | null>(null);
+
+  // Reset the family filter when leaving bus mode.
+  useEffect(() => {
+    if (mode !== 'bus') {
+      setBusFamily(null);
+    }
+  }, [mode]);
+
+  // If the selected line is not part of the active family filter, switch to its family
+  // so the user can always see which line is selected in the chip strip.
+  useEffect(() => {
+    if (mode !== 'bus' || !lineCode || busFamily === null) {
+      return;
+    }
+    const family = getBusLineFamily(lineCode);
+    if (family !== busFamily) {
+      setBusFamily(family);
+    }
+  }, [busFamily, lineCode, mode]);
 
   const availableFamilies = useMemo(
     () => (mode === 'bus' ? listAvailableFamilies(lines ?? []) : []),

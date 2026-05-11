@@ -22,6 +22,7 @@ import type { Arrival } from '@/src/domain/realtime/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
+import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
 import { MapAdapter } from '@/src/features/station/components/map-adapter';
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
 import { useStationArrivalsQuery } from '@/src/features/station/hooks/use-station-arrivals-query';
@@ -73,7 +74,15 @@ function getStationStatusColor(station: Station | undefined): string {
   return station.statusLabel.toLowerCase() === 'operatiu' ? '#86F0B4' : '#FFD38E';
 }
 
-function SearchShell({ lineCode, mode }: { lineCode: string; mode: TransportMode }) {
+function SearchShell({
+  lineCode,
+  lineColor,
+  mode,
+}: {
+  lineCode: string;
+  lineColor?: string;
+  mode: TransportMode;
+}) {
   return (
     <View style={styles.modeRow}>
       <View style={[styles.modeChip, styles.modeChipActive]}>
@@ -82,7 +91,7 @@ function SearchShell({ lineCode, mode }: { lineCode: string; mode: TransportMode
         </Text>
       </View>
       <View style={styles.lineModeChip}>
-        <LineBadge lineCode={lineCode} mode={mode} size="small" />
+        <LineBadge lineCode={lineCode} mode={mode} color={lineColor} size="small" />
       </View>
     </View>
   );
@@ -121,7 +130,13 @@ export function StationScreen({
   syncRoute = false,
   onStationChange,
 }: StationScreenProps) {
-  const lineBrand = getLineBrand(mode, lineCode);
+  const linesQuery = useLinesQuery(mode);
+  const activeLine = useMemo(
+    () => linesQuery.data?.find((line) => line.code === lineCode),
+    [lineCode, linesQuery.data],
+  );
+  const lineColor = activeLine?.color;
+  const lineBrand = getLineBrand(mode, lineCode, lineColor);
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [now, setNow] = useState(Date.now());
@@ -396,7 +411,7 @@ export function StationScreen({
               <Text style={styles.backButtonText}>{'<'}</Text>
             </Pressable>
           ) : (
-            <SearchShell lineCode={lineCode} mode={mode} />
+            <SearchShell lineCode={lineCode} mode={mode} lineColor={lineColor} />
           )}
         </View>
 
@@ -478,7 +493,7 @@ export function StationScreen({
                       key={makeArrivalKey(arrival, index)}
                       style={styles.compactRow}>
                       <View style={styles.compactRowLeft}>
-                        <LineBadge lineCode={lineCode} mode={mode} size="medium" />
+                        <LineBadge lineCode={lineCode} mode={mode} color={lineColor} size="medium" />
                         <View style={styles.compactTextWrap}>
                           <Text style={styles.compactRouteText}>
                             {arrival.destination}
@@ -525,7 +540,7 @@ export function StationScreen({
                     ) : null}
 
                     <View style={styles.lineInfoPill}>
-                      <LineBadge lineCode={lineCode} mode={mode} size="small" />
+                      <LineBadge lineCode={lineCode} mode={mode} color={lineColor} size="small" />
                     </View>
                   </View>
 
@@ -538,7 +553,7 @@ export function StationScreen({
                   {nextArrival ? (
                     <View style={styles.groupCard}>
                       <View style={styles.heroRow}>
-                        <LineBadge lineCode={lineCode} mode={mode} size="large" />
+                        <LineBadge lineCode={lineCode} mode={mode} color={lineColor} size="large" />
                         <View style={styles.heroTextWrap}>
                           <Text style={styles.heroEyebrow}>Next train</Text>
                           <Text style={styles.groupTitle}>{nextArrival.destination}</Text>
@@ -559,7 +574,7 @@ export function StationScreen({
                           style={styles.groupRow}>
                           <View style={styles.groupRowLeft}>
                             <View style={styles.groupLineRow}>
-                              <LineBadge lineCode={lineCode} mode={mode} size="small" />
+                              <LineBadge lineCode={lineCode} mode={mode} color={lineColor} size="small" />
                               <Text style={styles.groupDestination}>
                                 {arrival.destination}
                               </Text>

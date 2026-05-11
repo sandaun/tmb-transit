@@ -124,7 +124,8 @@ export function StationContent({
     return <View />;
   }
 
-  const lineBrand = getLineBrand(mode, lineCode);
+  const activeLine = lines.find((candidate) => candidate.code === lineCode);
+  const lineBrand = getLineBrand(mode, lineCode, activeLine?.color);
   const nextArrival = orderedArrivals[0];
   const followingArrivals = orderedArrivals.slice(1, 6);
   const stationName = selectedInterchange?.name ?? station?.name ?? stationCode;
@@ -194,7 +195,7 @@ export function StationContent({
                     )
                   }
                 >
-                  <RouteBadge lineCode={member.line.code} mode={member.line.mode} size="small" />
+                  <RouteBadge lineCode={member.line.code} mode={member.line.mode} color={member.line.color} size="small" />
                   <Text
                     style={[
                       styles.lineOptionText,
@@ -245,7 +246,7 @@ export function StationContent({
       ) : nextArrival ? (
         <View style={styles.card}>
           <View style={styles.heroRow}>
-            <RouteBadge lineCode={lineCode} mode={mode} size="large" />
+            <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="large" />
             <View style={styles.heroTextWrap}>
               <Text style={styles.heroEyebrow}>Next train</Text>
               <Text style={styles.heroTitle}>{nextArrival.destination}</Text>
@@ -266,7 +267,7 @@ export function StationContent({
             <View key={makeArrivalKey(arrival, index)} style={styles.row}>
               <View style={styles.rowLeft}>
                 <View style={styles.lineRow}>
-                  <RouteBadge lineCode={lineCode} mode={mode} size="small" />
+                  <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="small" />
                   <Text style={styles.rowDestination}>
                     {arrival.destination}
                   </Text>
@@ -323,7 +324,7 @@ function InterchangeArrivalSection({
       onPress={onPress}
     >
       <View style={styles.interchangeHeader}>
-        <RouteBadge lineCode={member.line.code} mode={member.line.mode} size="large" />
+        <RouteBadge lineCode={member.line.code} mode={member.line.mode} color={member.line.color} size="large" />
         <View style={styles.interchangeHeaderText}>
           <Text style={styles.interchangeDestination}>
             {firstArrival?.destination ?? member.line.name}

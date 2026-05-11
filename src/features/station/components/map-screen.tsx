@@ -7,6 +7,11 @@ import { MapAdapter } from '@/src/features/station/components/map-adapter';
 import { ModeToggle } from '@/src/features/station/components/mode-toggle';
 import { FamilyFilter } from '@/src/features/station/components/family-filter';
 import { SearchShell } from '@/src/features/station/components/search-shell';
+import { NearbyControl } from '@/src/features/nearby/components/nearby-control';
+import {
+  useNearbyStopsQuery,
+  type NearbyStop,
+} from '@/src/features/nearby/hooks/use-nearby-stops-query';
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import {
   filterLinesByFamily,
@@ -29,7 +34,10 @@ interface MapScreenProps {
   onLineChange?: (lineCode: string) => void;
   onModeChange?: (mode: TransportMode) => void;
   onStationChange?: (stationCode: string) => void;
+  onNearbyStopSelect?: (stop: NearbyStop) => void;
 }
+
+const NEARBY_RADIUS_METERS = 500;
 
 export function MapScreen({
   lineCode,
@@ -42,8 +50,12 @@ export function MapScreen({
   onLineChange,
   onModeChange,
   onStationChange,
+  onNearbyStopSelect,
 }: MapScreenProps) {
   const insets = useSafeAreaInsets();
+  const [nearbyEnabled, setNearbyEnabled] = useState(false);
+  const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus']);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
 
   const stationsQuery = useLineStationsQuery(mode, lineCode);
   const segmentsQuery = useLineSegmentsQuery(mode, lineCode);
@@ -101,6 +113,48 @@ export function MapScreen({
     [lineCode, lines],
   );
 
+  const nearbyQuery = useNearbyStopsQuery(userLocation, {
+    modes: nearbyModes,
+    radiusMeters: NEARBY_RADIUS_METERS,
+    enabled: nearbyEnabled,
+  });
+
+  const nearbyMarkers = useMemo(() => {
+    if (!nearbyEnabled) {
+      return [];
+    }
+    return (nearbyQuery.data ?? []).map((stop) => ({
+      code: stop.code,
+      name: stop.name,
+      lat: stop.lat,
+      lon: stop.lon,
+      mode: stop.mode,
+    }));
+  }, [nearbyEnabled, nearbyQuery.data]);
+
+  const handleNearbyTogglePress = useCallback(() => {
+    setNearbyEnabled((current) => !current);
+  }, []);
+
+  const handleNearbyStopPress = useCallback(
+    (stop: { code: string; mode: TransportMode }) => {
+      const match = (nearbyQuery.data ?? []).find(
+        (candidate) => candidate.code === stop.code && candidate.mode === stop.mode,
+      );
+      if (!match) return;
+
+      if (
+        match.mode === mode &&
+        stations.some((station) => station.code === match.code)
+      ) {
+        onStationChange?.(match.code);
+      }
+
+      onNearbyStopSelect?.(match);
+    },
+    [mode, nearbyQuery.data, onNearbyStopSelect, onStationChange, stations],
+  );
+
   const handleStationPress = useCallback(
     (nextStationCode: string) => {
       if (!nextStationCode) return;
@@ -125,7 +179,10 @@ export function MapScreen({
         isRouteLoading={segmentsQuery.isLoading}
         locationButtonTop={insets.top + 76 + overlayOffsetExtra}
         bottomInset={bottomInset}
+        nearbyStops={nearbyMarkers}
         onStationPress={handleStationPress}
+        onUserLocationChange={setUserLocation}
+        onNearbyStopPress={handleNearbyStopPress}
       />
 
       <View style={[styles.topOverlay, { top: insets.top + 8 }]}>
@@ -134,22 +191,30 @@ export function MapScreen({
             <Text style={styles.backButtonText}>{'<'}</Text>
           </Pressable>
         ) : (
-          <View style={styles.controls}>
-            {onModeChange ? (
-              <ModeToggle mode={mode} onChange={onModeChange} />
-            ) : null}
-            {showFamilyFilter ? (
-              <FamilyFilter
-                available={availableFamilies}
-                selected={busFamily}
-                onChange={setBusFamily}
+          <View style={styles.controlsRow}>
+            <View style={styles.controls}>
+              {onModeChange ? (
+                <ModeToggle mode={mode} onChange={onModeChange} />
+              ) : null}
+              {showFamilyFilter ? (
+                <FamilyFilter
+                  available={availableFamilies}
+                  selected={busFamily}
+                  onChange={setBusFamily}
+                />
+              ) : null}
+              <SearchShell
+                lineCode={lineCode}
+                lines={visibleLines}
+                mode={mode}
+                onLineChange={onLineChange}
               />
-            ) : null}
-            <SearchShell
-              lineCode={lineCode}
-              lines={visibleLines}
-              mode={mode}
-              onLineChange={onLineChange}
+            </View>
+            <NearbyControl
+              enabled={nearbyEnabled}
+              modes={nearbyModes}
+              onToggle={handleNearbyTogglePress}
+              onChangeModes={setNearbyModes}
             />
           </View>
         )}
@@ -169,7 +234,13 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 20,
   },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
   controls: {
+    flex: 1,
     gap: 8,
   },
   backButton: {

@@ -23,6 +23,14 @@ import type { Segment } from '@/src/domain/geo/models';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 
+interface NearbyStopMarker {
+  code: string;
+  name: string;
+  lat: number;
+  lon: number;
+  mode: TransportMode;
+}
+
 interface MapAdapterProps {
   lineCode: string;
   lineColor?: string;
@@ -34,7 +42,10 @@ interface MapAdapterProps {
   isRouteLoading?: boolean;
   locationButtonTop?: number;
   bottomInset?: number;
+  nearbyStops?: NearbyStopMarker[];
   onStationPress: (stationCode: string) => void;
+  onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
+  onNearbyStopPress?: (stop: NearbyStopMarker) => void;
 }
 
 interface RoutePolyline {
@@ -113,7 +124,10 @@ export function MapAdapter({
   isRouteLoading = false,
   locationButtonTop = 148,
   bottomInset = 0,
+  nearbyStops = [],
   onStationPress,
+  onUserLocationChange,
+  onNearbyStopPress,
 }: MapAdapterProps) {
   const mapRef = useRef<MapView | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -341,6 +355,7 @@ export function MapAdapter({
         latitude: coordinate.latitude,
         longitude: coordinate.longitude,
       });
+      onUserLocationChange?.({ lat: coordinate.latitude, lon: coordinate.longitude });
       setLocationMessage(null);
 
       if (shouldCenterOnNextUserLocationRef.current) {
@@ -348,7 +363,7 @@ export function MapAdapter({
         centerMap(coordinate, 0.025);
       }
     },
-    [centerMap, stopWaitingForUserLocation],
+    [centerMap, onUserLocationChange, stopWaitingForUserLocation],
   );
 
   const handleCenterUserLocation = useCallback(async () => {
@@ -499,6 +514,20 @@ export function MapAdapter({
           );
         })}
 
+        {nearbyStops.map((stop) => (
+          <Marker
+            key={`nearby:${stop.mode}:${stop.code}`}
+            anchor={STATION_MARKER_ANCHOR}
+            centerOffset={STATION_MARKER_CENTER_OFFSET}
+            coordinate={{ latitude: stop.lat, longitude: stop.lon }}
+            tracksViewChanges={false}
+            zIndex={8}
+            onPress={() => onNearbyStopPress?.(stop)}
+          >
+            <NearbyStopDot mode={stop.mode} />
+          </Marker>
+        ))}
+
       </MapView>
 
       <Pressable
@@ -575,6 +604,17 @@ function StationTransferBadges({
         ) : null}
       </View>
     </View>
+  );
+}
+
+function NearbyStopDot({ mode }: { mode: TransportMode }) {
+  return (
+    <View
+      style={[
+        styles.nearbyDot,
+        mode === 'bus' ? styles.nearbyDotBus : styles.nearbyDotMetro,
+      ]}
+    />
   );
 }
 
@@ -695,6 +735,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '900',
+  },
+  nearbyDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.32,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
+  },
+  nearbyDotMetro: {
+    backgroundColor: '#0B5FFF',
+  },
+  nearbyDotBus: {
+    backgroundColor: '#22A06B',
   },
   stationNameLabel: {
     maxWidth: 156,

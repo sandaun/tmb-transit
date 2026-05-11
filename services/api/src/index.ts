@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import { env } from './config/env';
 import { catalogRoutes } from './routes/catalog';
 import { healthRoutes } from './routes/health';
+import { nearbyRoutes } from './routes/nearby';
 import { realtimeRoutes } from './routes/realtime';
 
 const app = Fastify({
@@ -16,6 +17,7 @@ const start = async () => {
     await app.register(healthRoutes);
     await app.register(catalogRoutes);
     await app.register(realtimeRoutes);
+    await app.register(nearbyRoutes);
 
     app.setErrorHandler((error, _request, reply) => {
       app.log.error(error);

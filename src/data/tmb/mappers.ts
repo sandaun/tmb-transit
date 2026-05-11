@@ -9,6 +9,8 @@ export function mapLineDto(dto: LineDto): Line {
     name: dto.name,
     color: dto.color,
     mode: dto.mode,
+    originStation: dto.originStation,
+    destinationStation: dto.destinationStation,
   };
 }
 

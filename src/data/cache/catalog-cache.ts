@@ -10,7 +10,7 @@ interface CachedPayload<T> {
 const cacheNamespace = APP_CONFIG.useMock ? 'mock' : `api:${APP_CONFIG.apiBaseUrl}`;
 
 function keyFor(baseKey: string): string {
-  return `tmb:catalog:v3:${cacheNamespace}:${baseKey}`;
+  return `tmb:catalog:v4:${cacheNamespace}:${baseKey}`;
 }
 
 export async function readCatalogCache<T>(baseKey: string): Promise<CachedPayload<T> | null> {

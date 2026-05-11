@@ -66,6 +66,8 @@ export async function getMetroLines(): Promise<LineDto[]> {
       name: name ?? `L${code}`,
       color: getString(props, ['COLOR_LINIA', 'color_linia']),
       mode: 'metro',
+      originStation: getString(props, ['ORIGEN_LINIA', 'origen_linia']),
+      destinationStation: getString(props, ['DESTI_LINIA', 'desti_linia']),
     });
   }
 

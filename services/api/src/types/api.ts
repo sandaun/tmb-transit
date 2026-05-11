@@ -14,6 +14,8 @@ export interface LineDto {
   name: string;
   color?: string;
   mode: TransportMode;
+  originStation?: string;
+  destinationStation?: string;
 }
 
 export interface StationDto {

@@ -7,6 +7,8 @@ export interface Line {
   name: string;
   mode: TransportMode;
   color?: string;
+  originStation?: string;
+  destinationStation?: string;
 }
 
 export interface Station extends LatLng {

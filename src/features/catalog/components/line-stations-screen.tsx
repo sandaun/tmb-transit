@@ -73,17 +73,21 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
                 lineCode={lineCode}
                 mode={mode}
                 size="medium"
-                shape="pill"
+                shape="square"
               />
               <View style={styles.titleTextWrap}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {lineCode}
-                </Text>
-                {line?.name && line.name.toUpperCase() !== lineCode.toUpperCase() ? (
-                  <Text style={styles.subtitle} numberOfLines={2}>
-                    {line.name}
+                {line?.originStation && line?.destinationStation ? (
+                  <Text style={styles.title} numberOfLines={2}>
+                    {`${line.originStation} ↔ ${line.destinationStation}`}
                   </Text>
-                ) : null}
+                ) : (
+                  <Text style={styles.title} numberOfLines={1}>
+                    {lineCode}
+                  </Text>
+                )}
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {mode === 'bus' ? 'Línia bus' : 'Línia metro'}
+                </Text>
               </View>
             </View>
           </View>
@@ -125,9 +129,9 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
               <Text style={styles.stationName} numberOfLines={1}>
                 {item.name}
               </Text>
-              {item.serviceDescription ? (
+              {item.accessibilityLabel || item.statusLabel ? (
                 <Text style={styles.stationMeta} numberOfLines={1}>
-                  {item.serviceDescription}
+                  {[item.statusLabel, item.accessibilityLabel].filter(Boolean).join(' · ')}
                 </Text>
               ) : null}
             </View>
@@ -195,9 +199,10 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: '#0B1220',
+    lineHeight: 22,
   },
   subtitle: {
     color: '#4F5D75',

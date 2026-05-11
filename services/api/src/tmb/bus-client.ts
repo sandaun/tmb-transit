@@ -48,6 +48,8 @@ function mapBusLineFeature(feature: GeoFeature): LineDto | null {
     name: getString(props, ['DESC_LINIA', 'desc_linia', 'NOM_LINIA', 'nom_linia']) ?? code,
     color: getString(props, ['COLOR_LINIA', 'color_linia']),
     mode: 'bus',
+    originStation: getString(props, ['ORIGEN_LINIA', 'origen_linia']),
+    destinationStation: getString(props, ['DESTI_LINIA', 'desti_linia']),
   };
 }
 

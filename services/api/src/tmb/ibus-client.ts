@@ -1,6 +1,5 @@
 import { env } from '../config/env';
 import { devLogRawOnce } from '../utils/raw-log';
-import { resolveBusLineInternalId } from './bus-client';
 import type { ArrivalDto } from '../types/api';
 
 interface IBusEntryRaw {
@@ -57,6 +56,10 @@ function parseEtaFromText(text: string | undefined): number | null {
     return Math.max(0, parseInt(seconds[1], 10));
   }
 
+  if (/imminent/i.test(text)) {
+    return 0;
+  }
+
   return null;
 }
 
@@ -86,16 +89,21 @@ function parseEtaSec(entry: IBusEntryRaw): number {
   return 0;
 }
 
+/**
+ * Fetch real-time bus arrivals for a stop.
+ *
+ * TMB's `/v1/ibus/lines/{lineCode}/stops/{stop}` filter endpoint is unreliable
+ * (returns empty results regardless of the line identifier we pass), so we
+ * always query `/v1/ibus/stops/{stop}` and filter client-side by the display
+ * line code, which is what the response actually contains.
+ */
 export async function fetchBusArrivalsByStation(
   stationCode: string,
   lineDisplayCode?: string,
 ): Promise<ArrivalDto[]> {
-  const internalId = lineDisplayCode ? await resolveBusLineInternalId(lineDisplayCode) : undefined;
-  const path = internalId
-    ? `/lines/${encodeURIComponent(internalId)}/stops/${encodeURIComponent(stationCode)}`
-    : `/stops/${encodeURIComponent(stationCode)}`;
-
-  const url = new URL(`${env.iBusBaseUrl}${path}`);
+  const url = new URL(
+    `${env.iBusBaseUrl}/stops/${encodeURIComponent(stationCode)}`,
+  );
   url.searchParams.set('app_id', env.tmbAppId);
   url.searchParams.set('app_key', env.tmbAppKey);
 
@@ -105,20 +113,23 @@ export async function fetchBusArrivalsByStation(
   }
 
   const payload = (await response.json()) as IBusResponseRaw;
-  devLogRawOnce(`ibus:${stationCode}:${internalId ?? 'all'}`, payload);
+  devLogRawOnce(`ibus:${stationCode}`, payload);
 
   const sourceTimestampMs = Date.now();
   const entries = payload.data?.ibus ?? [];
 
+  const normalizedFilter = lineDisplayCode?.trim().toUpperCase();
+
   const arrivals: ArrivalDto[] = entries
     .filter((entry) => {
-      if (!internalId) {
+      if (!normalizedFilter) {
         return true;
       }
-      return asString(entry.line) === internalId;
+      const entryLine = asString(entry.line)?.trim().toUpperCase();
+      return entryLine === normalizedFilter;
     })
     .map((entry, index) => ({
-      lineCode: lineDisplayCode ?? asString(entry.line) ?? '',
+      lineCode: asString(entry.line) ?? lineDisplayCode ?? '',
       stationCode,
       mode: 'bus' as const,
       directionId: asString(entry['route-id'] ?? entry.routeId) ?? `${index}`,

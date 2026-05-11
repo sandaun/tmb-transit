@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useAllLineStationsQuery } from '@/src/features/catalog/hooks/use-all-line-stations-query';
@@ -29,7 +36,11 @@ function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null 
   return lines[0].code;
 }
 
+const SHEET_DETENTS = [0.1, 0.5, 1] as const;
+
 export default function MapTabScreen() {
+  const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const mode = useTransitStore((s) => s.selectedMode);
   const selectedLineCode = useTransitStore((s) => s.selectedLineCode);
   const selectedStationCode = useTransitStore((s) => s.selectedStationCode);
@@ -66,6 +77,12 @@ export default function MapTabScreen() {
 
   const sheetRef = useRef<LocalBottomSheetHandle>(null);
   const [detentIndex, setDetentIndex] = useState(0);
+
+  const sheetHeight = useMemo(() => {
+    const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
+    const detent = SHEET_DETENTS[detentIndex] ?? SHEET_DETENTS[0];
+    return Math.round(usableHeight * detent);
+  }, [detentIndex, insets.top, windowHeight]);
 
   useEffect(() => {
     if (!lineCode || !stationCode) {
@@ -158,6 +175,7 @@ export default function MapTabScreen() {
         stationCode={stationCode}
         showBackButton={false}
         stationInterchanges={stationInterchanges}
+        bottomInset={sheetHeight}
         onLineChange={handleLineChange}
         onModeChange={handleModeChange}
         onStationChange={handleStationChange}
@@ -165,7 +183,7 @@ export default function MapTabScreen() {
 
       <LocalBottomSheet
         ref={sheetRef}
-        detents={[0.1, 0.5, 1]}
+        detents={SHEET_DETENTS}
         initialDetentIndex={0}
         onDetentChange={handleDetentChange}
       >

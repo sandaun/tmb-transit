@@ -25,6 +25,7 @@ import type { StationInterchange } from '@/src/features/station/utils/station-in
 
 interface MapAdapterProps {
   lineCode: string;
+  lineColor?: string;
   mode: TransportMode;
   stations: Station[];
   segments: Segment[];
@@ -32,6 +33,7 @@ interface MapAdapterProps {
   stationInterchanges?: StationInterchange[];
   isRouteLoading?: boolean;
   locationButtonTop?: number;
+  bottomInset?: number;
   onStationPress: (stationCode: string) => void;
 }
 
@@ -102,6 +104,7 @@ function getStationMarkerImage(lineLabel: string, isSelected: boolean): ImageReq
 
 export function MapAdapter({
   lineCode,
+  lineColor,
   mode,
   stations,
   segments,
@@ -109,6 +112,7 @@ export function MapAdapter({
   stationInterchanges = [],
   isRouteLoading = false,
   locationButtonTop = 148,
+  bottomInset = 0,
   onStationPress,
 }: MapAdapterProps) {
   const mapRef = useRef<MapView | null>(null);
@@ -125,7 +129,7 @@ export function MapAdapter({
   const selectedStation = stations.find(
     (station) => station.code === selectedStationCode,
   );
-  const lineBrand = getLineBrand(mode, lineCode);
+  const lineBrand = getLineBrand(mode, lineCode, lineColor);
 
   const handleRegionChangeComplete = useCallback((region: Region) => {
     setLatitudeDelta(region.latitudeDelta);
@@ -223,8 +227,12 @@ export function MapAdapter({
       return [];
     }
 
-    const showAll = latitudeDelta <= 0.04;
-    const showEvery = latitudeDelta <= 0.08 ? 3 : 0;
+    // Bus lines have many more stops and short distances between them,
+    // so we keep all-names off until the user is very zoomed in.
+    const showAllThreshold = mode === 'bus' ? 0.012 : 0.04;
+    const showEveryThreshold = mode === 'bus' ? 0.025 : 0.08;
+    const showAll = latitudeDelta <= showAllThreshold;
+    const showEvery = latitudeDelta <= showEveryThreshold ? 3 : 0;
     const result = new Map<string, (typeof visibleStations)[number]>();
 
     // Always show terminals.
@@ -251,7 +259,12 @@ export function MapAdapter({
     }
 
     return Array.from(result.values());
-  }, [latitudeDelta, selectedStation, visibleStations]);
+  }, [latitudeDelta, mode, selectedStation, visibleStations]);
+
+  const mapPadding = useMemo(
+    () => ({ top: 0, right: 0, bottom: bottomInset, left: 0 }),
+    [bottomInset],
+  );
   const interchangeByStationKey = useMemo(() => {
     const nextInterchangeByStationKey = new Map<string, StationInterchange>();
 
@@ -408,6 +421,7 @@ export function MapAdapter({
         ref={mapRef}
         style={styles.map}
         initialRegion={initialRegion}
+        mapPadding={mapPadding}
         onMapReady={() => setIsMapReady(true)}
         onRegionChangeComplete={handleRegionChangeComplete}
         onUserLocationChange={handleUserLocationChange}

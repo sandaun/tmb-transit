@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +25,7 @@ interface MapScreenProps {
   stationCode: string;
   showBackButton?: boolean;
   stationInterchanges?: StationInterchange[];
+  bottomInset?: number;
   onLineChange?: (lineCode: string) => void;
   onModeChange?: (mode: TransportMode) => void;
   onStationChange?: (stationCode: string) => void;
@@ -37,6 +38,7 @@ export function MapScreen({
   stationCode,
   showBackButton = true,
   stationInterchanges,
+  bottomInset = 0,
   onLineChange,
   onModeChange,
   onStationChange,
@@ -48,20 +50,34 @@ export function MapScreen({
   const stations = useMemo(() => stationsQuery.data ?? [], [stationsQuery.data]);
 
   const [busFamily, setBusFamily] = useState<BusLineFamily | null>(null);
+  const lastSyncedLineCodeRef = useRef<string | null>(null);
 
   // Reset the family filter when leaving bus mode.
   useEffect(() => {
     if (mode !== 'bus') {
       setBusFamily(null);
+      lastSyncedLineCodeRef.current = null;
     }
   }, [mode]);
 
-  // If the selected line is not part of the active family filter, switch to its family
-  // so the user can always see which line is selected in the chip strip.
+  // When the active line changes externally to one that is not visible under the
+  // current family filter, switch to its family so the user can still see it.
+  // Importantly, this never fires when the user is the one toggling the filter.
   useEffect(() => {
-    if (mode !== 'bus' || !lineCode || busFamily === null) {
+    if (mode !== 'bus' || !lineCode) {
+      lastSyncedLineCodeRef.current = lineCode ?? null;
       return;
     }
+
+    if (lastSyncedLineCodeRef.current === lineCode) {
+      return;
+    }
+    lastSyncedLineCodeRef.current = lineCode;
+
+    if (busFamily === null) {
+      return;
+    }
+
     const family = getBusLineFamily(lineCode);
     if (family !== busFamily) {
       setBusFamily(family);
@@ -80,6 +96,11 @@ export function MapScreen({
     return filterLinesByFamily(lines, busFamily);
   }, [busFamily, lines, mode]);
 
+  const activeLine = useMemo(
+    () => lines?.find((line) => line.code === lineCode),
+    [lineCode, lines],
+  );
+
   const handleStationPress = useCallback(
     (nextStationCode: string) => {
       if (!nextStationCode) return;
@@ -95,6 +116,7 @@ export function MapScreen({
     <View style={styles.root}>
       <MapAdapter
         lineCode={lineCode}
+        lineColor={activeLine?.color}
         mode={mode}
         stations={stations}
         segments={segmentsQuery.data ?? []}
@@ -102,6 +124,7 @@ export function MapScreen({
         stationInterchanges={stationInterchanges}
         isRouteLoading={segmentsQuery.isLoading}
         locationButtonTop={insets.top + 76 + overlayOffsetExtra}
+        bottomInset={bottomInset}
         onStationPress={handleStationPress}
       />
 

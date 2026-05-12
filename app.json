@@ -12,10 +12,13 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow TMB Transit to center the map on your current location."
-      }
+      },
+      "bundleIdentifier": "com.anonymous.tmbtransit"
     },
     "android": {
       "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
@@ -26,7 +29,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.tmbtransit"
     },
     "web": {
       "output": "static",
@@ -34,6 +38,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow TMB Transit to access your location to show nearby stops.",
+          "isIosBackgroundLocationEnabled": false
+        }
+      ],
       [
         "expo-splash-screen",
         {

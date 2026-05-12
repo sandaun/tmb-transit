@@ -81,7 +81,9 @@ export default function MapTabScreen() {
   const sheetHeight = useMemo(() => {
     const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
     const detent = SHEET_DETENTS[detentIndex] ?? SHEET_DETENTS[0];
-    return Math.round(usableHeight * detent);
+    const raw = Math.max(116, Math.round(usableHeight * detent));
+    const maxButtonInset = Math.round(windowHeight * 0.45);
+    return Math.min(raw, maxButtonInset);
   }, [detentIndex, insets.top, windowHeight]);
 
   useEffect(() => {

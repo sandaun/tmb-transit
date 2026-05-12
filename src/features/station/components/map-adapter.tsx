@@ -1,8 +1,7 @@
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  PermissionsAndroid,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -40,9 +39,9 @@ interface MapAdapterProps {
   selectedStationCode: string;
   stationInterchanges?: StationInterchange[];
   isRouteLoading?: boolean;
-  locationButtonTop?: number;
   bottomInset?: number;
   nearbyStops?: NearbyStopMarker[];
+  bottomActions?: React.ReactNode;
   onStationPress: (stationCode: string) => void;
   onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
   onNearbyStopPress?: (stop: NearbyStopMarker) => void;
@@ -122,20 +121,37 @@ export function MapAdapter({
   selectedStationCode,
   stationInterchanges = [],
   isRouteLoading = false,
-  locationButtonTop = 148,
   bottomInset = 0,
   nearbyStops = [],
+  bottomActions,
   onStationPress,
   onUserLocationChange,
   onNearbyStopPress,
 }: MapAdapterProps) {
   const mapRef = useRef<MapView | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
-  const [hasLocationPermission, setHasLocationPermission] = useState(
-    Platform.OS !== 'android',
-  );
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [isWaitingForUserLocation, setIsWaitingForUserLocation] = useState(false);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const locationMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (locationMessageTimerRef.current) {
+      clearTimeout(locationMessageTimerRef.current);
+      locationMessageTimerRef.current = null;
+    }
+    if (locationMessage) {
+      locationMessageTimerRef.current = setTimeout(() => {
+        setLocationMessage(null);
+      }, 3_000);
+    }
+    return () => {
+      if (locationMessageTimerRef.current) {
+        clearTimeout(locationMessageTimerRef.current);
+      }
+    };
+  }, [locationMessage]);
+
   const shouldCenterOnNextUserLocationRef = useRef(false);
   const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userCoordinate, setUserCoordinate] = useState<LatLng | null>(null);
@@ -170,16 +186,12 @@ export function MapAdapter({
   }, [selectedStation, stations]);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') {
-      return;
-    }
-
     let isMounted = true;
 
-    PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION)
-      .then((isGranted) => {
+    Location.getForegroundPermissionsAsync()
+      .then(({ status }) => {
         if (isMounted) {
-          setHasLocationPermission(isGranted);
+          setHasLocationPermission(status === 'granted');
         }
       })
       .catch(() => {
@@ -202,24 +214,10 @@ export function MapAdapter({
     [],
   );
 
-  const requestAndroidLocationPermission = useCallback(async () => {
-    if (Platform.OS !== 'android') {
-      setHasLocationPermission(true);
-      return true;
-    }
-
+  const requestLocationPermission = useCallback(async () => {
     try {
-      const status = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Location access',
-          message: 'TMB Transit uses your location to center the map around you.',
-          buttonPositive: 'Allow',
-          buttonNegative: 'Not now',
-        },
-      );
-      const isGranted = status === PermissionsAndroid.RESULTS.GRANTED;
-
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      const isGranted = status === 'granted';
       setHasLocationPermission(isGranted);
       return isGranted;
     } catch {
@@ -371,7 +369,7 @@ export function MapAdapter({
 
     const isGranted = hasLocationPermission
       ? true
-      : await requestAndroidLocationPermission();
+      : await requestLocationPermission();
 
     if (!isGranted) {
       stopWaitingForUserLocation('Location permission is needed to center the map.');
@@ -398,7 +396,7 @@ export function MapAdapter({
   }, [
     centerMap,
     hasLocationPermission,
-    requestAndroidLocationPermission,
+    requestLocationPermission,
     stopWaitingForUserLocation,
     userCoordinate,
   ]);
@@ -530,31 +528,36 @@ export function MapAdapter({
 
       </MapView>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Center map on your current location"
-        style={[
-          styles.locationButton,
-          { top: locationButtonTop },
-          !userCoordinate && !isWaitingForUserLocation && styles.locationButtonIdle,
-        ]}
-        onPress={handleCenterUserLocation}
+      <View
+        pointerEvents="box-none"
+        style={[styles.actionsColumn, { bottom: bottomInset + 28 }]}
       >
-        {isWaitingForUserLocation ? (
-          <ActivityIndicator color="#F4F8FF" />
-        ) : (
-          <IconSymbol
-            name="location.fill"
-            size={22}
-            color={userCoordinate ? '#F4F8FF' : '#AFC2E8'}
-            weight="semibold"
-          />
-        )}
-      </Pressable>
+        {bottomActions}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Center map on your current location"
+          style={[
+            styles.actionButton,
+            !userCoordinate && !isWaitingForUserLocation && styles.actionButtonIdle,
+          ]}
+          onPress={handleCenterUserLocation}
+        >
+          {isWaitingForUserLocation ? (
+            <ActivityIndicator color="#F4F8FF" />
+          ) : (
+            <IconSymbol
+              name="location.fill"
+              size={22}
+              color={userCoordinate ? '#F4F8FF' : '#AFC2E8'}
+              weight="semibold"
+            />
+          )}
+        </Pressable>
+      </View>
       {locationMessage ? (
         <View
           pointerEvents="none"
-          style={[styles.locationMessage, { top: locationButtonTop + 56 }]}
+          style={[styles.locationMessage, { bottom: bottomInset + 80 }]}
         >
           <Text style={styles.locationMessageText}>{locationMessage}</Text>
         </View>
@@ -655,9 +658,14 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
   },
-  locationButton: {
+  actionsColumn: {
     position: 'absolute',
     right: 16,
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 15,
+  },
+  actionButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -671,9 +679,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.28,
     shadowRadius: 18,
     elevation: 8,
-    zIndex: 15,
   },
-  locationButtonIdle: {
+  actionButtonIdle: {
     opacity: 0.82,
   },
   locationMessage: {

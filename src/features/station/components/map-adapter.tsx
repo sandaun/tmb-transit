@@ -681,11 +681,10 @@ function StationNameLabel({
     <View
       style={[
         styles.stationNameLabel,
-        emphasized ? styles.stationNameLabelEmphasized : null,
+        emphasized
+          ? [styles.stationNameLabelEmphasized, { borderColor: lineColor }]
+          : null,
       ]}>
-      {emphasized ? (
-        <View style={[styles.stationNameAccent, { backgroundColor: lineColor }]} />
-      ) : null}
       <Text
         numberOfLines={2}
         style={[
@@ -854,19 +853,11 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   stationNameLabelEmphasized: {
-    paddingLeft: 0,
     backgroundColor: 'rgba(7, 12, 24, 0.94)',
-    borderColor: 'rgba(255, 255, 255, 0.28)',
+    borderWidth: 2.5,
     shadowOpacity: 0.4,
     shadowRadius: 6,
     transform: [{ scale: 1.04 }],
-  },
-  stationNameAccent: {
-    width: 3,
-    alignSelf: 'stretch',
-    marginRight: 6,
-    borderTopLeftRadius: 7,
-    borderBottomLeftRadius: 7,
   },
   stationNameText: {
     color: '#F4F8FF',

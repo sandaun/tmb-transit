@@ -275,10 +275,23 @@ export function MapAdapter({
     return Array.from(result.values());
   }, [latitudeDelta, mode, selectedStation, visibleStations]);
 
+  // Cap the attribution insets to the collapsed sheet height so Apple Maps'
+  // logo, wordmark, and "Legal" link remain visible just above the sheet's
+  // resting position. Required by Apple's MapKit terms.
+  // When the user expands the sheet, the attribution gets covered, which is
+  // a user-driven action and accepted by App Store review.
+  const COLLAPSED_SHEET_HEIGHT = 116;
+  const attributionBottomInset = Math.min(bottomInset, COLLAPSED_SHEET_HEIGHT);
   const mapPadding = useMemo(
-    () => ({ top: 0, right: 0, bottom: bottomInset, left: 0 }),
-    [bottomInset],
+    () => ({ top: 0, right: 0, bottom: attributionBottomInset, left: 0 }),
+    [attributionBottomInset],
   );
+
+  const legalLabelInsets = useMemo(
+    () => ({ bottom: attributionBottomInset + 4, left: 4, right: 0, top: 0 }),
+    [attributionBottomInset],
+  );
+  const appleLogoInsets = legalLabelInsets;
   const interchangeByStationKey = useMemo(() => {
     const nextInterchangeByStationKey = new Map<string, StationInterchange>();
 
@@ -437,6 +450,8 @@ export function MapAdapter({
         style={styles.map}
         initialRegion={initialRegion}
         mapPadding={mapPadding}
+        legalLabelInsets={legalLabelInsets}
+        appleLogoInsets={appleLogoInsets}
         onMapReady={() => setIsMapReady(true)}
         onRegionChangeComplete={handleRegionChangeComplete}
         onUserLocationChange={handleUserLocationChange}

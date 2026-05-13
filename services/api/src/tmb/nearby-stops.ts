@@ -1,12 +1,5 @@
-import { env } from '../config/env';
-import { devLogRawOnce } from '../utils/raw-log';
+import { getBusLines, getBusLineStations } from './bus-client';
 import { getMetroLines, getMetroLineStations } from './transit-client';
-import {
-  getNumber,
-  getString,
-  toLatLonFromPoint,
-  type GeoFeatureCollection,
-} from './helpers';
 import type { StationDto, TransportMode } from '../types/api';
 
 interface CacheEntry<T> {
@@ -22,45 +15,22 @@ let busStopsInFlight: Promise<StationDto[]> | null = null;
 let metroStopsInFlight: Promise<StationDto[]> | null = null;
 
 async function fetchAllBusStops(): Promise<StationDto[]> {
-  const url = new URL(`${env.transitBaseUrl}/parades`);
-  url.searchParams.set('app_id', env.tmbAppId);
-  url.searchParams.set('app_key', env.tmbAppKey);
-
-  const response = await fetch(url.toString());
-  if (!response.ok) {
-    throw new Error(`Transit /parades failed with status ${response.status}`);
-  }
-
-  const payload = (await response.json()) as GeoFeatureCollection;
-  devLogRawOnce('transit:parades', payload);
-
+  const lines = await getBusLines();
   const stops: StationDto[] = [];
   const seen = new Set<string>();
 
-  for (const feature of payload.features ?? []) {
-    const props = feature.properties ?? {};
-    const point = toLatLonFromPoint(feature.geometry);
-    if (!point) {
-      continue;
-    }
-
-    const code = getString(props, ['CODI_PARADA', 'codi_parada', 'ID_PARADA', 'id_parada']);
-    if (!code || seen.has(code)) {
-      continue;
-    }
-    seen.add(code);
-
-    stops.push({
-      code,
-      lineCode: '',
-      mode: 'bus',
-      name: getString(props, ['NOM_PARADA', 'nom_parada', 'DESC_PARADA']) ?? `Parada ${code}`,
-      lat: point.lat,
-      lon: point.lon,
-      order: getNumber(props, ['ORDRE', 'ordre']),
-      serviceDescription: getString(props, ['ADRECA', 'adreca']),
-    });
-  }
+  await Promise.all(
+    lines.map(async (line) => {
+      const stations = await getBusLineStations(line.code);
+      for (const station of stations) {
+        if (seen.has(station.code)) {
+          continue;
+        }
+        seen.add(station.code);
+        stops.push({ ...station, lineColor: line.color });
+      }
+    }),
+  );
 
   return stops;
 }
@@ -78,7 +48,7 @@ async function fetchAllMetroStops(): Promise<StationDto[]> {
           continue;
         }
         seen.add(station.code);
-        stops.push(station);
+        stops.push({ ...station, lineColor: line.color });
       }
     }),
   );

@@ -157,7 +157,12 @@ export function StationContent({
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>{stationName}</Text>
+        <View style={styles.titleRow}>
+          {!hasMultipleLines ? (
+            <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="small" />
+          ) : null}
+          <Text style={styles.title}>{stationName}</Text>
+        </View>
         {metaParts.length > 0 ? (
           <View style={styles.metaRow}>
             <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
@@ -168,9 +173,7 @@ export function StationContent({
               </View>
             ))}
           </View>
-        ) : (
-          <Text style={styles.metaText}>Line {lineBrand.label}</Text>
-        )}
+        ) : null}
       </View>
 
       {hasMultipleLines ? (
@@ -397,11 +400,17 @@ const styles = StyleSheet.create({
   header: {
     gap: 4,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.7,
     color: '#F4F8FF',
+    flexShrink: 1,
   },
   metaRow: {
     alignItems: 'center',

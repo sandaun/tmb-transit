@@ -21,6 +21,7 @@ export interface LineDto {
 export interface StationDto {
   code: string;
   lineCode: string;
+  lineColor?: string;
   mode: TransportMode;
   name: string;
   lat: number;

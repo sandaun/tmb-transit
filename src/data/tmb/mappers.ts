@@ -18,6 +18,7 @@ export function mapStationDto(dto: StationDto): Station {
   return {
     code: dto.code,
     lineCode: dto.lineCode,
+    lineColor: dto.lineColor,
     mode: dto.mode,
     name: dto.name,
     lat: dto.lat,

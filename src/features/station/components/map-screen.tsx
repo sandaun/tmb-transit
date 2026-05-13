@@ -54,7 +54,7 @@ export function MapScreen({
 }: MapScreenProps) {
   const insets = useSafeAreaInsets();
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
-  const nearbyModes = useMemo<TransportMode[]>(() => ['metro', 'bus'], []);
+  const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus']);
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
 
   const stationsQuery = useLineStationsQuery(mode, lineCode);
@@ -119,18 +119,27 @@ export function MapScreen({
     enabled: nearbyEnabled,
   });
 
+  const activeStationCodes = useMemo(
+    () => new Set(stations.map((s) => s.code)),
+    [stations],
+  );
+
   const nearbyMarkers = useMemo(() => {
     if (!nearbyEnabled) {
       return [];
     }
-    return (nearbyQuery.data ?? []).map((stop) => ({
-      code: stop.code,
-      name: stop.name,
-      lat: stop.lat,
-      lon: stop.lon,
-      mode: stop.mode,
-    }));
-  }, [nearbyEnabled, nearbyQuery.data]);
+    return (nearbyQuery.data ?? [])
+      .filter((stop) => !(stop.mode === mode && activeStationCodes.has(stop.code)))
+      .map((stop) => ({
+        code: stop.code,
+        lineCode: stop.lineCode,
+        lineColor: stop.lineColor,
+        name: stop.name,
+        lat: stop.lat,
+        lon: stop.lon,
+        mode: stop.mode,
+      }));
+  }, [activeStationCodes, mode, nearbyEnabled, nearbyQuery.data]);
 
   const handleNearbyTogglePress = useCallback(() => {
     setNearbyEnabled((current) => !current);
@@ -183,7 +192,9 @@ export function MapScreen({
           showBackButton ? null : (
             <NearbyControl
               enabled={nearbyEnabled}
+              activeModes={nearbyModes}
               onToggle={handleNearbyTogglePress}
+              onModesChange={setNearbyModes}
             />
           )
         }

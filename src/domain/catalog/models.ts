@@ -14,6 +14,7 @@ export interface Line {
 export interface Station extends LatLng {
   code: string;
   lineCode: string;
+  lineColor?: string;
   mode: TransportMode;
   name: string;
   order?: number;

@@ -17,6 +17,7 @@ import {
   type LocalBottomSheetHandle,
 } from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
 import { MapScreen } from '@/src/features/station/components/map-screen';
+import type { NearbyStop } from '@/src/features/nearby/hooks/use-nearby-stops-query';
 import { StationContent } from '@/src/features/station/components/station-content';
 import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
 import { useTransitStore } from '@/src/state/store';
@@ -146,6 +147,16 @@ export default function MapTabScreen() {
     [setSelection],
   );
 
+  const handleNearbyStopSelect = useCallback(
+    (stop: NearbyStop) => {
+      const effectiveLineCode =
+        stop.lineCode || (stop.mode === mode ? lineCode : '') || '';
+      setSelection(stop.mode, effectiveLineCode, stop.code);
+      sheetRef.current?.resize(1);
+    },
+    [lineCode, mode, setSelection],
+  );
+
   if (linesError || stationsError) {
     return (
       <View style={styles.fallback}>
@@ -181,6 +192,7 @@ export default function MapTabScreen() {
         onLineChange={handleLineChange}
         onModeChange={handleModeChange}
         onStationChange={handleStationChange}
+        onNearbyStopSelect={handleNearbyStopSelect}
       />
 
       <LocalBottomSheet

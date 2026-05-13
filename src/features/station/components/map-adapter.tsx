@@ -24,6 +24,8 @@ import type { StationInterchange } from '@/src/features/station/utils/station-in
 
 interface NearbyStopMarker {
   code: string;
+  lineCode: string;
+  lineColor?: string;
   name: string;
   lat: number;
   lon: number;
@@ -512,7 +514,7 @@ export function MapAdapter({
           );
         })}
 
-        {nearbyStops.map((stop) => (
+        {nearbyStops.slice(0, 25).map((stop) => (
           <Marker
             key={`nearby:${stop.mode}:${stop.code}`}
             anchor={STATION_MARKER_ANCHOR}
@@ -522,9 +524,30 @@ export function MapAdapter({
             zIndex={8}
             onPress={() => onNearbyStopPress?.(stop)}
           >
-            <NearbyStopDot mode={stop.mode} />
+            <NearbyStopDot mode={stop.mode} lineCode={stop.lineCode} lineColor={stop.lineColor} />
           </Marker>
         ))}
+
+        {latitudeDelta <= 0.02
+          ? nearbyStops.slice(0, latitudeDelta <= 0.008 ? 25 : 8).map((stop) => (
+              <Marker
+                key={`nearby-label:${stop.mode}:${stop.code}`}
+                anchor={STATION_NAME_ANCHOR}
+                centerOffset={STATION_NAME_CENTER_OFFSET}
+                coordinate={{ latitude: stop.lat, longitude: stop.lon }}
+                tracksViewChanges={false}
+                zIndex={9}
+                onPress={() => onNearbyStopPress?.(stop)}
+              >
+                <NearbyStopLabel
+                  mode={stop.mode}
+                  lineCode={stop.lineCode}
+                  lineColor={stop.lineColor}
+                  name={stop.name}
+                />
+              </Marker>
+            ))
+          : null}
 
       </MapView>
 
@@ -610,14 +633,38 @@ function StationTransferBadges({
   );
 }
 
-function NearbyStopDot({ mode }: { mode: TransportMode }) {
+function NearbyStopDot({ mode, lineCode, lineColor }: { mode: TransportMode; lineCode: string; lineColor?: string }) {
+  const brand = getLineBrand(mode, lineCode, lineColor);
   return (
     <View
-      style={[
-        styles.nearbyDot,
-        mode === 'bus' ? styles.nearbyDotBus : styles.nearbyDotMetro,
-      ]}
+      style={[styles.nearbyDot, { backgroundColor: brand.backgroundColor }]}
     />
+  );
+}
+
+function NearbyStopLabel({
+  mode,
+  lineCode,
+  lineColor,
+  name,
+}: {
+  mode: TransportMode;
+  lineCode: string;
+  lineColor?: string;
+  name: string;
+}) {
+  const brand = getLineBrand(mode, lineCode, lineColor);
+  return (
+    <View style={styles.nearbyLabel}>
+      <View style={[styles.nearbyLabelBadge, { backgroundColor: brand.backgroundColor }]}>
+        <Text style={styles.nearbyLabelBadgeText}>
+          {brand.label}
+        </Text>
+      </View>
+      <Text numberOfLines={1} style={styles.nearbyLabelText}>
+        {name}
+      </Text>
+    </View>
   );
 }
 
@@ -661,7 +708,7 @@ const styles = StyleSheet.create({
   actionsColumn: {
     position: 'absolute',
     right: 16,
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: 8,
     zIndex: 15,
   },
@@ -755,11 +802,39 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     elevation: 3,
   },
-  nearbyDotMetro: {
-    backgroundColor: '#0B5FFF',
+  nearbyLabel: {
+    maxWidth: 140,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderRadius: 6,
+    backgroundColor: 'rgba(11, 18, 32, 0.82)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingLeft: 3,
+    paddingRight: 6,
+    paddingVertical: 2,
+    gap: 4,
   },
-  nearbyDotBus: {
-    backgroundColor: '#22A06B',
+  nearbyLabelBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nearbyLabelBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  nearbyLabelText: {
+    color: '#D0D8E8',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+    flexShrink: 1,
   },
   stationNameLabel: {
     maxWidth: 156,

@@ -82,6 +82,19 @@ function hasFiniteCoordinate(coordinate: LatLng): boolean {
   return Number.isFinite(coordinate.latitude) && Number.isFinite(coordinate.longitude);
 }
 
+function withAlpha(color: string, alpha: number): string {
+  const normalized = color.trim();
+  const hex = normalized.match(/^#?([0-9A-Fa-f]{6})$/)?.[1];
+  if (!hex) {
+    return normalized;
+  }
+
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 function getFallbackPolyline(stations: Station[]): RoutePolyline | null {
   const coordinates = stations
     .map((station) => ({
@@ -468,7 +481,12 @@ export function MapAdapter({
     .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
     .join('|');
   const mapKey = `${lineCode}:${isRouteLoading ? 'route-loading' : routeLayerKey}`;
-  const routeStrokeColor = lineBrand.backgroundColor;
+  const hasPlannerRoute = plannerPolylines.length > 0;
+  const routeStrokeColor = hasPlannerRoute
+    ? withAlpha(lineBrand.backgroundColor, 0.22)
+    : lineBrand.backgroundColor;
+  const routeStrokeWidth = hasPlannerRoute ? 3 : 5;
+  const routeZIndex = hasPlannerRoute ? 1 : 5;
 
   return (
     <View style={styles.root}>
@@ -493,9 +511,9 @@ export function MapAdapter({
               coordinates={polyline.coordinates}
               lineCap="round"
               lineJoin="round"
-              strokeWidth={5}
+              strokeWidth={routeStrokeWidth}
               strokeColor={routeStrokeColor}
-              zIndex={5}
+              zIndex={routeZIndex}
             />
         ))}
 

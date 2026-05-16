@@ -467,8 +467,34 @@ export function MapAdapter({
   const routeLayerKey = routePolylines
     .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
     .join('|');
+  const plannerFitCoordinates = useMemo(
+    () =>
+      plannerPolylines
+        .flatMap((polyline) => polyline.points.map(toMapCoordinate))
+        .filter(hasFiniteCoordinate),
+    [plannerPolylines],
+  );
+  const plannerFitKey = plannerFitCoordinates
+    .map((coordinate) => `${coordinate.latitude.toFixed(5)},${coordinate.longitude.toFixed(5)}`)
+    .join('|');
   const mapKey = `${lineCode}:${isRouteLoading ? 'route-loading' : routeLayerKey}`;
   const routeStrokeColor = lineBrand.backgroundColor;
+
+  useEffect(() => {
+    if (!isMapReady || plannerFitCoordinates.length < 2) {
+      return;
+    }
+
+    mapRef.current?.fitToCoordinates(plannerFitCoordinates, {
+      animated: true,
+      edgePadding: {
+        top: 120,
+        right: 40,
+        bottom: Math.max(bottomInset + 80, 180),
+        left: 40,
+      },
+    });
+  }, [bottomInset, isMapReady, plannerFitCoordinates, plannerFitKey]);
 
   return (
     <View style={styles.root}>

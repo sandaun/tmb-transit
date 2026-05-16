@@ -1,3 +1,4 @@
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -41,6 +42,41 @@ function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null 
 }
 
 const SHEET_DETENTS = [0.1, 0.5, 1] as const;
+
+type PlannerPointKind = 'origin' | 'destination';
+
+function formatCoordinateLabel(coordinate: { lat: number; lon: number }): string {
+  return `${coordinate.lat.toFixed(5)}, ${coordinate.lon.toFixed(5)}`;
+}
+
+function formatGeocodedAddress(address: Location.LocationGeocodedAddress | undefined): string | null {
+  if (!address) {
+    return null;
+  }
+
+  const streetLine = [address.street, address.streetNumber]
+    .filter((part): part is string => Boolean(part))
+    .join(' ');
+  const area = address.city ?? address.district ?? address.subregion ?? address.region;
+
+  if (streetLine && area) {
+    return `${streetLine}, ${area}`;
+  }
+
+  return address.name ?? streetLine ?? area ?? null;
+}
+
+async function resolvePlannerPointLabel(coordinate: { lat: number; lon: number }): Promise<string> {
+  try {
+    const [address] = await Location.reverseGeocodeAsync({
+      latitude: coordinate.lat,
+      longitude: coordinate.lon,
+    });
+    return formatGeocodedAddress(address) ?? formatCoordinateLabel(coordinate);
+  } catch {
+    return formatCoordinateLabel(coordinate);
+  }
+}
 
 function getLegPoints(leg: PlannedLeg): { lat: number; lon: number }[] {
   if (leg.points.length > 1) {
@@ -111,14 +147,19 @@ export default function MapTabScreen() {
     'destination',
   );
   const [plannerOrigin, setPlannerOrigin] = useState<{ lat: number; lon: number } | null>(null);
+  const [plannerOriginLabel, setPlannerOriginLabel] = useState<string | null>(null);
   const [plannerDestination, setPlannerDestination] = useState<{ lat: number; lon: number } | null>(
     null,
   );
+  const [plannerDestinationLabel, setPlannerDestinationLabel] = useState<string | null>(null);
   const [plannerUserLocation, setPlannerUserLocation] = useState<{ lat: number; lon: number } | null>(
     null,
   );
   const [plannerRequested, setPlannerRequested] = useState(false);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const originLabelRequestRef = useRef(0);
+  const destinationLabelRequestRef = useRef(0);
+  const hasAutoExpandedPlanRef = useRef(false);
 
   const plannedRoutesQuery = usePlannedRoutesQuery(plannerOrigin, plannerDestination, {
     enabled: plannerEnabled && plannerRequested,
@@ -127,8 +168,9 @@ export default function MapTabScreen() {
     () => plannedRoutesQuery.data ?? [],
     [plannedRoutesQuery.data],
   );
-  const selectedRoute =
-    plannedRoutes.find((route) => route.id === selectedRouteId) ?? plannedRoutes[0] ?? null;
+  const selectedRoute = plannerRequested
+    ? plannedRoutes.find((route) => route.id === selectedRouteId) ?? plannedRoutes[0] ?? null
+    : null;
   const selectedRoutePoints = useMemo(() => getRoutePoints(selectedRoute), [selectedRoute]);
 
   const sheetHeight = useMemo(() => {
@@ -169,7 +211,8 @@ export default function MapTabScreen() {
     if (!selectedRouteId || !plannedRoutes.some((route) => route.id === selectedRouteId)) {
       setSelectedRouteId(plannedRoutes[0].id);
     }
-    if (plannerEnabled && plannerRequested) {
+    if (plannerEnabled && plannerRequested && !hasAutoExpandedPlanRef.current) {
+      hasAutoExpandedPlanRef.current = true;
       sheetRef.current?.resize(2);
     }
   }, [plannedRoutes, plannerEnabled, plannerRequested, selectedRouteId]);
@@ -225,7 +268,38 @@ export default function MapTabScreen() {
   const resetPlannerRequest = useCallback(() => {
     setPlannerRequested(false);
     setSelectedRouteId(null);
+    hasAutoExpandedPlanRef.current = false;
   }, []);
+
+  const setPlannerPoint = useCallback(
+    (
+      point: PlannerPointKind,
+      coordinate: { lat: number; lon: number },
+      initialLabel: string,
+      resolveAddress = true,
+    ) => {
+      const requestRef =
+        point === 'origin' ? originLabelRequestRef : destinationLabelRequestRef;
+      const setCoordinate = point === 'origin' ? setPlannerOrigin : setPlannerDestination;
+      const setLabel = point === 'origin' ? setPlannerOriginLabel : setPlannerDestinationLabel;
+
+      requestRef.current += 1;
+      const requestId = requestRef.current;
+      setCoordinate(coordinate);
+      setLabel(initialLabel);
+
+      if (!resolveAddress) {
+        return;
+      }
+
+      void resolvePlannerPointLabel(coordinate).then((label) => {
+        if (requestRef.current === requestId) {
+          setLabel(label);
+        }
+      });
+    },
+    [],
+  );
 
   const handlePlannerToggle = useCallback(() => {
     setPlannerEnabled((current) => {
@@ -242,16 +316,31 @@ export default function MapTabScreen() {
 
   const handlePlannerMapPress = useCallback(
     (coordinate: { lat: number; lon: number }) => {
+      if (plannerRequested) {
+        return;
+      }
+
       if (plannerActivePoint === 'origin') {
-        setPlannerOrigin(coordinate);
+        setPlannerPoint('origin', coordinate, 'Selected point');
         setPlannerActivePoint('destination');
       } else {
-        setPlannerDestination(coordinate);
+        setPlannerPoint('destination', coordinate, 'Selected point');
       }
       resetPlannerRequest();
       sheetRef.current?.resize(1);
     },
-    [plannerActivePoint, resetPlannerRequest],
+    [plannerActivePoint, plannerRequested, resetPlannerRequest, setPlannerPoint],
+  );
+
+  const handlePlannerActivePointChange = useCallback(
+    (point: PlannerPointKind) => {
+      setPlannerActivePoint(point);
+      if (plannerRequested) {
+        resetPlannerRequest();
+        sheetRef.current?.resize(1);
+      }
+    },
+    [plannerRequested, resetPlannerRequest],
   );
 
   const handlePlannerUseCurrentLocation = useCallback(
@@ -259,18 +348,19 @@ export default function MapTabScreen() {
       if (!coordinate) {
         return;
       }
-      setPlannerOrigin(coordinate);
+      setPlannerPoint('origin', coordinate, 'Current location', false);
       setPlannerActivePoint('destination');
       resetPlannerRequest();
       sheetRef.current?.resize(1);
     },
-    [resetPlannerRequest],
+    [resetPlannerRequest, setPlannerPoint],
   );
 
   const handlePlannerPlan = useCallback(() => {
     if (!plannerOrigin || !plannerDestination) {
       return;
     }
+    hasAutoExpandedPlanRef.current = false;
     setPlannerRequested(true);
     sheetRef.current?.resize(2);
   }, [plannerDestination, plannerOrigin]);
@@ -333,7 +423,9 @@ export default function MapTabScreen() {
           {plannerEnabled ? (
             <PlannerSheet
               origin={plannerOrigin}
+              originLabel={plannerOriginLabel}
               destination={plannerDestination}
+              destinationLabel={plannerDestinationLabel}
               userLocation={plannerUserLocation}
               activePoint={plannerActivePoint}
               requested={plannerRequested}
@@ -341,12 +433,12 @@ export default function MapTabScreen() {
               selectedRouteId={selectedRoute?.id ?? null}
               isLoading={plannedRoutesQuery.isLoading}
               isError={plannedRoutesQuery.isError}
-              onActivePointChange={setPlannerActivePoint}
+              onActivePointChange={handlePlannerActivePointChange}
               onUseCurrentLocation={() => handlePlannerUseCurrentLocation(plannerUserLocation)}
               onPlan={handlePlannerPlan}
               onRouteSelect={(routeId) => {
                 setSelectedRouteId(routeId);
-                sheetRef.current?.resize(2);
+                sheetRef.current?.resize(1);
               }}
             />
           ) : (

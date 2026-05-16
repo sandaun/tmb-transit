@@ -12,7 +12,9 @@ const TAB_BAR_CLEARANCE = 150;
 
 interface PlannerSheetProps {
   origin: { lat: number; lon: number } | null;
+  originLabel: string | null;
   destination: { lat: number; lon: number } | null;
+  destinationLabel: string | null;
   userLocation: { lat: number; lon: number } | null;
   activePoint: 'origin' | 'destination';
   requested: boolean;
@@ -55,16 +57,18 @@ function getLegMeta(leg: PlannedLeg): string {
   return parts.join(' · ');
 }
 
-function getPointValue(hasPoint: boolean, active: boolean): string {
-  if (hasPoint) {
-    return 'Map point set';
+function getPointValue(label: string | null, hasPoint: boolean, active: boolean): string {
+  if (label) {
+    return label;
   }
   return active ? 'Tap the map' : 'Not set';
 }
 
 export function PlannerSheet({
   origin,
+  originLabel,
   destination,
+  destinationLabel,
   userLocation,
   activePoint,
   requested,
@@ -78,7 +82,9 @@ export function PlannerSheet({
   onRouteSelect,
 }: PlannerSheetProps) {
   const insets = useSafeAreaInsets();
-  const selectedRoute = routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null;
+  const selectedRoute = requested
+    ? routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null
+    : null;
   const canPlan = Boolean(origin && destination);
 
   return (
@@ -90,10 +96,7 @@ export function PlannerSheet({
       scrollIndicatorInsets={{ bottom: TAB_BAR_CLEARANCE + insets.bottom }}
     >
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Route</Text>
-          <Text style={styles.subtitle}>Transit and walking</Text>
-        </View>
+        <Text style={styles.title}>Route</Text>
       </View>
 
       <View style={styles.points}>
@@ -108,7 +111,9 @@ export function PlannerSheet({
           </View>
           <View style={styles.pointTextWrap}>
             <Text style={styles.pointLabel}>Origin</Text>
-            <Text style={styles.pointValue}>{getPointValue(Boolean(origin), activePoint === 'origin')}</Text>
+            <Text numberOfLines={1} style={styles.pointValue}>
+              {getPointValue(originLabel, Boolean(origin), activePoint === 'origin')}
+            </Text>
           </View>
         </Pressable>
 
@@ -123,8 +128,12 @@ export function PlannerSheet({
           </View>
           <View style={styles.pointTextWrap}>
             <Text style={styles.pointLabel}>Destination</Text>
-            <Text style={styles.pointValue}>
-              {getPointValue(Boolean(destination), activePoint === 'destination')}
+            <Text numberOfLines={1} style={styles.pointValue}>
+              {getPointValue(
+                destinationLabel,
+                Boolean(destination),
+                activePoint === 'destination',
+              )}
             </Text>
           </View>
         </Pressable>
@@ -187,7 +196,7 @@ export function PlannerSheet({
         </View>
       ) : null}
 
-      {routes.length > 0 ? (
+      {requested && routes.length > 0 ? (
         <>
           <Text style={styles.sectionLabel}>Options</Text>
           <View style={styles.routeList}>
@@ -247,9 +256,9 @@ export function PlannerSheet({
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 28,
-    gap: 14,
+    gap: 10,
   },
   header: {
     flexDirection: 'row',
@@ -260,23 +269,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
   },
-  subtitle: {
-    color: '#D7E5FF',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
-  },
   points: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   pointRow: {
-    minHeight: 58,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
+    gap: 10,
+    paddingVertical: 6,
     paddingHorizontal: 8,
     borderRadius: 8,
   },
@@ -284,9 +287,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   pointDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -306,15 +309,15 @@ const styles = StyleSheet.create({
   },
   pointLabel: {
     color: '#D7E5FF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
   pointValue: {
     color: '#F4F8FF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
-    marginTop: 2,
+    marginTop: 1,
   },
   actions: {
     flexDirection: 'row',
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
@@ -344,7 +347,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,

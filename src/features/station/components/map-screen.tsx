@@ -44,7 +44,7 @@ interface MapScreenProps {
   plannerEnabled?: boolean;
   plannerOrigin?: { lat: number; lon: number } | null;
   plannerDestination?: { lat: number; lon: number } | null;
-  plannerRoutePoints?: { lat: number; lon: number }[];
+  plannerRoutePolylines?: PlannerMapPolyline[];
   onPlannerToggle?: () => void;
   onPlannerMapPress?: (coordinate: { lat: number; lon: number }) => void;
 }
@@ -67,7 +67,7 @@ export function MapScreen({
   plannerEnabled = false,
   plannerOrigin = null,
   plannerDestination = null,
-  plannerRoutePoints = [],
+  plannerRoutePolylines = [],
   onPlannerToggle,
   onPlannerMapPress,
 }: MapScreenProps) {
@@ -185,11 +185,11 @@ export function MapScreen({
   }, [plannerDestination, plannerEnabled, plannerOrigin]);
 
   const plannerPolylines = useMemo<PlannerMapPolyline[]>(() => {
-    if (!plannerEnabled || plannerRoutePoints.length < 2) {
+    if (!plannerEnabled) {
       return [];
     }
-    return [{ id: 'selected-route', points: plannerRoutePoints, color: '#2A70FF' }];
-  }, [plannerEnabled, plannerRoutePoints]);
+    return plannerRoutePolylines;
+  }, [plannerEnabled, plannerRoutePolylines]);
 
   const handleNearbyTogglePress = useCallback(() => {
     setNearbyEnabled((current) => !current);

@@ -13,6 +13,7 @@ import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useAllLineStationsQuery } from '@/src/features/catalog/hooks/use-all-line-stations-query';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
+import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { PlannerSheet } from '@/src/features/planner/components/planner-sheet';
 import { usePlannedRoutesQuery } from '@/src/features/planner/hooks/use-planned-routes-query';
 import {
@@ -20,6 +21,7 @@ import {
   type LocalBottomSheetHandle,
 } from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
 import { MapScreen } from '@/src/features/station/components/map-screen';
+import type { PlannerMapPolyline } from '@/src/features/station/components/map-adapter';
 import type { NearbyStop } from '@/src/features/nearby/hooks/use-nearby-stops-query';
 import type { PlannedLeg, PlannedRoute } from '@/src/domain/planner/models';
 import { StationContent } from '@/src/features/station/components/station-content';
@@ -96,11 +98,35 @@ function getLegPoints(leg: PlannedLeg): { lat: number; lon: number }[] {
   return [];
 }
 
-function getRoutePoints(route: PlannedRoute | null): { lat: number; lon: number }[] {
+function getPlannedLegTransportMode(leg: PlannedLeg): TransportMode {
+  const route = leg.route?.trim().toUpperCase() ?? '';
+  return /^L\d|^FM$/.test(route) ? 'metro' : 'bus';
+}
+
+function getRoutePolylines(route: PlannedRoute | null): PlannerMapPolyline[] {
   if (!route) {
     return [];
   }
-  return route.legs.flatMap(getLegPoints);
+
+  return route.legs
+    .map((leg) => {
+      const points = getLegPoints(leg);
+      if (points.length < 2) {
+        return null;
+      }
+
+      const color =
+        leg.mode === 'walk'
+          ? '#2A70FF'
+          : getLineBrand(getPlannedLegTransportMode(leg), leg.route ?? '').backgroundColor;
+
+      return {
+        id: leg.id,
+        points,
+        color,
+      };
+    })
+    .filter((polyline): polyline is PlannerMapPolyline => polyline !== null);
 }
 
 export default function MapTabScreen() {
@@ -171,7 +197,7 @@ export default function MapTabScreen() {
   const selectedRoute = plannerRequested
     ? plannedRoutes.find((route) => route.id === selectedRouteId) ?? plannedRoutes[0] ?? null
     : null;
-  const selectedRoutePoints = useMemo(() => getRoutePoints(selectedRoute), [selectedRoute]);
+  const selectedRoutePolylines = useMemo(() => getRoutePolylines(selectedRoute), [selectedRoute]);
 
   const sheetHeight = useMemo(() => {
     const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
@@ -405,7 +431,7 @@ export default function MapTabScreen() {
         plannerEnabled={plannerEnabled}
         plannerOrigin={plannerOrigin}
         plannerDestination={plannerDestination}
-        plannerRoutePoints={selectedRoutePoints}
+        plannerRoutePolylines={selectedRoutePolylines}
         onPlannerToggle={handlePlannerToggle}
         onPlannerMapPress={handlePlannerMapPress}
       />

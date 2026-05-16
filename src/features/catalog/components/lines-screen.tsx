@@ -143,7 +143,7 @@ export function LinesScreen() {
 
       {error ? (
         <View style={styles.feedback}>
-          <Text style={styles.error}>No s'han pogut carregar les línies.</Text>
+          <Text style={styles.error}>{"No s'han pogut carregar les línies."}</Text>
         </View>
       ) : null}
 

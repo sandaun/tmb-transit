@@ -14,7 +14,6 @@ import { APP_CONFIG } from '@/src/config/app-config';
 import { fetchStationArrivals } from '@/src/data/tmb/data-source';
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
-import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { RouteBadge } from '@/src/features/station/components/bottom-sheet/route-badge';
 import {
   formatEta,
@@ -125,7 +124,6 @@ export function StationContent({
   }
 
   const activeLine = lines.find((candidate) => candidate.code === lineCode);
-  const lineBrand = getLineBrand(mode, lineCode, activeLine?.color);
   const nextArrival = orderedArrivals[0];
   const followingArrivals = orderedArrivals.slice(1, 6);
   const stationName = selectedInterchange?.name ?? station?.name ?? stationCode;

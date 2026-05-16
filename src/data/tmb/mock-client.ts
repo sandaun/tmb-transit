@@ -1,5 +1,6 @@
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
+import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
 
 const mockMetroLines: Line[] = [
@@ -218,6 +219,91 @@ export async function fetchStationArrivalsFromMock(
       etaSec: 245,
       sourceTimestampMs,
       serviceId: 'mock-tn-2',
+    },
+  ];
+}
+
+export async function fetchPlannedRoutesFromMock(
+  from: { lat: number; lon: number },
+  to: { lat: number; lon: number },
+): Promise<PlannedRoute[]> {
+  const directPoints = [from, { lat: 41.3905, lon: 2.1733 }, { lat: 41.395, lon: 2.1768 }, to];
+  const metroPoints = [from, { lat: 41.3785, lon: 2.1407 }, { lat: 41.3764, lon: 2.1431 }, to];
+
+  return [
+    {
+      id: 'mock-route-bus',
+      durationSec: 23 * 60,
+      walkDistanceMeters: 420,
+      transfers: 0,
+      legs: [
+        {
+          id: 'mock-route-bus-leg-walk-start',
+          mode: 'walk',
+          from: { name: 'Origin', ...from },
+          to: { name: 'Urquinaona', lat: 41.3905, lon: 2.1733 },
+          durationSec: 4 * 60,
+          distanceMeters: 260,
+          points: directPoints.slice(0, 2),
+        },
+        {
+          id: 'mock-route-bus-leg-v19',
+          mode: 'transit',
+          route: 'V19',
+          routeLongName: 'Sant Genis',
+          agencyName: 'TMB',
+          from: { name: 'Urquinaona', lat: 41.3905, lon: 2.1733 },
+          to: { name: 'Pg. de Sant Joan', lat: 41.395, lon: 2.1768 },
+          durationSec: 15 * 60,
+          points: directPoints.slice(1, 3),
+        },
+        {
+          id: 'mock-route-bus-leg-walk-end',
+          mode: 'walk',
+          from: { name: 'Pg. de Sant Joan', lat: 41.395, lon: 2.1768 },
+          to: { name: 'Destination', ...to },
+          durationSec: 4 * 60,
+          distanceMeters: 160,
+          points: directPoints.slice(2),
+        },
+      ],
+    },
+    {
+      id: 'mock-route-metro',
+      durationSec: 29 * 60,
+      walkDistanceMeters: 610,
+      transfers: 1,
+      legs: [
+        {
+          id: 'mock-route-metro-leg-walk-start',
+          mode: 'walk',
+          from: { name: 'Origin', ...from },
+          to: { name: 'Sants Estacio', lat: 41.3785, lon: 2.1407 },
+          durationSec: 6 * 60,
+          distanceMeters: 420,
+          points: metroPoints.slice(0, 2),
+        },
+        {
+          id: 'mock-route-metro-leg-l3',
+          mode: 'transit',
+          route: 'L3',
+          routeLongName: 'Zona Universitaria - Trinitat Nova',
+          agencyName: 'TMB',
+          from: { name: 'Sants Estacio', lat: 41.3785, lon: 2.1407 },
+          to: { name: 'Tarragona', lat: 41.3764, lon: 2.1431 },
+          durationSec: 17 * 60,
+          points: metroPoints.slice(1, 3),
+        },
+        {
+          id: 'mock-route-metro-leg-walk-end',
+          mode: 'walk',
+          from: { name: 'Tarragona', lat: 41.3764, lon: 2.1431 },
+          to: { name: 'Destination', ...to },
+          durationSec: 6 * 60,
+          distanceMeters: 190,
+          points: metroPoints.slice(2),
+        },
+      ],
     },
   ];
 }

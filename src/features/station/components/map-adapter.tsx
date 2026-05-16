@@ -12,6 +12,7 @@ import MapView, {
   Marker,
   Polyline,
   type LatLng,
+  type MapPressEvent,
   type Region,
   type UserLocationChangeEvent,
 } from 'react-native-maps';
@@ -32,6 +33,19 @@ interface NearbyStopMarker {
   mode: TransportMode;
 }
 
+export interface PlannerMapMarker {
+  id: string;
+  label: string;
+  coordinate: { lat: number; lon: number };
+  kind: 'origin' | 'destination';
+}
+
+export interface PlannerMapPolyline {
+  id: string;
+  points: { lat: number; lon: number }[];
+  color: string;
+}
+
 interface MapAdapterProps {
   lineCode: string;
   lineColor?: string;
@@ -43,10 +57,13 @@ interface MapAdapterProps {
   isRouteLoading?: boolean;
   bottomInset?: number;
   nearbyStops?: NearbyStopMarker[];
+  plannerMarkers?: PlannerMapMarker[];
+  plannerPolylines?: PlannerMapPolyline[];
   bottomActions?: React.ReactNode;
   onStationPress: (stationCode: string) => void;
   onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
   onNearbyStopPress?: (stop: NearbyStopMarker) => void;
+  onMapPress?: (coordinate: { lat: number; lon: number }) => void;
 }
 
 interface RoutePolyline {
@@ -125,10 +142,13 @@ export function MapAdapter({
   isRouteLoading = false,
   bottomInset = 0,
   nearbyStops = [],
+  plannerMarkers = [],
+  plannerPolylines = [],
   bottomActions,
   onStationPress,
   onUserLocationChange,
   onNearbyStopPress,
+  onMapPress,
 }: MapAdapterProps) {
   const mapRef = useRef<MapView | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -416,6 +436,14 @@ export function MapAdapter({
     userCoordinate,
   ]);
 
+  const handleMapPress = useCallback(
+    (event: MapPressEvent) => {
+      const coordinate = event.nativeEvent.coordinate;
+      onMapPress?.({ lat: coordinate.latitude, lon: coordinate.longitude });
+    },
+    [onMapPress],
+  );
+
   const routePolylines = useMemo<RoutePolyline[]>(() => {
     const segmentPolylines = segments
       .filter((segment) => segment.lineCode === lineCode)
@@ -454,6 +482,7 @@ export function MapAdapter({
         appleLogoInsets={appleLogoInsets}
         onMapReady={() => setIsMapReady(true)}
         onRegionChangeComplete={handleRegionChangeComplete}
+        onPress={handleMapPress}
         onUserLocationChange={handleUserLocationChange}
         showsUserLocation={hasLocationPermission || isWaitingForUserLocation}
         userLocationPriority="balanced"
@@ -469,6 +498,27 @@ export function MapAdapter({
               zIndex={5}
             />
         ))}
+
+        {plannerPolylines.map((polyline) => {
+          const coordinates = polyline.points
+            .map(toMapCoordinate)
+            .filter(hasFiniteCoordinate);
+          if (coordinates.length < 2) {
+            return null;
+          }
+
+          return (
+            <Polyline
+              key={`planner:${polyline.id}`}
+              coordinates={coordinates}
+              lineCap="round"
+              lineJoin="round"
+              strokeWidth={6}
+              strokeColor={polyline.color}
+              zIndex={45}
+            />
+          );
+        })}
 
         {visibleStations.map((station) => {
           const isSelected = station.code === selectedStationCode;
@@ -563,6 +613,22 @@ export function MapAdapter({
               </Marker>
             ))
           : null}
+
+        {plannerMarkers.map((marker) => (
+          <Marker
+            key={`planner-marker:${marker.id}`}
+            anchor={STATION_MARKER_ANCHOR}
+            centerOffset={STATION_MARKER_CENTER_OFFSET}
+            coordinate={{
+              latitude: marker.coordinate.lat,
+              longitude: marker.coordinate.lon,
+            }}
+            tracksViewChanges={false}
+            zIndex={60}
+          >
+            <PlannerMarkerPill label={marker.label} kind={marker.kind} />
+          </Marker>
+        ))}
 
       </MapView>
 
@@ -712,6 +778,25 @@ function StationNameLabel({
   );
 }
 
+function PlannerMarkerPill({
+  label,
+  kind,
+}: {
+  label: string;
+  kind: 'origin' | 'destination';
+}) {
+  return (
+    <View
+      style={[
+        styles.plannerMarker,
+        kind === 'origin' ? styles.plannerMarkerOrigin : styles.plannerMarkerDestination,
+      ]}
+    >
+      <Text style={styles.plannerMarkerText}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
@@ -849,6 +934,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.1,
     flexShrink: 1,
+  },
+  plannerMarker: {
+    minWidth: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  plannerMarkerOrigin: {
+    backgroundColor: '#0F7B5C',
+  },
+  plannerMarkerDestination: {
+    backgroundColor: '#D24545',
+  },
+  plannerMarkerText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   stationNameLabel: {
     maxWidth: 156,

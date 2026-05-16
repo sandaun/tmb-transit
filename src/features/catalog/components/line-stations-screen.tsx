@@ -104,7 +104,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
       </View>
 
       {error ? (
-        <Text style={styles.error}>No s'han pogut carregar les estacions.</Text>
+        <Text style={styles.error}>{"No s'han pogut carregar les estacions."}</Text>
       ) : null}
 
       <FlatList

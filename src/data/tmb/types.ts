@@ -53,6 +53,39 @@ export interface ArrivalDto {
   serviceId?: string;
 }
 
+export interface PlannerPointDto {
+  name: string;
+  lat?: number;
+  lon?: number;
+}
+
+export type PlannedLegModeDto = 'walk' | 'transit';
+
+export interface PlannedLegDto {
+  id: string;
+  mode: PlannedLegModeDto;
+  route?: string;
+  routeLongName?: string;
+  agencyName?: string;
+  from: PlannerPointDto;
+  to: PlannerPointDto;
+  startTimeMs?: number;
+  endTimeMs?: number;
+  durationSec: number;
+  distanceMeters?: number;
+  points: SegmentPointDto[];
+}
+
+export interface PlannedRouteDto {
+  id: string;
+  durationSec: number;
+  startTimeMs?: number;
+  endTimeMs?: number;
+  walkDistanceMeters: number;
+  transfers: number;
+  legs: PlannedLegDto[];
+}
+
 export interface ApiResponse<T> {
   data: T;
   meta?: {

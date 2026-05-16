@@ -1,7 +1,14 @@
 import type { Line, Station } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
+import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
-import type { ArrivalDto, LineDto, SegmentDto, StationDto } from '@/src/data/tmb/types';
+import type {
+  ArrivalDto,
+  LineDto,
+  PlannedRouteDto,
+  SegmentDto,
+  StationDto,
+} from '@/src/data/tmb/types';
 
 export function mapLineDto(dto: LineDto): Line {
   return {
@@ -56,5 +63,30 @@ export function mapArrivalDto(dto: ArrivalDto): Arrival {
     etaSec: dto.etaSec,
     sourceTimestampMs: dto.sourceTimestampMs,
     serviceId: dto.serviceId,
+  };
+}
+
+export function mapPlannedRouteDto(dto: PlannedRouteDto): PlannedRoute {
+  return {
+    id: dto.id,
+    durationSec: dto.durationSec,
+    startTimeMs: dto.startTimeMs,
+    endTimeMs: dto.endTimeMs,
+    walkDistanceMeters: dto.walkDistanceMeters,
+    transfers: dto.transfers,
+    legs: dto.legs.map((leg) => ({
+      id: leg.id,
+      mode: leg.mode,
+      route: leg.route,
+      routeLongName: leg.routeLongName,
+      agencyName: leg.agencyName,
+      from: leg.from,
+      to: leg.to,
+      startTimeMs: leg.startTimeMs,
+      endTimeMs: leg.endTimeMs,
+      durationSec: leg.durationSec,
+      distanceMeters: leg.distanceMeters,
+      points: leg.points,
+    })),
   };
 }

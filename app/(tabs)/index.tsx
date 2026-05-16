@@ -12,12 +12,15 @@ import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useAllLineStationsQuery } from '@/src/features/catalog/hooks/use-all-line-stations-query';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
+import { PlannerSheet } from '@/src/features/planner/components/planner-sheet';
+import { usePlannedRoutesQuery } from '@/src/features/planner/hooks/use-planned-routes-query';
 import {
   LocalBottomSheet,
   type LocalBottomSheetHandle,
 } from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
 import { MapScreen } from '@/src/features/station/components/map-screen';
 import type { NearbyStop } from '@/src/features/nearby/hooks/use-nearby-stops-query';
+import type { PlannedLeg, PlannedRoute } from '@/src/domain/planner/models';
 import { StationContent } from '@/src/features/station/components/station-content';
 import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
 import { useTransitStore } from '@/src/state/store';
@@ -38,6 +41,31 @@ function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null 
 }
 
 const SHEET_DETENTS = [0.1, 0.5, 1] as const;
+
+function getLegPoints(leg: PlannedLeg): { lat: number; lon: number }[] {
+  if (leg.points.length > 1) {
+    return leg.points;
+  }
+  if (
+    leg.from.lat !== undefined &&
+    leg.from.lon !== undefined &&
+    leg.to.lat !== undefined &&
+    leg.to.lon !== undefined
+  ) {
+    return [
+      { lat: leg.from.lat, lon: leg.from.lon },
+      { lat: leg.to.lat, lon: leg.to.lon },
+    ];
+  }
+  return [];
+}
+
+function getRoutePoints(route: PlannedRoute | null): { lat: number; lon: number }[] {
+  if (!route) {
+    return [];
+  }
+  return route.legs.flatMap(getLegPoints);
+}
 
 export default function MapTabScreen() {
   const { height: windowHeight } = useWindowDimensions();
@@ -62,7 +90,7 @@ export default function MapTabScreen() {
     isLoading: stationsLoading,
     error: stationsError,
   } = useLineStationsQuery(mode, lineCode);
-  const interchangeLines = mode === 'metro' ? lines : [];
+  const interchangeLines = useMemo(() => (mode === 'metro' ? lines : []), [lines, mode]);
   const allStationsQuery = useAllLineStationsQuery(interchangeLines);
   const stationInterchanges = useMemo(
     () => buildStationInterchanges(interchangeLines, allStationsQuery.stationsByLine),
@@ -78,6 +106,30 @@ export default function MapTabScreen() {
 
   const sheetRef = useRef<LocalBottomSheetHandle>(null);
   const [detentIndex, setDetentIndex] = useState(0);
+  const [plannerEnabled, setPlannerEnabled] = useState(false);
+  const [plannerActivePoint, setPlannerActivePoint] = useState<'origin' | 'destination'>(
+    'destination',
+  );
+  const [plannerOrigin, setPlannerOrigin] = useState<{ lat: number; lon: number } | null>(null);
+  const [plannerDestination, setPlannerDestination] = useState<{ lat: number; lon: number } | null>(
+    null,
+  );
+  const [plannerUserLocation, setPlannerUserLocation] = useState<{ lat: number; lon: number } | null>(
+    null,
+  );
+  const [plannerRequested, setPlannerRequested] = useState(false);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+
+  const plannedRoutesQuery = usePlannedRoutesQuery(plannerOrigin, plannerDestination, {
+    enabled: plannerEnabled && plannerRequested,
+  });
+  const plannedRoutes = useMemo(
+    () => plannedRoutesQuery.data ?? [],
+    [plannedRoutesQuery.data],
+  );
+  const selectedRoute =
+    plannedRoutes.find((route) => route.id === selectedRouteId) ?? plannedRoutes[0] ?? null;
+  const selectedRoutePoints = useMemo(() => getRoutePoints(selectedRoute), [selectedRoute]);
 
   const sheetHeight = useMemo(() => {
     const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
@@ -108,6 +160,19 @@ export default function MapTabScreen() {
     setSelection,
     stationCode,
   ]);
+
+  useEffect(() => {
+    if (!plannedRoutes.length) {
+      setSelectedRouteId(null);
+      return;
+    }
+    if (!selectedRouteId || !plannedRoutes.some((route) => route.id === selectedRouteId)) {
+      setSelectedRouteId(plannedRoutes[0].id);
+    }
+    if (plannerEnabled && plannerRequested) {
+      sheetRef.current?.resize(2);
+    }
+  }, [plannedRoutes, plannerEnabled, plannerRequested, selectedRouteId]);
 
   const handleDetentChange = useCallback((nextDetentIndex: number) => {
     setDetentIndex(nextDetentIndex);
@@ -157,6 +222,59 @@ export default function MapTabScreen() {
     [lineCode, mode, setSelection],
   );
 
+  const resetPlannerRequest = useCallback(() => {
+    setPlannerRequested(false);
+    setSelectedRouteId(null);
+  }, []);
+
+  const handlePlannerToggle = useCallback(() => {
+    setPlannerEnabled((current) => {
+      const next = !current;
+      if (next) {
+        sheetRef.current?.resize(1);
+      } else {
+        resetPlannerRequest();
+        sheetRef.current?.resize(0);
+      }
+      return next;
+    });
+  }, [resetPlannerRequest]);
+
+  const handlePlannerMapPress = useCallback(
+    (coordinate: { lat: number; lon: number }) => {
+      if (plannerActivePoint === 'origin') {
+        setPlannerOrigin(coordinate);
+        setPlannerActivePoint('destination');
+      } else {
+        setPlannerDestination(coordinate);
+      }
+      resetPlannerRequest();
+      sheetRef.current?.resize(1);
+    },
+    [plannerActivePoint, resetPlannerRequest],
+  );
+
+  const handlePlannerUseCurrentLocation = useCallback(
+    (coordinate: { lat: number; lon: number } | null) => {
+      if (!coordinate) {
+        return;
+      }
+      setPlannerOrigin(coordinate);
+      setPlannerActivePoint('destination');
+      resetPlannerRequest();
+      sheetRef.current?.resize(1);
+    },
+    [resetPlannerRequest],
+  );
+
+  const handlePlannerPlan = useCallback(() => {
+    if (!plannerOrigin || !plannerDestination) {
+      return;
+    }
+    setPlannerRequested(true);
+    sheetRef.current?.resize(2);
+  }, [plannerDestination, plannerOrigin]);
+
   if (linesError || stationsError) {
     return (
       <View style={styles.fallback}>
@@ -193,6 +311,13 @@ export default function MapTabScreen() {
         onModeChange={handleModeChange}
         onStationChange={handleStationChange}
         onNearbyStopSelect={handleNearbyStopSelect}
+        onUserLocationChange={setPlannerUserLocation}
+        plannerEnabled={plannerEnabled}
+        plannerOrigin={plannerOrigin}
+        plannerDestination={plannerDestination}
+        plannerRoutePoints={selectedRoutePoints}
+        onPlannerToggle={handlePlannerToggle}
+        onPlannerMapPress={handlePlannerMapPress}
       />
 
       <LocalBottomSheet
@@ -205,11 +330,32 @@ export default function MapTabScreen() {
           style={isCollapsed ? styles.contentHidden : styles.contentVisible}
           pointerEvents={isCollapsed ? 'none' : 'auto'}
         >
-          <StationContent
-            lines={lines}
-            stationInterchanges={stationInterchanges}
-            onLineStationSelect={handleLineStationSelect}
-          />
+          {plannerEnabled ? (
+            <PlannerSheet
+              origin={plannerOrigin}
+              destination={plannerDestination}
+              userLocation={plannerUserLocation}
+              activePoint={plannerActivePoint}
+              requested={plannerRequested}
+              routes={plannedRoutes}
+              selectedRouteId={selectedRoute?.id ?? null}
+              isLoading={plannedRoutesQuery.isLoading}
+              isError={plannedRoutesQuery.isError}
+              onActivePointChange={setPlannerActivePoint}
+              onUseCurrentLocation={() => handlePlannerUseCurrentLocation(plannerUserLocation)}
+              onPlan={handlePlannerPlan}
+              onRouteSelect={(routeId) => {
+                setSelectedRouteId(routeId);
+                sheetRef.current?.resize(2);
+              }}
+            />
+          ) : (
+            <StationContent
+              lines={lines}
+              stationInterchanges={stationInterchanges}
+              onLineStationSelect={handleLineStationSelect}
+            />
+          )}
         </View>
       </LocalBottomSheet>
     </View>

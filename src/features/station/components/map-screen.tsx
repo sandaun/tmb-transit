@@ -3,11 +3,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MapAdapter } from '@/src/features/station/components/map-adapter';
+import {
+  MapAdapter,
+  type PlannerMapMarker,
+  type PlannerMapPolyline,
+} from '@/src/features/station/components/map-adapter';
 import { ModeToggle } from '@/src/features/station/components/mode-toggle';
 import { FamilyFilter } from '@/src/features/station/components/family-filter';
 import { SearchShell } from '@/src/features/station/components/search-shell';
 import { NearbyControl } from '@/src/features/nearby/components/nearby-control';
+import { RouteControl } from '@/src/features/planner/components/route-control';
 import {
   useNearbyStopsQuery,
   type NearbyStop,
@@ -35,6 +40,13 @@ interface MapScreenProps {
   onModeChange?: (mode: TransportMode) => void;
   onStationChange?: (stationCode: string) => void;
   onNearbyStopSelect?: (stop: NearbyStop) => void;
+  onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
+  plannerEnabled?: boolean;
+  plannerOrigin?: { lat: number; lon: number } | null;
+  plannerDestination?: { lat: number; lon: number } | null;
+  plannerRoutePoints?: { lat: number; lon: number }[];
+  onPlannerToggle?: () => void;
+  onPlannerMapPress?: (coordinate: { lat: number; lon: number }) => void;
 }
 
 const NEARBY_RADIUS_METERS = 500;
@@ -51,6 +63,13 @@ export function MapScreen({
   onModeChange,
   onStationChange,
   onNearbyStopSelect,
+  onUserLocationChange,
+  plannerEnabled = false,
+  plannerOrigin = null,
+  plannerDestination = null,
+  plannerRoutePoints = [],
+  onPlannerToggle,
+  onPlannerMapPress,
 }: MapScreenProps) {
   const insets = useSafeAreaInsets();
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
@@ -141,6 +160,37 @@ export function MapScreen({
       }));
   }, [activeStationCodes, mode, nearbyEnabled, nearbyQuery.data]);
 
+  const plannerMarkers = useMemo<PlannerMapMarker[]>(() => {
+    if (!plannerEnabled) {
+      return [];
+    }
+    const markers: PlannerMapMarker[] = [];
+    if (plannerOrigin) {
+      markers.push({
+        id: 'origin',
+        label: 'A',
+        coordinate: plannerOrigin,
+        kind: 'origin',
+      });
+    }
+    if (plannerDestination) {
+      markers.push({
+        id: 'destination',
+        label: 'B',
+        coordinate: plannerDestination,
+        kind: 'destination',
+      });
+    }
+    return markers;
+  }, [plannerDestination, plannerEnabled, plannerOrigin]);
+
+  const plannerPolylines = useMemo<PlannerMapPolyline[]>(() => {
+    if (!plannerEnabled || plannerRoutePoints.length < 2) {
+      return [];
+    }
+    return [{ id: 'selected-route', points: plannerRoutePoints, color: '#2A70FF' }];
+  }, [plannerEnabled, plannerRoutePoints]);
+
   const handleNearbyTogglePress = useCallback(() => {
     setNearbyEnabled((current) => !current);
   }, []);
@@ -172,9 +222,25 @@ export function MapScreen({
     [onStationChange],
   );
 
-  const showFamilyFilter = mode === 'bus' && availableFamilies.length > 0;
-  const overlayOffsetExtra = (onModeChange ? 56 : 0) + (showFamilyFilter ? 48 : 0);
+  const handleMapPress = useCallback(
+    (coordinate: { lat: number; lon: number }) => {
+      if (!plannerEnabled) {
+        return;
+      }
+      onPlannerMapPress?.(coordinate);
+    },
+    [onPlannerMapPress, plannerEnabled],
+  );
 
+  const handleUserLocationChange = useCallback(
+    (coordinate: { lat: number; lon: number } | null) => {
+      setUserLocation(coordinate);
+      onUserLocationChange?.(coordinate);
+    },
+    [onUserLocationChange],
+  );
+
+  const showFamilyFilter = mode === 'bus' && availableFamilies.length > 0;
   return (
     <View style={styles.root}>
       <MapAdapter
@@ -188,19 +254,25 @@ export function MapScreen({
         isRouteLoading={segmentsQuery.isLoading}
         bottomInset={bottomInset}
         nearbyStops={nearbyMarkers}
+        plannerMarkers={plannerMarkers}
+        plannerPolylines={plannerPolylines}
         bottomActions={
           showBackButton ? null : (
-            <NearbyControl
-              enabled={nearbyEnabled}
-              activeModes={nearbyModes}
-              onToggle={handleNearbyTogglePress}
-              onModesChange={setNearbyModes}
-            />
+            <>
+              <RouteControl enabled={plannerEnabled} onPress={onPlannerToggle ?? (() => undefined)} />
+              <NearbyControl
+                enabled={nearbyEnabled}
+                activeModes={nearbyModes}
+                onToggle={handleNearbyTogglePress}
+                onModesChange={setNearbyModes}
+              />
+            </>
           )
         }
         onStationPress={handleStationPress}
-        onUserLocationChange={setUserLocation}
+        onUserLocationChange={handleUserLocationChange}
         onNearbyStopPress={handleNearbyStopPress}
+        onMapPress={handleMapPress}
       />
 
       <View style={[styles.topOverlay, { top: insets.top + 8 }]}>

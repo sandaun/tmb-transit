@@ -1,8 +1,22 @@
 import { APP_CONFIG } from '@/src/config/app-config';
-import { mapArrivalDto, mapLineDto, mapSegmentDto, mapStationDto } from '@/src/data/tmb/mappers';
-import type { ApiResponse, ArrivalDto, LineDto, SegmentDto, StationDto } from '@/src/data/tmb/types';
+import {
+  mapArrivalDto,
+  mapLineDto,
+  mapPlannedRouteDto,
+  mapSegmentDto,
+  mapStationDto,
+} from '@/src/data/tmb/mappers';
+import type {
+  ApiResponse,
+  ArrivalDto,
+  LineDto,
+  PlannedRouteDto,
+  SegmentDto,
+  StationDto,
+} from '@/src/data/tmb/types';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
+import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
 
 class ApiError extends Error {
@@ -57,4 +71,21 @@ export async function fetchStationArrivals(
   );
 
   return response.data.map(mapArrivalDto);
+}
+
+export async function fetchPlannedRoutes(
+  from: { lat: number; lon: number },
+  to: { lat: number; lon: number },
+): Promise<PlannedRoute[]> {
+  const query = new URLSearchParams({
+    fromLat: String(from.lat),
+    fromLon: String(from.lon),
+    toLat: String(to.lat),
+    toLon: String(to.lon),
+  });
+  const response = await requestJson<ApiResponse<PlannedRouteDto[]>>(
+    `/v1/planner/routes?${query.toString()}`,
+  );
+
+  return response.data.map(mapPlannedRouteDto);
 }

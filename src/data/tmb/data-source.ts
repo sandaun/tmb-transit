@@ -3,16 +3,19 @@ import {
   fetchLineSegments as fetchLineSegmentsFromApi,
   fetchLineStations as fetchLineStationsFromApi,
   fetchLines as fetchLinesFromApi,
+  fetchPlannedRoutes as fetchPlannedRoutesFromApi,
   fetchStationArrivals as fetchStationArrivalsFromApi,
 } from '@/src/data/tmb/client';
 import {
   fetchLineSegmentsFromMock,
   fetchLineStationsFromMock,
   fetchLinesFromMock,
+  fetchPlannedRoutesFromMock,
   fetchStationArrivalsFromMock,
 } from '@/src/data/tmb/mock-client';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
+import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
 
 interface TmbDataSource {
@@ -24,6 +27,10 @@ interface TmbDataSource {
     lineCode: string,
     stationCode: string,
   ) => Promise<Arrival[]>;
+  fetchPlannedRoutes: (
+    from: { lat: number; lon: number },
+    to: { lat: number; lon: number },
+  ) => Promise<PlannedRoute[]>;
 }
 
 const apiDataSource: TmbDataSource = {
@@ -31,6 +38,7 @@ const apiDataSource: TmbDataSource = {
   fetchLineStations: fetchLineStationsFromApi,
   fetchLineSegments: fetchLineSegmentsFromApi,
   fetchStationArrivals: fetchStationArrivalsFromApi,
+  fetchPlannedRoutes: fetchPlannedRoutesFromApi,
 };
 
 const mockDataSource: TmbDataSource = {
@@ -38,6 +46,7 @@ const mockDataSource: TmbDataSource = {
   fetchLineStations: fetchLineStationsFromMock,
   fetchLineSegments: fetchLineSegmentsFromMock,
   fetchStationArrivals: fetchStationArrivalsFromMock,
+  fetchPlannedRoutes: fetchPlannedRoutesFromMock,
 };
 
 export const DATA_SOURCE_MODE = APP_CONFIG.useMock ? 'mock' : 'api';
@@ -68,4 +77,11 @@ export async function fetchStationArrivals(
   stationCode: string,
 ) {
   return getTmbDataSource().fetchStationArrivals(mode, lineCode, stationCode);
+}
+
+export async function fetchPlannedRoutes(
+  from: { lat: number; lon: number },
+  to: { lat: number; lon: number },
+) {
+  return getTmbDataSource().fetchPlannedRoutes(from, to);
 }

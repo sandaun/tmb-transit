@@ -1,12 +1,10 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { TransportMode } from '@/src/domain/catalog/models';
 import type { PlannedLeg, PlannedRoute } from '@/src/domain/planner/models';
-import {
-  formatDuration,
-  getRouteSummary,
-  getTransitRoutes,
-} from '@/src/features/planner/utils/route-summary';
+import { LineBadge } from '@/src/features/catalog/components/line-badge';
+import { formatDuration, getTransitRoutes } from '@/src/features/planner/utils/route-summary';
 
 const TAB_BAR_CLEARANCE = 150;
 
@@ -23,6 +21,7 @@ interface PlannerSheetProps {
   isLoading: boolean;
   isError: boolean;
   onActivePointChange: (point: 'origin' | 'destination') => void;
+  onEdit: () => void;
   onUseCurrentLocation: () => void;
   onPlan: () => void;
   onRouteSelect: (routeId: string) => void;
@@ -64,6 +63,17 @@ function getPointValue(label: string | null, hasPoint: boolean, active: boolean)
   return active ? 'Tap the map' : 'Not set';
 }
 
+function getRouteMode(route: string): TransportMode {
+  return /^L\d|^FM$/i.test(route.trim()) ? 'metro' : 'bus';
+}
+
+function getTransferLabel(transfers: number): string {
+  if (transfers === 0) {
+    return 'Direct';
+  }
+  return `${transfers} transfer${transfers === 1 ? '' : 's'}`;
+}
+
 export function PlannerSheet({
   origin,
   originLabel,
@@ -77,6 +87,7 @@ export function PlannerSheet({
   isLoading,
   isError,
   onActivePointChange,
+  onEdit,
   onUseCurrentLocation,
   onPlan,
   onRouteSelect,
@@ -95,83 +106,103 @@ export function PlannerSheet({
       ]}
       scrollIndicatorInsets={{ bottom: TAB_BAR_CLEARANCE + insets.bottom }}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Route</Text>
-      </View>
-
-      <View style={styles.points}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: activePoint === 'origin' }}
-          style={[styles.pointRow, activePoint === 'origin' ? styles.pointRowActive : null]}
-          onPress={() => onActivePointChange('origin')}
-        >
-          <View style={[styles.pointDot, styles.originDot]}>
-            <Text style={styles.pointDotText}>A</Text>
-          </View>
-          <View style={styles.pointTextWrap}>
-            <Text style={styles.pointLabel}>Origin</Text>
-            <Text numberOfLines={1} style={styles.pointValue}>
-              {getPointValue(originLabel, Boolean(origin), activePoint === 'origin')}
+      {requested ? (
+        <View style={styles.tripSummary}>
+          <View style={styles.tripSummaryText}>
+            <Text numberOfLines={1} style={styles.tripSummaryOrigin}>
+              {originLabel ?? 'Origin'}
+            </Text>
+            <Text style={styles.tripSummaryArrow}>{'→'}</Text>
+            <Text numberOfLines={1} style={styles.tripSummaryDestination}>
+              {destinationLabel ?? 'Destination'}
             </Text>
           </View>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: activePoint === 'destination' }}
-          style={[styles.pointRow, activePoint === 'destination' ? styles.pointRowActive : null]}
-          onPress={() => onActivePointChange('destination')}
-        >
-          <View style={[styles.pointDot, styles.destinationDot]}>
-            <Text style={styles.pointDotText}>B</Text>
+          <Pressable accessibilityRole="button" style={styles.editButton} onPress={onEdit}>
+            <Text style={styles.editButtonText}>Edit</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <View style={styles.header}>
+            <Text style={styles.title}>Route</Text>
           </View>
-          <View style={styles.pointTextWrap}>
-            <Text style={styles.pointLabel}>Destination</Text>
-            <Text numberOfLines={1} style={styles.pointValue}>
-              {getPointValue(
-                destinationLabel,
-                Boolean(destination),
-                activePoint === 'destination',
-              )}
-            </Text>
+
+          <View style={styles.points}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: activePoint === 'origin' }}
+              style={[styles.pointRow, activePoint === 'origin' ? styles.pointRowActive : null]}
+              onPress={() => onActivePointChange('origin')}
+            >
+              <View style={[styles.pointDot, styles.originDot]}>
+                <Text style={styles.pointDotText}>A</Text>
+              </View>
+              <View style={styles.pointTextWrap}>
+                <Text style={styles.pointLabel}>Origin</Text>
+                <Text numberOfLines={1} style={styles.pointValue}>
+                  {getPointValue(originLabel, Boolean(origin), activePoint === 'origin')}
+                </Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: activePoint === 'destination' }}
+              style={[styles.pointRow, activePoint === 'destination' ? styles.pointRowActive : null]}
+              onPress={() => onActivePointChange('destination')}
+            >
+              <View style={[styles.pointDot, styles.destinationDot]}>
+                <Text style={styles.pointDotText}>B</Text>
+              </View>
+              <View style={styles.pointTextWrap}>
+                <Text style={styles.pointLabel}>Destination</Text>
+                <Text numberOfLines={1} style={styles.pointValue}>
+                  {getPointValue(
+                    destinationLabel,
+                    Boolean(destination),
+                    activePoint === 'destination',
+                  )}
+                </Text>
+              </View>
+            </Pressable>
           </View>
-        </Pressable>
-      </View>
 
-      <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          style={[styles.secondaryButton, !userLocation ? styles.secondaryButtonUnavailable : null]}
-          onPress={onUseCurrentLocation}
-          disabled={!userLocation}
-        >
-          <Text
-            style={[
-              styles.secondaryButtonText,
-              !userLocation ? styles.secondaryButtonTextUnavailable : null,
-            ]}
-          >
-            {userLocation ? 'Use my location' : 'Location unavailable'}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          style={[styles.primaryButton, !canPlan ? styles.disabled : null]}
-          onPress={onPlan}
-          disabled={!canPlan}
-        >
-          <Text style={styles.primaryButtonText}>Plan</Text>
-        </Pressable>
-      </View>
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              style={[
+                styles.secondaryButton,
+                !userLocation ? styles.secondaryButtonUnavailable : null,
+              ]}
+              onPress={onUseCurrentLocation}
+              disabled={!userLocation}
+            >
+              <Text
+                style={[
+                  styles.secondaryButtonText,
+                  !userLocation ? styles.secondaryButtonTextUnavailable : null,
+                ]}
+              >
+                {userLocation ? 'Use my location' : 'Location unavailable'}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={[styles.primaryButton, !canPlan ? styles.disabled : null]}
+              onPress={onPlan}
+              disabled={!canPlan}
+            >
+              <Text style={styles.primaryButtonText}>Plan</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
 
-      <View style={styles.divider} />
+      {!requested ? <View style={styles.divider} /> : null}
 
       {!requested ? (
         <View style={styles.statusBlock}>
-          <Text style={styles.statusText}>
-            Set A and B on the map, then plan the route.
-          </Text>
+          <Text style={styles.statusText}>Set A and B on the map, then plan the route.</Text>
         </View>
       ) : null}
 
@@ -211,18 +242,31 @@ export function PlannerSheet({
                   style={[styles.routeRow, selected ? styles.routeRowSelected : null]}
                   onPress={() => onRouteSelect(route.id)}
                 >
-                  <View
-                    style={[
-                      styles.routeIndicator,
-                      selected ? styles.routeIndicatorSelected : null,
-                    ]}
-                  />
-                  <View style={styles.routeTextWrap}>
-                    <Text style={styles.routeTitle}>{getRouteSummary(route)}</Text>
-                    <Text style={styles.routeMeta}>
-                      {transitRoutes.length > 0 ? transitRoutes.join(' + ') : 'Walking only'} ·{' '}
-                      {formatDistance(route.walkDistanceMeters)} walk
-                    </Text>
+                  <View style={styles.routeHeader}>
+                    <Text style={styles.routeDuration}>{formatDuration(route.durationSec)}</Text>
+                    <Text style={styles.routeTransfer}>{getTransferLabel(route.transfers)}</Text>
+                  </View>
+                  <View style={styles.routeModes}>
+                    {transitRoutes.length === 0 ? (
+                      <View style={styles.walkBadge}>
+                        <Text style={styles.walkBadgeText}>Walk</Text>
+                      </View>
+                    ) : (
+                      transitRoutes.map((transitRoute) => (
+                        <LineBadge
+                          key={transitRoute}
+                          lineCode={transitRoute}
+                          mode={getRouteMode(transitRoute)}
+                          shape="pill"
+                          size="small"
+                        />
+                      ))
+                    )}
+                    <View style={styles.walkDistanceBadge}>
+                      <Text style={styles.walkDistanceText}>
+                        {formatDistance(route.walkDistanceMeters)} walk
+                      </Text>
+                    </View>
                   </View>
                 </Pressable>
               );
@@ -267,6 +311,52 @@ const styles = StyleSheet.create({
   title: {
     color: '#F4F8FF',
     fontSize: 20,
+    fontWeight: '800',
+  },
+  tripSummary: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(10, 19, 36, 0.64)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  tripSummaryText: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  tripSummaryOrigin: {
+    maxWidth: '42%',
+    color: '#D7E5FF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tripSummaryArrow: {
+    color: '#7F93BA',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  tripSummaryDestination: {
+    flex: 1,
+    color: '#F4F8FF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  editButton: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  editButtonText: {
+    color: '#8FB4FF',
+    fontSize: 13,
     fontWeight: '800',
   },
   points: {
@@ -391,46 +481,70 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   routeList: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 8,
   },
   routeRow: {
-    minHeight: 76,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 8,
+    minHeight: 92,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    backgroundColor: 'rgba(10, 19, 36, 0.58)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 10,
   },
   routeRowSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(18, 39, 76, 0.88)',
+    borderColor: '#2A70FF',
   },
-  routeIndicator: {
-    width: 4,
-    height: 44,
-    borderRadius: 2,
-    backgroundColor: 'transparent',
+  routeHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  routeIndicatorSelected: {
-    backgroundColor: '#2A70FF',
+  routeDuration: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
   },
-  routeTextWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
-  routeTitle: {
-    color: '#F4F8FF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  routeMeta: {
+  routeTransfer: {
     color: '#D7E5FF',
     fontSize: 13,
-    fontWeight: '600',
-    marginTop: 4,
+    fontWeight: '700',
+  },
+  routeModes: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  walkBadge: {
+    height: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 17,
+    backgroundColor: '#2A70FF',
+  },
+  walkBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  walkDistanceBadge: {
+    height: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 11,
+    borderRadius: 17,
+    backgroundColor: 'rgba(42, 112, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(88, 145, 255, 0.42)',
+  },
+  walkDistanceText: {
+    color: '#C9DBFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   steps: {
     gap: 12,

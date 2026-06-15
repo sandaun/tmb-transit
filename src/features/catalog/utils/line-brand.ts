@@ -36,6 +36,11 @@ const numericMetroLineKeys: Record<string, string> = {
 
 const BUS_FALLBACK_BACKGROUND = '#1F4FB6';
 const METRO_FALLBACK_BACKGROUND = '#24304A';
+const BUS_FAMILY_BACKGROUNDS: Record<string, string> = {
+  H: '#009DDC',
+  V: '#4DAF50',
+  D: '#8A4FA3',
+};
 
 function normalizeMetroLineKey(lineCode: string): string {
   const normalized = lineCode.trim().toUpperCase().replace(/\s+/g, '');
@@ -74,9 +79,12 @@ function getMetroBrand(lineCode: string, color?: string): LineBrand {
 
 function getBusBrand(lineCode: string, color?: string): LineBrand {
   const apiColor = toHexColor(color);
+  const normalized = lineCode.trim().toUpperCase();
+  const familyColor = BUS_FAMILY_BACKGROUNDS[normalized.charAt(0)];
+  const conventionalColor = /^\d/.test(normalized) ? '#E2231A' : null;
   return {
-    label: lineCode.trim().toUpperCase() || lineCode,
-    backgroundColor: apiColor ?? BUS_FALLBACK_BACKGROUND,
+    label: normalized || lineCode,
+    backgroundColor: apiColor ?? familyColor ?? conventionalColor ?? BUS_FALLBACK_BACKGROUND,
     textColor: '#FFFFFF',
   };
 }

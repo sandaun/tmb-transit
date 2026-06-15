@@ -103,13 +103,44 @@ function getPlannedLegTransportMode(leg: PlannedLeg): TransportMode {
   return /^L\d|^FM$/.test(route) ? 'metro' : 'bus';
 }
 
+function normalizePlannerPointName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function isInternalTransferWalk(
+  leg: PlannedLeg,
+  previousLeg: PlannedLeg | undefined,
+  nextLeg: PlannedLeg | undefined,
+): boolean {
+  if (leg.mode !== 'walk' || previousLeg?.mode !== 'transit' || nextLeg?.mode !== 'transit') {
+    return false;
+  }
+
+  const fromName = normalizePlannerPointName(leg.from.name);
+  const toName = normalizePlannerPointName(leg.to.name);
+  if (fromName && toName && fromName === toName) {
+    return true;
+  }
+
+  return (leg.distanceMeters ?? Number.POSITIVE_INFINITY) <= 80;
+}
+
 function getRoutePolylines(route: PlannedRoute | null): PlannerMapPolyline[] {
   if (!route) {
     return [];
   }
 
   return route.legs
-    .map((leg) => {
+    .map((leg, index) => {
+      if (isInternalTransferWalk(leg, route.legs[index - 1], route.legs[index + 1])) {
+        return null;
+      }
+
       const points = getLegPoints(leg);
       if (points.length < 2) {
         return null;
@@ -185,7 +216,6 @@ export default function MapTabScreen() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const originLabelRequestRef = useRef(0);
   const destinationLabelRequestRef = useRef(0);
-  const hasAutoExpandedPlanRef = useRef(false);
 
   const plannedRoutesQuery = usePlannedRoutesQuery(plannerOrigin, plannerDestination, {
     enabled: plannerEnabled && plannerRequested,
@@ -237,9 +267,8 @@ export default function MapTabScreen() {
     if (!selectedRouteId || !plannedRoutes.some((route) => route.id === selectedRouteId)) {
       setSelectedRouteId(plannedRoutes[0].id);
     }
-    if (plannerEnabled && plannerRequested && !hasAutoExpandedPlanRef.current) {
-      hasAutoExpandedPlanRef.current = true;
-      sheetRef.current?.resize(2);
+    if (plannerEnabled && plannerRequested) {
+      sheetRef.current?.resize(1);
     }
   }, [plannedRoutes, plannerEnabled, plannerRequested, selectedRouteId]);
 
@@ -294,7 +323,6 @@ export default function MapTabScreen() {
   const resetPlannerRequest = useCallback(() => {
     setPlannerRequested(false);
     setSelectedRouteId(null);
-    hasAutoExpandedPlanRef.current = false;
   }, []);
 
   const setPlannerPoint = useCallback(
@@ -386,9 +414,8 @@ export default function MapTabScreen() {
     if (!plannerOrigin || !plannerDestination) {
       return;
     }
-    hasAutoExpandedPlanRef.current = false;
     setPlannerRequested(true);
-    sheetRef.current?.resize(2);
+    sheetRef.current?.resize(1);
   }, [plannerDestination, plannerOrigin]);
 
   if (linesError || stationsError) {
@@ -460,6 +487,7 @@ export default function MapTabScreen() {
               isLoading={plannedRoutesQuery.isLoading}
               isError={plannedRoutesQuery.isError}
               onActivePointChange={handlePlannerActivePointChange}
+              onEdit={() => handlePlannerActivePointChange('destination')}
               onUseCurrentLocation={() => handlePlannerUseCurrentLocation(plannerUserLocation)}
               onPlan={handlePlannerPlan}
               onRouteSelect={(routeId) => {

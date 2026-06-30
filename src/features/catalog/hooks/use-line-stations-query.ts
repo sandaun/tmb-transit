@@ -10,6 +10,15 @@ function isFresh(createdAt: number): boolean {
   return Date.now() - createdAt < APP_CONFIG.catalogTtlMs;
 }
 
+export async function fetchAndCacheLineStations(
+  mode: TransportMode,
+  lineCode: string,
+): Promise<Station[]> {
+  const stations = await fetchLineStations(mode, lineCode);
+  await writeCatalogCache<Station[]>(`stations:${mode}:${lineCode}`, stations);
+  return stations;
+}
+
 export function useLineStationsQuery(mode: TransportMode, lineCode: string | null) {
   const queryClient = useQueryClient();
   const queryKey = useMemo(
@@ -24,9 +33,7 @@ export function useLineStationsQuery(mode: TransportMode, lineCode: string | nul
         return [];
       }
 
-      const stations = await fetchLineStations(mode, lineCode);
-      await writeCatalogCache<Station[]>(`stations:${mode}:${lineCode}`, stations);
-      return stations;
+      return fetchAndCacheLineStations(mode, lineCode);
     },
     enabled: false,
   });

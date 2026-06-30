@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,7 +12,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useAllLineStationsQuery } from '@/src/features/catalog/hooks/use-all-line-stations-query';
-import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
+import {
+  fetchAndCacheLineStations,
+  useLineStationsQuery,
+} from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { PlannerSheet } from '@/src/features/planner/components/planner-sheet';
@@ -164,6 +168,7 @@ function getRoutePolylines(route: PlannedRoute | null): PlannerMapPolyline[] {
 export default function MapTabScreen() {
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const mode = useTransitStore((s) => s.selectedMode);
   const selectedLineCode = useTransitStore((s) => s.selectedLineCode);
   const selectedStationCode = useTransitStore((s) => s.selectedStationCode);
@@ -217,6 +222,7 @@ export default function MapTabScreen() {
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const originLabelRequestRef = useRef(0);
   const destinationLabelRequestRef = useRef(0);
+  const lineChangeRequestRef = useRef(0);
 
   const plannedRoutesQuery = usePlannedRoutesQuery(plannerOrigin, plannerDestination, {
     enabled: plannerEnabled && plannerRequested,
@@ -277,48 +283,81 @@ export default function MapTabScreen() {
     setDetentIndex(nextDetentIndex);
   }, []);
 
+  const cancelPendingLineChange = useCallback(() => {
+    lineChangeRequestRef.current += 1;
+  }, []);
+
   const handleModeChange = useCallback(
     (nextMode: TransportMode) => {
       if (nextMode === mode) return;
+      cancelPendingLineChange();
       setSelection(nextMode, '', '');
       sheetRef.current?.resize(0);
     },
-    [mode, setSelection],
+    [cancelPendingLineChange, mode, setSelection],
   );
 
   const handleLineChange = useCallback(
     (nextLineCode: string) => {
+      if (nextLineCode === lineCode) return;
+
       const nextLine = lines.find((line) => line.code === nextLineCode);
-      setSelection(nextLine?.mode ?? mode, nextLineCode, '');
+      const nextMode = nextLine?.mode ?? mode;
+      const requestId = lineChangeRequestRef.current + 1;
+      lineChangeRequestRef.current = requestId;
+
       sheetRef.current?.resize(0);
+
+      void queryClient
+        .fetchQuery({
+          queryKey: ['catalog', nextMode, 'stations', nextLineCode] as const,
+          queryFn: () => fetchAndCacheLineStations(nextMode, nextLineCode),
+        })
+        .then((nextStations) => {
+          if (lineChangeRequestRef.current !== requestId) {
+            return;
+          }
+
+          setSelection(nextMode, nextLineCode, nextStations[0]?.code ?? '');
+        })
+        .catch(() => {
+          if (lineChangeRequestRef.current !== requestId) {
+            return;
+          }
+
+          setSelection(nextMode, nextLineCode, '');
+        });
     },
-    [lines, mode, setSelection],
+    [lineCode, lines, mode, queryClient, setSelection],
   );
 
   const handleStationChange = useCallback(
     (nextStationCode: string) => {
       if (!lineCode) return;
+      cancelPendingLineChange();
       setSelection(mode, lineCode, nextStationCode);
       sheetRef.current?.resize(1);
     },
-    [lineCode, mode, setSelection],
+    [cancelPendingLineChange, lineCode, mode, setSelection],
   );
   const handleLineStationSelect = useCallback(
     (nextMode: TransportMode, nextLineCode: string, nextStationCode: string) => {
+      cancelPendingLineChange();
       setSelection(nextMode, nextLineCode, nextStationCode);
       sheetRef.current?.resize(1);
     },
-    [setSelection],
+    [cancelPendingLineChange, setSelection],
   );
 
   const handleNearbyStopSelect = useCallback(
     (stop: NearbyStop) => {
+      cancelPendingLineChange();
       const effectiveLineCode =
         stop.lineCode || (stop.mode === mode ? lineCode : '') || '';
       setSelection(stop.mode, effectiveLineCode, stop.code);
       sheetRef.current?.resize(1);
     },
-    [lineCode, mode, setSelection],
+    [cancelPendingLineChange, lineCode, mode, setSelection],
   );
 
   const resetPlannerRequest = useCallback(() => {

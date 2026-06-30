@@ -550,7 +550,7 @@ export function MapAdapter({
   const routeLayerKey = routePolylines
     .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
     .join('|');
-  const mapKey = `${lineCode}:${isRouteLoading ? 'route-loading' : routeLayerKey}`;
+  const shouldRenderRoutePolylines = isMapReady && routePolylines.length > 0;
   const hasPlannerRoute = plannerPolylines.length > 0;
   const routeStrokeColor = hasPlannerRoute
     ? withAlpha(lineBrand.backgroundColor, 0.22)
@@ -561,7 +561,6 @@ export function MapAdapter({
   return (
     <View style={styles.root}>
       <MapView
-        key={mapKey}
         ref={mapRef}
         style={styles.map}
         initialRegion={initialRegion}
@@ -575,17 +574,19 @@ export function MapAdapter({
         showsUserLocation={hasLocationPermission || isWaitingForUserLocation}
         userLocationPriority="balanced"
       >
-        {routePolylines.map((polyline) => (
-            <Polyline
-              key={`${lineCode}:route:${routeLayerKey}:${polyline.id}`}
-              coordinates={polyline.coordinates}
-              lineCap="round"
-              lineJoin="round"
-              strokeWidth={routeStrokeWidth}
-              strokeColor={routeStrokeColor}
-              zIndex={routeZIndex}
-            />
-        ))}
+        {shouldRenderRoutePolylines
+          ? routePolylines.map((polyline) => (
+              <Polyline
+                key={`${lineCode}:route:${routeLayerKey}:${polyline.id}`}
+                coordinates={polyline.coordinates}
+                lineCap="round"
+                lineJoin="round"
+                strokeWidth={routeStrokeWidth}
+                strokeColor={routeStrokeColor}
+                zIndex={routeZIndex}
+              />
+            ))
+          : null}
 
         {plannerPolylines.map((polyline, index) => {
           const coordinates = polyline.points

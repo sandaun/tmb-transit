@@ -77,6 +77,7 @@ export function MapScreen({
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus']);
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const explorationVisible = !plannerEnabled;
 
   const stationsQuery = useLineStationsQuery(mode, lineCode);
   const segmentsQuery = useLineSegmentsQuery(mode, lineCode);
@@ -137,7 +138,7 @@ export function MapScreen({
   const nearbyQuery = useNearbyStopsQuery(userLocation, {
     modes: nearbyModes,
     radiusMeters: NEARBY_RADIUS_METERS,
-    enabled: nearbyEnabled,
+    enabled: nearbyEnabled && explorationVisible,
   });
 
   const activeStationCodes = useMemo(
@@ -146,7 +147,7 @@ export function MapScreen({
   );
 
   const nearbyMarkers = useMemo(() => {
-    if (!nearbyEnabled) {
+    if (!nearbyEnabled || !explorationVisible) {
       return [];
     }
     return (nearbyQuery.data ?? [])
@@ -160,7 +161,7 @@ export function MapScreen({
         lon: stop.lon,
         mode: stop.mode,
       }));
-  }, [activeStationCodes, mode, nearbyEnabled, nearbyQuery.data]);
+  }, [activeStationCodes, explorationVisible, mode, nearbyEnabled, nearbyQuery.data]);
 
   const plannerMarkers = useMemo<PlannerMapMarker[]>(() => {
     if (!plannerEnabled) {
@@ -259,16 +260,19 @@ export function MapScreen({
         plannerMarkers={plannerMarkers}
         plannerPolylines={plannerPolylines}
         plannerFocusKey={plannerFocusKey}
+        explorationVisible={explorationVisible}
         bottomActions={
           showBackButton ? null : (
             <>
               <RouteControl enabled={plannerEnabled} onPress={onPlannerToggle ?? (() => undefined)} />
-              <NearbyControl
-                enabled={nearbyEnabled}
-                activeModes={nearbyModes}
-                onToggle={handleNearbyTogglePress}
-                onModesChange={setNearbyModes}
-              />
+              {explorationVisible ? (
+                <NearbyControl
+                  enabled={nearbyEnabled}
+                  activeModes={nearbyModes}
+                  onToggle={handleNearbyTogglePress}
+                  onModesChange={setNearbyModes}
+                />
+              ) : null}
             </>
           )
         }
@@ -278,32 +282,34 @@ export function MapScreen({
         onMapPress={handleMapPress}
       />
 
-      <View style={[styles.topOverlay, { top: insets.top + 8 }]}>
-        {showBackButton ? (
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>{'<'}</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.controls}>
-            {onModeChange ? (
-              <ModeToggle mode={mode} onChange={onModeChange} />
-            ) : null}
-            {showFamilyFilter ? (
-              <FamilyFilter
-                available={availableFamilies}
-                selected={busFamily}
-                onChange={setBusFamily}
+      {showBackButton || explorationVisible ? (
+        <View style={[styles.topOverlay, { top: insets.top + 8 }]}>
+          {showBackButton ? (
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+              <Text style={styles.backButtonText}>{'<'}</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.controls}>
+              {onModeChange ? (
+                <ModeToggle mode={mode} onChange={onModeChange} />
+              ) : null}
+              {showFamilyFilter ? (
+                <FamilyFilter
+                  available={availableFamilies}
+                  selected={busFamily}
+                  onChange={setBusFamily}
+                />
+              ) : null}
+              <SearchShell
+                lineCode={lineCode}
+                lines={visibleLines}
+                mode={mode}
+                onLineChange={onLineChange}
               />
-            ) : null}
-            <SearchShell
-              lineCode={lineCode}
-              lines={visibleLines}
-              mode={mode}
-              onLineChange={onLineChange}
-            />
-          </View>
-        )}
-      </View>
+            </View>
+          )}
+        </View>
+      ) : null}
 
     </View>
   );

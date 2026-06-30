@@ -60,6 +60,7 @@ interface MapAdapterProps {
   plannerMarkers?: PlannerMapMarker[];
   plannerPolylines?: PlannerMapPolyline[];
   plannerFocusKey?: string | null;
+  explorationVisible?: boolean;
   bottomActions?: React.ReactNode;
   onStationPress: (stationCode: string) => void;
   onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
@@ -159,6 +160,7 @@ export function MapAdapter({
   plannerMarkers = [],
   plannerPolylines = [],
   plannerFocusKey = null,
+  explorationVisible = true,
   bottomActions,
   onStationPress,
   onUserLocationChange,
@@ -265,11 +267,16 @@ export function MapAdapter({
   }, []);
 
   const visibleStations = useMemo(
-    () =>
-      stations.filter(
+    () => {
+      if (!explorationVisible) {
+        return [];
+      }
+
+      return stations.filter(
         (station) => Number.isFinite(station.lat) && Number.isFinite(station.lon),
-      ),
-    [stations],
+      );
+    },
+    [explorationVisible, stations],
   );
 
   const namedStations = useMemo(() => {
@@ -375,7 +382,7 @@ export function MapAdapter({
   }, []);
 
   useEffect(() => {
-    if (!selectedStation || !isMapReady) {
+    if (!explorationVisible || !selectedStation || !isMapReady) {
       return;
     }
 
@@ -383,7 +390,7 @@ export function MapAdapter({
       latitude: selectedStation.lat,
       longitude: selectedStation.lon,
     });
-  }, [centerMap, isMapReady, selectedStation]);
+  }, [centerMap, explorationVisible, isMapReady, selectedStation]);
 
   useEffect(() => {
     if (!plannerFocusKey) {
@@ -517,6 +524,10 @@ export function MapAdapter({
   );
 
   const routePolylines = useMemo<RoutePolyline[]>(() => {
+    if (!explorationVisible) {
+      return [];
+    }
+
     const segmentPolylines = segments
       .filter((segment) => segment.lineCode === lineCode)
       .map((segment) => ({
@@ -535,7 +546,7 @@ export function MapAdapter({
 
     const fallbackPolyline = getFallbackPolyline(stations);
     return fallbackPolyline ? [fallbackPolyline] : [];
-  }, [isRouteLoading, lineCode, segments, stations]);
+  }, [explorationVisible, isRouteLoading, lineCode, segments, stations]);
   const routeLayerKey = routePolylines
     .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
     .join('|');

@@ -59,6 +59,7 @@ interface MapAdapterProps {
   nearbyStops?: NearbyStopMarker[];
   plannerMarkers?: PlannerMapMarker[];
   plannerPolylines?: PlannerMapPolyline[];
+  plannerFocusKey?: string | null;
   bottomActions?: React.ReactNode;
   onStationPress: (stationCode: string) => void;
   onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
@@ -157,6 +158,7 @@ export function MapAdapter({
   nearbyStops = [],
   plannerMarkers = [],
   plannerPolylines = [],
+  plannerFocusKey = null,
   bottomActions,
   onStationPress,
   onUserLocationChange,
@@ -188,6 +190,7 @@ export function MapAdapter({
   }, [locationMessage]);
 
   const shouldCenterOnNextUserLocationRef = useRef(false);
+  const lastPlannerFocusKeyRef = useRef<string | null>(null);
   const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userCoordinate, setUserCoordinate] = useState<LatLng | null>(null);
   const [latitudeDelta, setLatitudeDelta] = useState(0.05);
@@ -381,6 +384,62 @@ export function MapAdapter({
       longitude: selectedStation.lon,
     });
   }, [centerMap, isMapReady, selectedStation]);
+
+  useEffect(() => {
+    if (!plannerFocusKey) {
+      lastPlannerFocusKeyRef.current = null;
+      return;
+    }
+
+    if (!isMapReady || plannerFocusKey === lastPlannerFocusKeyRef.current) {
+      return;
+    }
+
+    const points = plannerPolylines
+      .flatMap((polyline) => polyline.points)
+      .filter(
+        (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon),
+      );
+    if (points.length < 2) {
+      return;
+    }
+
+    let minLat = points[0].lat;
+    let maxLat = points[0].lat;
+    let minLon = points[0].lon;
+    let maxLon = points[0].lon;
+
+    for (const point of points.slice(1)) {
+      minLat = Math.min(minLat, point.lat);
+      maxLat = Math.max(maxLat, point.lat);
+      minLon = Math.min(minLon, point.lon);
+      maxLon = Math.max(maxLon, point.lon);
+    }
+
+    const latSpan = maxLat - minLat;
+    const lonSpan = maxLon - minLon;
+    const nextLatitudeDelta = Math.min(
+      0.05,
+      Math.max(0.012, latSpan * 1.5, lonSpan * 1.1),
+    );
+    const nextLongitudeDelta = Math.min(
+      0.065,
+      Math.max(0.012, lonSpan * 1.45, nextLatitudeDelta * 0.8),
+    );
+    const routeCenterLat = (minLat + maxLat) / 2;
+    const routeCenterLon = (minLon + maxLon) / 2;
+
+    lastPlannerFocusKeyRef.current = plannerFocusKey;
+    mapRef.current?.animateToRegion(
+      {
+        latitude: routeCenterLat - nextLatitudeDelta * 0.22,
+        longitude: routeCenterLon,
+        latitudeDelta: nextLatitudeDelta,
+        longitudeDelta: nextLongitudeDelta,
+      },
+      MAP_CENTER_ANIMATION_MS,
+    );
+  }, [isMapReady, plannerFocusKey, plannerPolylines]);
 
   const handleStationPress = useCallback(
     (stationCode: string) => {

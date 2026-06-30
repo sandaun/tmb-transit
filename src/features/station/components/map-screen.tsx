@@ -45,6 +45,7 @@ interface MapScreenProps {
   plannerOrigin?: { lat: number; lon: number } | null;
   plannerDestination?: { lat: number; lon: number } | null;
   plannerRoutePolylines?: PlannerMapPolyline[];
+  plannerFocusKey?: string | null;
   onPlannerToggle?: () => void;
   onPlannerMapPress?: (coordinate: { lat: number; lon: number }) => void;
 }
@@ -68,6 +69,7 @@ export function MapScreen({
   plannerOrigin = null,
   plannerDestination = null,
   plannerRoutePolylines = [],
+  plannerFocusKey = null,
   onPlannerToggle,
   onPlannerMapPress,
 }: MapScreenProps) {
@@ -256,6 +258,7 @@ export function MapScreen({
         nearbyStops={nearbyMarkers}
         plannerMarkers={plannerMarkers}
         plannerPolylines={plannerPolylines}
+        plannerFocusKey={plannerFocusKey}
         bottomActions={
           showBackButton ? null : (
             <>

@@ -459,6 +459,7 @@ export default function MapTabScreen() {
         plannerOrigin={plannerOrigin}
         plannerDestination={plannerDestination}
         plannerRoutePolylines={selectedRoutePolylines}
+        plannerFocusKey={selectedRoute?.id ?? null}
         onPlannerToggle={handlePlannerToggle}
         onPlannerMapPress={handlePlannerMapPress}
       />

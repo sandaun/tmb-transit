@@ -74,6 +74,20 @@ function getTransferLabel(transfers: number): string {
   return `${transfers} transfer${transfers === 1 ? '' : 's'}`;
 }
 
+function getWalkDurationSec(route: PlannedRoute): number {
+  return route.legs.reduce(
+    (total, leg) => total + (leg.mode === 'walk' ? leg.durationSec : 0),
+    0,
+  );
+}
+
+function formatWalkDuration(durationSec: number): string {
+  if (durationSec < 60) {
+    return '<1 min';
+  }
+  return formatDuration(durationSec);
+}
+
 export function PlannerSheet({
   origin,
   originLabel,
@@ -234,6 +248,7 @@ export function PlannerSheet({
             {routes.map((route) => {
               const selected = route.id === selectedRoute?.id;
               const transitRoutes = getTransitRoutes(route);
+              const walkDurationSec = getWalkDurationSec(route);
               return (
                 <Pressable
                   key={route.id}
@@ -264,7 +279,8 @@ export function PlannerSheet({
                     )}
                     <View style={styles.walkDistanceBadge}>
                       <Text style={styles.walkDistanceText}>
-                        {formatDistance(route.walkDistanceMeters)} walk
+                        {formatWalkDuration(walkDurationSec)} walk ·{' '}
+                        {formatDistance(route.walkDistanceMeters)}
                       </Text>
                     </View>
                   </View>

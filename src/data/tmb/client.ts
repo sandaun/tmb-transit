@@ -4,6 +4,7 @@ import {
   mapLineDto,
   mapPlannedRouteDto,
   mapSegmentDto,
+  mapServiceAlertDto,
   mapStationDto,
 } from '@/src/data/tmb/mappers';
 import type {
@@ -12,12 +13,14 @@ import type {
   LineDto,
   PlannedRouteDto,
   SegmentDto,
+  ServiceAlertDto,
   StationDto,
 } from '@/src/data/tmb/types';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
+import type { ServiceAlert } from '@/src/domain/alerts/models';
 
 class ApiError extends Error {
   readonly status: number;
@@ -71,6 +74,11 @@ export async function fetchStationArrivals(
   );
 
   return response.data.map(mapArrivalDto);
+}
+
+export async function fetchServiceAlerts(): Promise<ServiceAlert[]> {
+  const response = await requestJson<ApiResponse<ServiceAlertDto[]>>('/v1/service-alerts');
+  return response.data.map(mapServiceAlertDto);
 }
 
 export async function fetchPlannedRoutes(

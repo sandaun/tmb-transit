@@ -8,6 +8,7 @@ import { healthRoutes } from './routes/health';
 import { nearbyRoutes } from './routes/nearby';
 import { plannerRoutes } from './routes/planner';
 import { realtimeRoutes } from './routes/realtime';
+import { serviceAlertsRoutes } from './routes/service-alerts';
 
 export function createApp() {
   const app = Fastify({
@@ -20,6 +21,7 @@ export function createApp() {
   app.register(realtimeRoutes);
   app.register(nearbyRoutes);
   app.register(plannerRoutes);
+  app.register(serviceAlertsRoutes);
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {
@@ -48,7 +50,7 @@ const start = async () => {
       port: env.port,
     });
   } catch (error) {
-      app.log.error(error);
+    app.log.error(error);
     process.exit(1);
   }
 };

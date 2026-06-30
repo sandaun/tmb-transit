@@ -2,11 +2,13 @@ import type { Line, Station } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
+import type { ServiceAlert } from '@/src/domain/alerts/models';
 import type {
   ArrivalDto,
   LineDto,
   PlannedRouteDto,
   SegmentDto,
+  ServiceAlertDto,
   StationDto,
 } from '@/src/data/tmb/types';
 
@@ -63,6 +65,22 @@ export function mapArrivalDto(dto: ArrivalDto): Arrival {
     etaSec: dto.etaSec,
     sourceTimestampMs: dto.sourceTimestampMs,
     serviceId: dto.serviceId,
+  };
+}
+
+export function mapServiceAlertDto(dto: ServiceAlertDto): ServiceAlert {
+  return {
+    id: dto.id,
+    title: dto.title,
+    description: dto.description,
+    mode: dto.mode,
+    severity: dto.severity,
+    affectedLines: dto.affectedLines,
+    source: dto.source,
+    sourceUrl: dto.sourceUrl,
+    dateLabel: dto.dateLabel,
+    startsAtMs: dto.startsAtMs,
+    endsAtMs: dto.endsAtMs,
   };
 }
 

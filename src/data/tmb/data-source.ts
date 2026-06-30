@@ -4,6 +4,7 @@ import {
   fetchLineStations as fetchLineStationsFromApi,
   fetchLines as fetchLinesFromApi,
   fetchPlannedRoutes as fetchPlannedRoutesFromApi,
+  fetchServiceAlerts as fetchServiceAlertsFromApi,
   fetchStationArrivals as fetchStationArrivalsFromApi,
 } from '@/src/data/tmb/client';
 import {
@@ -11,8 +12,10 @@ import {
   fetchLineStationsFromMock,
   fetchLinesFromMock,
   fetchPlannedRoutesFromMock,
+  fetchServiceAlertsFromMock,
   fetchStationArrivalsFromMock,
 } from '@/src/data/tmb/mock-client';
+import type { ServiceAlert } from '@/src/domain/alerts/models';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
@@ -31,6 +34,7 @@ interface TmbDataSource {
     from: { lat: number; lon: number },
     to: { lat: number; lon: number },
   ) => Promise<PlannedRoute[]>;
+  fetchServiceAlerts: () => Promise<ServiceAlert[]>;
 }
 
 const apiDataSource: TmbDataSource = {
@@ -39,6 +43,7 @@ const apiDataSource: TmbDataSource = {
   fetchLineSegments: fetchLineSegmentsFromApi,
   fetchStationArrivals: fetchStationArrivalsFromApi,
   fetchPlannedRoutes: fetchPlannedRoutesFromApi,
+  fetchServiceAlerts: fetchServiceAlertsFromApi,
 };
 
 const mockDataSource: TmbDataSource = {
@@ -47,6 +52,7 @@ const mockDataSource: TmbDataSource = {
   fetchLineSegments: fetchLineSegmentsFromMock,
   fetchStationArrivals: fetchStationArrivalsFromMock,
   fetchPlannedRoutes: fetchPlannedRoutesFromMock,
+  fetchServiceAlerts: fetchServiceAlertsFromMock,
 };
 
 export const DATA_SOURCE_MODE = APP_CONFIG.useMock ? 'mock' : 'api';
@@ -84,4 +90,8 @@ export async function fetchPlannedRoutes(
   to: { lat: number; lon: number },
 ) {
   return getTmbDataSource().fetchPlannedRoutes(from, to);
+}
+
+export async function fetchServiceAlerts() {
+  return getTmbDataSource().fetchServiceAlerts();
 }

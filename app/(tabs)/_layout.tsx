@@ -45,12 +45,12 @@ export default function TabsLayout() {
         <Label>Lines</Label>
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="saved">
+      <NativeTabs.Trigger name="alerts">
         <Icon
-          sf={{ default: 'star', selected: 'star.fill' }}
-          androidSrc={<VectorIcon family={MaterialIcons} name="star" />}
+          sf={{ default: 'exclamationmark.triangle', selected: 'exclamationmark.triangle.fill' }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="notification-important" />}
         />
-        <Label>Saved</Label>
+        <Label>Alerts</Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="you">

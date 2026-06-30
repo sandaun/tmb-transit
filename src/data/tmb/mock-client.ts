@@ -1,3 +1,4 @@
+import type { ServiceAlert } from '@/src/domain/alerts/models';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
@@ -5,6 +6,33 @@ import type { Arrival } from '@/src/domain/realtime/models';
 
 const mockMetroLines: Line[] = [
   { code: 'L3', name: 'L3', mode: 'metro', color: '00933B' },
+];
+
+const mockServiceAlerts: ServiceAlert[] = [
+  {
+    id: 'mock:l4-verdaguer',
+    title: 'L4: estació Verdaguer fora de servei',
+    description: 'Estació Verdaguer (L4) tancada temporalment per obres de millora.',
+    mode: 'metro',
+    severity: 'disruption',
+    affectedLines: [{ mode: 'metro', code: 'L4' }],
+    source: 'tmb-service-notices',
+    dateLabel: 'Del 06/07/2026 al 30/08/2026',
+  },
+  {
+    id: 'mock:tour-france',
+    title: 'Afectacions per la sortida del Tour de France',
+    description: 'Desviaments puntuals a diverses línies de bus i afectacions al servei de metro.',
+    mode: 'mixed',
+    severity: 'warning',
+    affectedLines: [
+      { mode: 'bus', code: 'D20' },
+      { mode: 'bus', code: 'H8' },
+      { mode: 'metro', code: 'L2' },
+    ],
+    source: 'tmb-service-notices',
+    dateLabel: 'Del 05/07/2026 al 06/07/2026',
+  },
 ];
 
 const mockBusLines: Line[] = [
@@ -221,6 +249,10 @@ export async function fetchStationArrivalsFromMock(
       serviceId: 'mock-tn-2',
     },
   ];
+}
+
+export async function fetchServiceAlertsFromMock(): Promise<ServiceAlert[]> {
+  return mockServiceAlerts;
 }
 
 export async function fetchPlannedRoutesFromMock(

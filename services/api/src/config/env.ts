@@ -25,4 +25,6 @@ export const env = {
 export const runtimeConfig = {
   realtimeCacheTtlMs: 8_000,
   realtimeStaleMaxMs: 30_000,
+  serviceAlertsCacheTtlMs: 5 * 60_000,
+  serviceAlertsStaleMaxMs: 60 * 60_000,
 } as const;

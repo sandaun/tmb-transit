@@ -26,3 +26,19 @@ export function getRouteSummary(route: PlannedRoute): string {
   const transferLabel = route.transfers === 0 ? 'direct' : `${route.transfers} transfer${route.transfers === 1 ? '' : 's'}`;
   return `${formatDuration(route.durationSec)} · ${transitLabel} · ${transferLabel}`;
 }
+
+export function sortPlannedRoutes(routes: PlannedRoute[]): PlannedRoute[] {
+  return [...routes].sort((routeA, routeB) => {
+    const durationDiff = routeA.durationSec - routeB.durationSec;
+    if (durationDiff !== 0) {
+      return durationDiff;
+    }
+
+    const walkDiff = routeA.walkDistanceMeters - routeB.walkDistanceMeters;
+    if (walkDiff !== 0) {
+      return walkDiff;
+    }
+
+    return routeA.transfers - routeB.transfers;
+  });
+}

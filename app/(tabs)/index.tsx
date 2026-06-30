@@ -16,6 +16,7 @@ import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { PlannerSheet } from '@/src/features/planner/components/planner-sheet';
 import { usePlannedRoutesQuery } from '@/src/features/planner/hooks/use-planned-routes-query';
+import { sortPlannedRoutes } from '@/src/features/planner/utils/route-summary';
 import {
   LocalBottomSheet,
   type LocalBottomSheetHandle,
@@ -221,7 +222,7 @@ export default function MapTabScreen() {
     enabled: plannerEnabled && plannerRequested,
   });
   const plannedRoutes = useMemo(
-    () => plannedRoutesQuery.data ?? [],
+    () => sortPlannedRoutes(plannedRoutesQuery.data ?? []),
     [plannedRoutesQuery.data],
   );
   const selectedRoute = plannerRequested

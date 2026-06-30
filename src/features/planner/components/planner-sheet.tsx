@@ -284,28 +284,27 @@ export function PlannerSheet({
                       </Text>
                     </View>
                   </View>
+                  {selected ? (
+                    <View style={styles.routeSteps}>
+                      <Text style={styles.routeStepsLabel}>Steps</Text>
+                      <View style={styles.steps}>
+                        {route.legs.map((leg, index) => (
+                          <View key={leg.id} style={styles.stepRow}>
+                            <View style={styles.stepIndex}>
+                              <Text style={styles.stepIndexText}>{index + 1}</Text>
+                            </View>
+                            <View style={styles.stepTextWrap}>
+                              <Text style={styles.stepTitle}>{getLegTitle(leg)}</Text>
+                              <Text style={styles.stepMeta}>{getLegMeta(leg)}</Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ) : null}
                 </Pressable>
               );
             })}
-          </View>
-        </>
-      ) : null}
-
-      {selectedRoute ? (
-        <>
-          <Text style={styles.sectionLabel}>Steps</Text>
-          <View style={styles.steps}>
-            {selectedRoute.legs.map((leg, index) => (
-              <View key={leg.id} style={styles.stepRow}>
-                <View style={styles.stepIndex}>
-                  <Text style={styles.stepIndexText}>{index + 1}</Text>
-                </View>
-                <View style={styles.stepTextWrap}>
-                  <Text style={styles.stepTitle}>{getLegTitle(leg)}</Text>
-                  <Text style={styles.stepMeta}>{getLegMeta(leg)}</Text>
-                </View>
-              </View>
-            ))}
           </View>
         </>
       ) : null}
@@ -561,6 +560,20 @@ const styles = StyleSheet.create({
     color: '#C9DBFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+  routeSteps: {
+    gap: 10,
+    marginTop: 2,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  routeStepsLabel: {
+    color: '#D7E5FF',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   steps: {
     gap: 12,

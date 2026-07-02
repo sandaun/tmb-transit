@@ -558,6 +558,7 @@ export default function MapTabScreen() {
             <StationContent
               lines={lines}
               stationInterchanges={stationInterchanges}
+              active={!isCollapsed}
               onLineStationSelect={handleLineStationSelect}
             />
           )}

@@ -105,7 +105,7 @@ function AlertsHeader({
       <View style={styles.summaryBand}>
         <Text style={styles.summaryValue}>{stats.all}</Text>
         <View style={styles.summaryTextWrap}>
-          <Text style={styles.summaryLabel}>avisos actius</Text>
+          <Text style={styles.summaryLabel}>{stats.all === 1 ? 'avís' : 'avisos'}</Text>
           <Text style={styles.summaryDetail}>
             {stats.current} ara · {stats.planned} planificats
           </Text>

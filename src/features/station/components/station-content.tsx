@@ -38,8 +38,9 @@ function useSheetArrivals(
   mode: TransportMode,
   lineCode: string | null,
   stationCode: string | null,
+  active: boolean,
 ) {
-  const shouldPoll = Boolean(lineCode && stationCode);
+  const shouldPoll = Boolean(lineCode && stationCode && active);
 
   return useQuery({
     queryKey: ['realtime', mode, 'arrivals', lineCode, stationCode],
@@ -50,7 +51,7 @@ function useSheetArrivals(
   });
 }
 
-function useInterchangeArrivals(members: StationInterchangeMember[]) {
+function useInterchangeArrivals(members: StationInterchangeMember[], active: boolean) {
   return useQueries({
     queries: members.map((member) => ({
       queryKey: [
@@ -62,9 +63,9 @@ function useInterchangeArrivals(members: StationInterchangeMember[]) {
       ] as const,
       queryFn: () =>
         fetchStationArrivals(member.line.mode, member.line.code, member.station.code),
-      enabled: Boolean(member.line.code && member.station.code),
+      enabled: Boolean(member.line.code && member.station.code && active),
       staleTime: 5_000,
-      refetchInterval: APP_CONFIG.arrivalsPollIntervalMs,
+      refetchInterval: active ? APP_CONFIG.arrivalsPollIntervalMs : false,
     })),
   });
 }
@@ -72,12 +73,14 @@ function useInterchangeArrivals(members: StationInterchangeMember[]) {
 interface StationContentProps {
   lines?: Line[];
   stationInterchanges?: StationInterchange[];
+  active?: boolean;
   onLineStationSelect?: (mode: TransportMode, lineCode: string, stationCode: string) => void;
 }
 
 export function StationContent({
   lines = [],
   stationInterchanges = [],
+  active = true,
   onLineStationSelect,
 }: StationContentProps) {
   const insets = useSafeAreaInsets();
@@ -88,7 +91,7 @@ export function StationContent({
   const stationsQuery = useLineStationsQuery(mode, lineCode);
   const station = stationsQuery.data?.find((s) => s.code === stationCode);
 
-  const arrivalsQuery = useSheetArrivals(mode, lineCode, stationCode);
+  const arrivalsQuery = useSheetArrivals(mode, lineCode, stationCode, active);
   const selectedInterchange = useMemo(
     () => findStationInterchange(stationInterchanges, lineCode, stationCode),
     [lineCode, stationCode, stationInterchanges],
@@ -106,7 +109,7 @@ export function StationContent({
 
     return [{ line, station }];
   }, [lineCode, lines, selectedInterchange, station]);
-  const interchangeArrivalQueries = useInterchangeArrivals(interchangeMembers);
+  const interchangeArrivalQueries = useInterchangeArrivals(interchangeMembers, active);
 
   const orderedArrivals = useMemo(
     () => sortArrivalsByEta(arrivalsQuery.data ?? []),
@@ -115,9 +118,13 @@ export function StationContent({
 
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
+    if (!active) {
+      return;
+    }
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [active]);
 
   if (!lineCode || !stationCode) {
     return <View />;
@@ -249,7 +256,7 @@ export function StationContent({
           <View style={styles.heroRow}>
             <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="large" />
             <View style={styles.heroTextWrap}>
-              <Text style={styles.heroEyebrow}>Next train</Text>
+              <Text style={styles.heroEyebrow}>{mode === 'bus' ? 'Next bus' : 'Next train'}</Text>
               <Text style={styles.heroTitle}>{nextArrival.destination}</Text>
               <Text style={styles.heroSubtitle}>
                 {nextArrival.platformCode

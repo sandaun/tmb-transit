@@ -520,7 +520,7 @@ export function StationScreen({
                   contentContainerStyle={styles.expandedContent}
                   showsVerticalScrollIndicator={false}>
                   <View style={styles.sectionLabelRow}>
-                    <Text style={styles.sectionLabel}>METRO</Text>
+                    <Text style={styles.sectionLabel}>{mode === 'bus' ? 'BUS' : 'METRO'}</Text>
                   </View>
 
                   <View style={styles.infoRow}>
@@ -560,7 +560,7 @@ export function StationScreen({
                       <View style={styles.heroRow}>
                         <LineBadge lineCode={lineCode} mode={mode} color={lineColor} size="large" />
                         <View style={styles.heroTextWrap}>
-                          <Text style={styles.heroEyebrow}>Next train</Text>
+                          <Text style={styles.heroEyebrow}>{mode === 'bus' ? 'Next bus' : 'Next train'}</Text>
                           <Text style={styles.groupTitle}>{nextArrival.destination}</Text>
                           <Text style={styles.groupSubTitle}>
                             {nextArrival.platformCode

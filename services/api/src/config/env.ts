@@ -20,6 +20,7 @@ export const env = {
   iMetroBaseUrl: process.env.TMB_IMETRO_BASE_URL ?? 'https://api.tmb.cat/v1/itransit',
   iBusBaseUrl: process.env.TMB_IBUS_BASE_URL ?? 'https://api.tmb.cat/v1/ibus',
   plannerBaseUrl: process.env.TMB_PLANNER_BASE_URL ?? 'https://api.tmb.cat/v1/planner',
+  alertsBaseUrl: process.env.TMB_ALERTS_BASE_URL ?? 'https://api.tmb.cat/v1/alerts',
 } as const;
 
 export const runtimeConfig = {

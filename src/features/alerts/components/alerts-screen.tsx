@@ -10,92 +10,94 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { ServiceAlert } from '@/src/domain/alerts/models';
-import type { TransportMode } from '@/src/domain/catalog/models';
+import type { ServiceAlert, ServiceAlertKind } from '@/src/domain/alerts/models';
 import { AlertCard } from '@/src/features/alerts/components/alert-card';
 import { useServiceAlertsQuery } from '@/src/features/alerts/hooks/use-service-alerts-query';
 
 const TAB_BAR_CLEARANCE = 96;
 
-type AlertFilter = 'all' | TransportMode;
+type TimeFilter = 'all' | ServiceAlertKind;
 
 interface AlertStats {
   all: number;
-  bus: number;
-  metro: number;
+  current: number;
+  planned: number;
 }
 
-const FILTERS: { id: AlertFilter; label: string }[] = [
+const TIME_FILTERS: { id: TimeFilter; label: string }[] = [
   { id: 'all', label: 'Totes' },
-  { id: 'metro', label: 'Metro' },
-  { id: 'bus', label: 'Bus' },
+  { id: 'current', label: 'Ara' },
+  { id: 'planned', label: 'Planificat' },
 ];
 
-function alertMatchesFilter(alert: ServiceAlert, filter: AlertFilter): boolean {
+function alertMatchesTimeFilter(alert: ServiceAlert, filter: TimeFilter): boolean {
   if (filter === 'all') {
     return true;
   }
 
-  return alert.mode === filter || alert.affectedLines.some((line) => line.mode === filter);
+  return alert.kind === filter;
 }
 
 function countAlerts(alerts: ServiceAlert[]): AlertStats {
   return {
     all: alerts.length,
-    metro: alerts.filter((alert) => alertMatchesFilter(alert, 'metro')).length,
-    bus: alerts.filter((alert) => alertMatchesFilter(alert, 'bus')).length,
+    current: alerts.filter((alert) => alertMatchesTimeFilter(alert, 'current')).length,
+    planned: alerts.filter((alert) => alertMatchesTimeFilter(alert, 'planned')).length,
   };
 }
 
-interface FilterChipProps {
+interface SegmentButtonProps {
   active: boolean;
   count: number;
   label: string;
   onPress: () => void;
 }
 
-function FilterChip({ active, count, label, onPress }: FilterChipProps) {
+function SegmentButton({
+  active,
+  count,
+  label,
+  onPress,
+}: SegmentButtonProps) {
   return (
     <Pressable
-      style={[styles.filterChip, active ? styles.filterChipActive : null]}
+      style={[styles.segmentButton, active ? styles.segmentButtonActive : null]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}>
-      <Text style={[styles.filterLabel, active ? styles.filterLabelActive : null]}>
+      <Text style={[styles.segmentLabel, active ? styles.segmentLabelActive : null]} numberOfLines={1}>
         {label}
       </Text>
-      <View style={[styles.countPill, active ? styles.countPillActive : null]}>
-        <Text style={[styles.countText, active ? styles.countTextActive : null]}>
-          {count}
-        </Text>
-      </View>
+      <Text style={[styles.segmentCount, active ? styles.segmentCountActive : null]}>
+        {count}
+      </Text>
     </Pressable>
   );
 }
 
 interface AlertsHeaderProps {
-  activeFilter: AlertFilter;
   error: boolean;
   isFetching: boolean;
-  onFilterChange: (filter: AlertFilter) => void;
   onRetry: () => void;
+  onTimeFilterChange: (filter: TimeFilter) => void;
   stats: AlertStats;
+  timeFilter: TimeFilter;
 }
 
 function AlertsHeader({
-  activeFilter,
   error,
   isFetching,
-  onFilterChange,
   onRetry,
+  onTimeFilterChange,
   stats,
+  timeFilter,
 }: AlertsHeaderProps) {
   return (
     <View style={styles.header}>
       <View style={styles.titleRow}>
         <View style={styles.titleWrap}>
           <Text style={styles.title}>Alertes</Text>
-          <Text style={styles.subtitle}>Metro i bus TMB</Text>
+          <Text style={styles.subtitle}>Xarxa TMB</Text>
         </View>
         {isFetching ? <ActivityIndicator color="#0B5FFF" /> : null}
       </View>
@@ -105,21 +107,23 @@ function AlertsHeader({
         <View style={styles.summaryTextWrap}>
           <Text style={styles.summaryLabel}>avisos actius</Text>
           <Text style={styles.summaryDetail}>
-            {stats.metro} metro · {stats.bus} bus
+            {stats.current} ara · {stats.planned} planificats
           </Text>
         </View>
       </View>
 
-      <View style={styles.filterRow}>
-        {FILTERS.map((filter) => (
-          <FilterChip
-            key={filter.id}
-            active={activeFilter === filter.id}
-            count={stats[filter.id]}
-            label={filter.label}
-            onPress={() => onFilterChange(filter.id)}
-          />
-        ))}
+      <View style={styles.filterStack}>
+        <View style={styles.segmentedControl}>
+          {TIME_FILTERS.map((filter) => (
+            <SegmentButton
+              key={filter.id}
+              active={timeFilter === filter.id}
+              count={stats[filter.id]}
+              label={filter.label}
+              onPress={() => onTimeFilterChange(filter.id)}
+            />
+          ))}
+        </View>
       </View>
 
       {error ? (
@@ -135,11 +139,10 @@ function AlertsHeader({
 }
 
 interface EmptyStateProps {
-  filter: AlertFilter;
   isLoading: boolean;
 }
 
-function EmptyState({ filter, isLoading }: EmptyStateProps) {
+function EmptyState({ isLoading }: EmptyStateProps) {
   if (isLoading) {
     return (
       <View style={styles.emptyState}>
@@ -151,7 +154,7 @@ function EmptyState({ filter, isLoading }: EmptyStateProps) {
 
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyTitle}>No hi ha alertes {filter === 'all' ? 'actives' : `de ${filter}`}.</Text>
+      <Text style={styles.emptyTitle}>No hi ha alertes amb aquests filtres.</Text>
       <Text style={styles.emptyBody}>El servei no té avisos publicats ara mateix.</Text>
     </View>
   );
@@ -159,13 +162,13 @@ function EmptyState({ filter, isLoading }: EmptyStateProps) {
 
 export function AlertsScreen() {
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<AlertFilter>('all');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const { data: alerts = [], error, isFetching, isLoading, refetch } = useServiceAlertsQuery();
 
   const stats = useMemo(() => countAlerts(alerts), [alerts]);
   const filteredAlerts = useMemo(
-    () => alerts.filter((alert) => alertMatchesFilter(alert, filter)),
-    [alerts, filter],
+    () => alerts.filter((alert) => alertMatchesTimeFilter(alert, timeFilter)),
+    [alerts, timeFilter],
   );
 
   const handleOpenSource = useCallback((sourceUrl: string) => {
@@ -183,6 +186,7 @@ export function AlertsScreen() {
         description={item.description}
         mode={item.mode}
         severity={item.severity}
+        kind={item.kind}
         affectedLines={item.affectedLines}
         dateLabel={item.dateLabel}
         sourceUrl={item.sourceUrl}
@@ -204,15 +208,15 @@ export function AlertsScreen() {
         ]}
         ListHeaderComponent={
           <AlertsHeader
-            activeFilter={filter}
             error={Boolean(error)}
             isFetching={isFetching && !isLoading}
-            onFilterChange={setFilter}
             onRetry={handleRetry}
+            onTimeFilterChange={setTimeFilter}
             stats={stats}
+            timeFilter={timeFilter}
           />
         }
-        ListEmptyComponent={<EmptyState filter={filter} isLoading={isLoading} />}
+        ListEmptyComponent={<EmptyState isLoading={isLoading} />}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderItem={renderAlert}
         refreshing={isFetching && !isLoading}
@@ -290,54 +294,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  filterRow: {
-    flexDirection: 'row',
+  filterStack: {
     gap: 8,
   },
-  filterChip: {
+  segmentedControl: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    backgroundColor: '#E9EEF5',
+  },
+  segmentButton: {
     flex: 1,
-    minHeight: 40,
+    minWidth: 0,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#CED4DA',
+    gap: 6,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+  },
+  segmentButtonActive: {
     backgroundColor: '#FFFFFF',
+    shadowColor: '#0B1220',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  filterChipActive: {
-    backgroundColor: '#0B5FFF',
-    borderColor: '#0B5FFF',
-  },
-  filterLabel: {
+  segmentLabel: {
+    flexShrink: 1,
     color: '#1D3557',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
-  filterLabelActive: {
-    color: '#FFFFFF',
+  segmentLabelActive: {
+    color: '#0B1220',
   },
-  countPill: {
-    minWidth: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 7,
-    borderRadius: 12,
-    backgroundColor: '#EEF2F7',
-  },
-  countPillActive: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  },
-  countText: {
+  segmentCount: {
     color: '#4F5D75',
     fontSize: 12,
     fontWeight: '900',
   },
-  countTextActive: {
-    color: '#FFFFFF',
+  segmentCountActive: {
+    color: '#0B5FFF',
   },
   errorBanner: {
     flexDirection: 'row',

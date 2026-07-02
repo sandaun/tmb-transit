@@ -68,19 +68,25 @@ export function mapArrivalDto(dto: ArrivalDto): Arrival {
   };
 }
 
+function cleanServiceAlertTitle(title: string): string {
+  return title.replace(/^PP\d+\s+/i, '').trim();
+}
+
 export function mapServiceAlertDto(dto: ServiceAlertDto): ServiceAlert {
   return {
     id: dto.id,
-    title: dto.title,
+    title: cleanServiceAlertTitle(dto.title),
     description: dto.description,
     mode: dto.mode,
     severity: dto.severity,
+    kind: dto.kind,
     affectedLines: dto.affectedLines,
     source: dto.source,
     sourceUrl: dto.sourceUrl,
     dateLabel: dto.dateLabel,
     startsAtMs: dto.startsAtMs,
     endsAtMs: dto.endsAtMs,
+    updatedAtMs: dto.updatedAtMs,
   };
 }
 

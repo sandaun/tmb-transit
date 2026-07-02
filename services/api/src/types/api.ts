@@ -1,6 +1,8 @@
 export type TransportMode = 'metro' | 'bus';
 export type ServiceAlertMode = TransportMode | 'mixed';
 export type ServiceAlertSeverity = 'info' | 'warning' | 'disruption';
+export type ServiceAlertKind = 'current' | 'planned';
+export type ServiceAlertSource = 'tmb-alerts-api' | 'tmb-service-notices';
 
 export interface ApiEnvelope<T> {
   data: T;
@@ -70,12 +72,14 @@ export interface ServiceAlertDto {
   description: string;
   mode: ServiceAlertMode;
   severity: ServiceAlertSeverity;
+  kind: ServiceAlertKind;
   affectedLines: ServiceAlertLineDto[];
-  source: 'tmb-service-notices';
+  source: ServiceAlertSource;
   sourceUrl?: string;
   dateLabel?: string;
   startsAtMs?: number;
   endsAtMs?: number;
+  updatedAtMs?: number;
 }
 
 export interface PlannerPointDto {

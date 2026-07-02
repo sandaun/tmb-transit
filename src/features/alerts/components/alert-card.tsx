@@ -3,6 +3,7 @@ import { memo, type ComponentProps } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type {
+  ServiceAlertKind,
   ServiceAlertLine,
   ServiceAlertMode,
   ServiceAlertSeverity,
@@ -53,11 +54,16 @@ function getModeLabel(mode: ServiceAlertMode): string {
   return 'Metro + Bus';
 }
 
+function getKindLabel(kind: ServiceAlertKind): string {
+  return kind === 'current' ? 'Ara' : 'Planificat';
+}
+
 interface AlertCardProps {
   title: string;
   description: string;
   mode: ServiceAlertMode;
   severity: ServiceAlertSeverity;
+  kind: ServiceAlertKind;
   affectedLines: ServiceAlertLine[];
   dateLabel?: string;
   sourceUrl?: string;
@@ -69,6 +75,7 @@ function AlertCardComponent({
   description,
   mode,
   severity,
+  kind,
   affectedLines,
   dateLabel,
   sourceUrl,
@@ -101,7 +108,9 @@ function AlertCardComponent({
             </Text>
           </View>
 
-          <Text style={styles.modeLabel}>{getModeLabel(mode)}</Text>
+          <Text style={styles.modeLabel}>
+            {getKindLabel(kind)} · {getModeLabel(mode)}
+          </Text>
         </View>
 
         <Text style={styles.title} numberOfLines={3}>

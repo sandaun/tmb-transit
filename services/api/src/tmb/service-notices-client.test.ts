@@ -30,6 +30,7 @@ describe('parseServiceNoticesHtml', () => {
     assert.equal(alerts[0].title, 'L4: Estación Verdaguer fuera de servicio');
     assert.equal(alerts[0].mode, 'metro');
     assert.equal(alerts[0].severity, 'disruption');
+    assert.equal(alerts[0].kind, 'planned');
     assert.deepEqual(alerts[0].affectedLines, [{ mode: 'metro', code: 'L4' }]);
     assert.equal(alerts[0].sourceUrl, 'https://www.tmb.cat/es/-/avis-tancament-l4-verdaguer');
     assert.equal(alerts[0].startsAtMs, 1_783_296_000_000);

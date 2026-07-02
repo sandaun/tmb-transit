@@ -278,6 +278,7 @@ function parseNoticeItem(item: NoticeItem, pageUrl: string): ServiceAlertDto | n
     description,
     mode,
     severity: inferSeverity(textForClassification),
+    kind: 'planned',
     affectedLines,
     source: 'tmb-service-notices',
     sourceUrl,

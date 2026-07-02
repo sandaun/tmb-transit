@@ -2,6 +2,8 @@ import type { TransportMode } from '@/src/domain/catalog/models';
 
 export type ServiceAlertModeDto = TransportMode | 'mixed';
 export type ServiceAlertSeverityDto = 'info' | 'warning' | 'disruption';
+export type ServiceAlertKindDto = 'current' | 'planned';
+export type ServiceAlertSourceDto = 'tmb-alerts-api' | 'tmb-service-notices';
 
 export interface LineDto {
   code: string;
@@ -67,12 +69,14 @@ export interface ServiceAlertDto {
   description: string;
   mode: ServiceAlertModeDto;
   severity: ServiceAlertSeverityDto;
+  kind: ServiceAlertKindDto;
   affectedLines: ServiceAlertLineDto[];
-  source: 'tmb-service-notices';
+  source: ServiceAlertSourceDto;
   sourceUrl?: string;
   dateLabel?: string;
   startsAtMs?: number;
   endsAtMs?: number;
+  updatedAtMs?: number;
 }
 
 export interface PlannerPointDto {

@@ -11,7 +11,7 @@ export function useServiceAlertsQuery() {
   const shouldPoll = isFocused && isAppActive;
 
   return useQuery({
-    queryKey: ['service-alerts'],
+    queryKey: ['service-alerts', 'v2'],
     queryFn: fetchServiceAlerts,
     enabled: shouldPoll,
     staleTime: 60_000,

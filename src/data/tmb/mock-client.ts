@@ -15,6 +15,7 @@ const mockServiceAlerts: ServiceAlert[] = [
     description: 'Estació Verdaguer (L4) tancada temporalment per obres de millora.',
     mode: 'metro',
     severity: 'disruption',
+    kind: 'planned',
     affectedLines: [{ mode: 'metro', code: 'L4' }],
     source: 'tmb-service-notices',
     dateLabel: 'Del 06/07/2026 al 30/08/2026',
@@ -25,6 +26,7 @@ const mockServiceAlerts: ServiceAlert[] = [
     description: 'Desviaments puntuals a diverses línies de bus i afectacions al servei de metro.',
     mode: 'mixed',
     severity: 'warning',
+    kind: 'planned',
     affectedLines: [
       { mode: 'bus', code: 'D20' },
       { mode: 'bus', code: 'H8' },
@@ -32,6 +34,20 @@ const mockServiceAlerts: ServiceAlert[] = [
     ],
     source: 'tmb-service-notices',
     dateLabel: 'Del 05/07/2026 al 06/07/2026',
+  },
+  {
+    id: 'mock:metro-operational',
+    title: 'PP1 Servei parcial',
+    description: 'Afectacions a les línies L9 Nord i L10 Nord per obres de millora.',
+    mode: 'metro',
+    severity: 'warning',
+    kind: 'current',
+    affectedLines: [
+      { mode: 'metro', code: 'L9N' },
+      { mode: 'metro', code: 'L10N' },
+    ],
+    source: 'tmb-alerts-api',
+    dateLabel: '25/06/2026 - 30/08/2026',
   },
 ];
 

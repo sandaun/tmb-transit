@@ -239,7 +239,9 @@ export function mapBusAlert(rawAlert: BusAlertRaw): ServiceAlertDto | null {
   const endsAtMs = rawAlert.end ?? rawAlert.channelInfoTO?.end;
   const affectedLines = dedupeLines(
     (rawAlert.linesAffected ?? [])
-      .map((line) => line.commercialLineId ?? line.lineId)
+      // Only `commercialLineId` is the public code (e.g. "H12"); `lineId` is an
+      // internal id ("212" for H12), so we never fall back to it as a display code.
+      .map((line) => line.commercialLineId)
       .filter((code): code is string | number => code !== undefined)
       .map((code) => ({ mode: 'bus', code: String(code).trim().toUpperCase() })),
   );

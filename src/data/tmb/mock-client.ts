@@ -1,6 +1,7 @@
 import type { ServiceAlert } from '@/src/domain/alerts/models';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
-import type { Segment } from '@/src/domain/geo/models';
+import type { LatLng, Segment } from '@/src/domain/geo/models';
+import type { NearbyStop } from '@/src/domain/nearby/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
 
@@ -269,6 +270,55 @@ export async function fetchStationArrivalsFromMock(
 
 export async function fetchServiceAlertsFromMock(): Promise<ServiceAlert[]> {
   return mockServiceAlerts;
+}
+
+function haversineDistanceMeters(a: LatLng, b: LatLng): number {
+  const R = 6_371_000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLon = Math.sin(dLon / 2);
+  const x = sinDLat * sinDLat + sinDLon * sinDLon * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
+}
+
+export async function fetchNearbyStopsFromMock(
+  center: LatLng,
+  modes: TransportMode[],
+  radiusMeters: number,
+): Promise<NearbyStop[]> {
+  const linesByMode: Record<TransportMode, Line[]> = {
+    metro: mockMetroLines,
+    bus: mockBusLines,
+  };
+  const stationsByLine: Record<TransportMode, Record<string, Station[]>> = {
+    metro: mockMetroStationsByLine,
+    bus: mockBusStationsByLine,
+  };
+
+  const seen = new Set<string>();
+  const result: NearbyStop[] = [];
+
+  for (const mode of modes) {
+    for (const line of linesByMode[mode]) {
+      for (const station of stationsByLine[mode][line.code] ?? []) {
+        if (seen.has(station.code)) {
+          continue;
+        }
+        seen.add(station.code);
+
+        const distanceMeters = haversineDistanceMeters(center, station);
+        if (distanceMeters <= radiusMeters) {
+          result.push({ ...station, lineColor: line.color, distanceMeters });
+        }
+      }
+    }
+  }
+
+  return result.sort((a, b) => a.distanceMeters - b.distanceMeters);
 }
 
 export async function fetchPlannedRoutesFromMock(

@@ -1,5 +1,6 @@
 import { env } from '../config/env';
 import { devLogRawOnce } from '../utils/raw-log';
+import { fetchWithTimeout } from './http';
 
 interface IMetroTrainRaw {
   codi_servei?: string;
@@ -66,7 +67,7 @@ export async function fetchArrivalsByStation(
   url.searchParams.set('app_id', env.tmbAppId);
   url.searchParams.set('app_key', env.tmbAppKey);
 
-  const response = await fetch(url.toString());
+  const response = await fetchWithTimeout(url.toString());
   if (!response.ok) {
     throw new Error(`iMetro API failed with status ${response.status}`);
   }
@@ -74,8 +75,12 @@ export async function fetchArrivalsByStation(
   const payload = (await response.json()) as IMetroResponseRaw;
   devLogRawOnce(`imetro:${stationCode}`, payload);
 
+  // `etaSec` below is measured against this proxy's clock (`now`), so the
+  // timestamp we hand to clients must be that same instant. Using TMB's
+  // `payload.timestamp` here would mix two clocks and make the client's
+  // live-countdown drift by the difference between them.
   const now = Date.now();
-  const sourceTimestampMs = payload.timestamp ?? now;
+  const sourceTimestampMs = now;
   const normalizedFilter = normalizeLineCode(lineCodeFilter);
   const arrivals: ParsedIMetroArrival[] = [];
 

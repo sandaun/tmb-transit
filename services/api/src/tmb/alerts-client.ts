@@ -1,4 +1,5 @@
 import { env } from '../config/env';
+import { fetchWithTimeout } from './http';
 import type {
   ServiceAlertDto,
   ServiceAlertLineDto,
@@ -261,7 +262,7 @@ export function mapBusAlert(rawAlert: BusAlertRaw): ServiceAlertDto | null {
 }
 
 async function fetchRawAlerts<TAlert>(mode: TransportMode): Promise<TAlert[]> {
-  const response = await fetch(buildAlertsUrl(mode), {
+  const response = await fetchWithTimeout(buildAlertsUrl(mode), {
     headers: {
       accept: 'application/json',
       'user-agent': 'tmb-transit/1.0 service-alerts',

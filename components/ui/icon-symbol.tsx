@@ -23,6 +23,7 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'map.fill': 'map',
   'location.fill': 'my-location',
+  'location.magnifyingglass': 'travel-explore',
   'arrow.triangle.turn.up.right.diamond.fill': 'directions',
   'tram.fill': 'tram',
   'star.fill': 'star',

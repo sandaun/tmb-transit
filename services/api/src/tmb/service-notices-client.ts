@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from './http';
 import type {
   ServiceAlertDto,
   ServiceAlertLineDto,
@@ -111,6 +112,18 @@ function extractHref(body: string, pageUrl: string): string | undefined {
   return new URL(decodeHtmlEntities(href), pageUrl).toString();
 }
 
+/**
+ * The service-notices page exposes epoch attributes inconsistently: some are in
+ * milliseconds, some in seconds. Values below this threshold can only be a
+ * seconds-based epoch (a millisecond epoch for any recent date is ~1.7e12), so
+ * we scale them up to milliseconds to keep the whole app on one unit.
+ */
+const MILLISECOND_EPOCH_THRESHOLD = 1e12;
+
+function normalizeEpochMs(value: number): number {
+  return value < MILLISECOND_EPOCH_THRESHOLD ? value * 1_000 : value;
+}
+
 function parseEpochAttr(attrs: string, name: string): number | undefined {
   const rawValue = readAttr(attrs, name);
   if (!rawValue) {
@@ -118,7 +131,7 @@ function parseEpochAttr(attrs: string, name: string): number | undefined {
   }
 
   const value = Number(rawValue.trim());
-  return Number.isFinite(value) ? value : undefined;
+  return Number.isFinite(value) && value > 0 ? normalizeEpochMs(value) : undefined;
 }
 
 function normalizeLineCode(value: string): string {
@@ -307,7 +320,7 @@ export function parseServiceNoticesHtml(
 }
 
 export async function fetchServiceAlertsFromTmb(): Promise<ServiceAlertDto[]> {
-  const response = await fetch(TMB_SERVICE_NOTICES_URL, {
+  const response = await fetchWithTimeout(TMB_SERVICE_NOTICES_URL, {
     headers: {
       accept: 'text/html,application/xhtml+xml',
       'user-agent': 'tmb-transit/1.0 service-alerts',

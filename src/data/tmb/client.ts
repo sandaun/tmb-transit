@@ -17,10 +17,15 @@ import type {
   StationDto,
 } from '@/src/data/tmb/types';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
-import type { Segment } from '@/src/domain/geo/models';
+import type { LatLng, Segment } from '@/src/domain/geo/models';
+import type { NearbyStop } from '@/src/domain/nearby/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
 import type { ServiceAlert } from '@/src/domain/alerts/models';
+
+interface NearbyStopDto extends StationDto {
+  distanceMeters: number;
+}
 
 class ApiError extends Error {
   readonly status: number;
@@ -79,6 +84,27 @@ export async function fetchStationArrivals(
 export async function fetchServiceAlerts(): Promise<ServiceAlert[]> {
   const response = await requestJson<ApiResponse<ServiceAlertDto[]>>('/v1/service-alerts');
   return response.data.map(mapServiceAlertDto);
+}
+
+export async function fetchNearbyStops(
+  center: LatLng,
+  modes: TransportMode[],
+  radiusMeters: number,
+): Promise<NearbyStop[]> {
+  const query = new URLSearchParams({
+    lat: String(center.lat),
+    lon: String(center.lon),
+    radius: String(radiusMeters),
+    modes: modes.join(','),
+  });
+  const response = await requestJson<ApiResponse<NearbyStopDto[]>>(
+    `/v1/nearby/stops?${query.toString()}`,
+  );
+
+  return response.data.map((dto) => ({
+    ...mapStationDto(dto),
+    distanceMeters: dto.distanceMeters,
+  }));
 }
 
 export async function fetchPlannedRoutes(

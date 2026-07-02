@@ -314,13 +314,18 @@ export function StationScreen({
         onStationChange?.(nextStationCode);
 
         if (syncRoute) {
-          router.replace(`/station/${lineCode}/${nextStationCode}` as never);
+          router.replace(
+            {
+              pathname: '/station/[lineCode]/[stationCode]',
+              params: { lineCode, stationCode: nextStationCode, mode },
+            } as never,
+          );
         }
       }
 
       animateToSnap(1);
     },
-    [activeStationCode, animateToSnap, lineCode, onStationChange, syncRoute],
+    [activeStationCode, animateToSnap, lineCode, mode, onStationChange, syncRoute],
   );
 
   const toggleSheet = useCallback(() => {

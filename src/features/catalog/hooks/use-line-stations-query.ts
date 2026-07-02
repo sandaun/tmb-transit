@@ -50,7 +50,11 @@ export function useLineStationsQuery(mode: TransportMode, lineCode: string | nul
       const cacheKey = `stations:${mode}:${lineCode}`;
       const cached = await readCatalogCache<Station[]>(cacheKey);
 
-      if (!cached || isCancelled) {
+      if (isCancelled) {
+        return;
+      }
+
+      if (!cached) {
         await refetch();
         return;
       }

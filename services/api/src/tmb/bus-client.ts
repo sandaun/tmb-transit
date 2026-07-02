@@ -1,5 +1,6 @@
 import { env } from '../config/env';
 import { devLogRawOnce } from '../utils/raw-log';
+import { fetchWithTimeout } from './http';
 import {
   getNumber,
   getString,
@@ -18,7 +19,7 @@ function buildUrl(path: string): string {
 }
 
 async function fetchCollection(path: string, logKey: string): Promise<GeoFeatureCollection> {
-  const response = await fetch(buildUrl(path));
+  const response = await fetchWithTimeout(buildUrl(path));
   if (!response.ok) {
     throw new Error(`Transit (bus) API failed with status ${response.status} for ${path}`);
   }

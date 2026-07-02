@@ -32,7 +32,11 @@ export function useLinesQuery(mode: TransportMode) {
     async function bootstrap() {
       const cached = await readCatalogCache<Line[]>(cacheKey);
 
-      if (!cached || isCancelled) {
+      if (isCancelled) {
+        return;
+      }
+
+      if (!cached) {
         await refetch();
         return;
       }

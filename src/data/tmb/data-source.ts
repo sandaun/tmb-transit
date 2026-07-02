@@ -3,6 +3,7 @@ import {
   fetchLineSegments as fetchLineSegmentsFromApi,
   fetchLineStations as fetchLineStationsFromApi,
   fetchLines as fetchLinesFromApi,
+  fetchNearbyStops as fetchNearbyStopsFromApi,
   fetchPlannedRoutes as fetchPlannedRoutesFromApi,
   fetchServiceAlerts as fetchServiceAlertsFromApi,
   fetchStationArrivals as fetchStationArrivalsFromApi,
@@ -11,13 +12,15 @@ import {
   fetchLineSegmentsFromMock,
   fetchLineStationsFromMock,
   fetchLinesFromMock,
+  fetchNearbyStopsFromMock,
   fetchPlannedRoutesFromMock,
   fetchServiceAlertsFromMock,
   fetchStationArrivalsFromMock,
 } from '@/src/data/tmb/mock-client';
 import type { ServiceAlert } from '@/src/domain/alerts/models';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
-import type { Segment } from '@/src/domain/geo/models';
+import type { LatLng, Segment } from '@/src/domain/geo/models';
+import type { NearbyStop } from '@/src/domain/nearby/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
 
@@ -35,6 +38,11 @@ interface TmbDataSource {
     to: { lat: number; lon: number },
   ) => Promise<PlannedRoute[]>;
   fetchServiceAlerts: () => Promise<ServiceAlert[]>;
+  fetchNearbyStops: (
+    center: LatLng,
+    modes: TransportMode[],
+    radiusMeters: number,
+  ) => Promise<NearbyStop[]>;
 }
 
 const apiDataSource: TmbDataSource = {
@@ -44,6 +52,7 @@ const apiDataSource: TmbDataSource = {
   fetchStationArrivals: fetchStationArrivalsFromApi,
   fetchPlannedRoutes: fetchPlannedRoutesFromApi,
   fetchServiceAlerts: fetchServiceAlertsFromApi,
+  fetchNearbyStops: fetchNearbyStopsFromApi,
 };
 
 const mockDataSource: TmbDataSource = {
@@ -53,6 +62,7 @@ const mockDataSource: TmbDataSource = {
   fetchStationArrivals: fetchStationArrivalsFromMock,
   fetchPlannedRoutes: fetchPlannedRoutesFromMock,
   fetchServiceAlerts: fetchServiceAlertsFromMock,
+  fetchNearbyStops: fetchNearbyStopsFromMock,
 };
 
 export const DATA_SOURCE_MODE = APP_CONFIG.useMock ? 'mock' : 'api';
@@ -94,4 +104,12 @@ export async function fetchPlannedRoutes(
 
 export async function fetchServiceAlerts() {
   return getTmbDataSource().fetchServiceAlerts();
+}
+
+export async function fetchNearbyStops(
+  center: LatLng,
+  modes: TransportMode[],
+  radiusMeters: number,
+) {
+  return getTmbDataSource().fetchNearbyStops(center, modes, radiusMeters);
 }

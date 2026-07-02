@@ -172,7 +172,9 @@ export function AlertsScreen() {
   );
 
   const handleOpenSource = useCallback((sourceUrl: string) => {
-    void Linking.openURL(sourceUrl);
+    void Linking.openURL(sourceUrl).catch(() => {
+      // The alert stays visible; there is nothing actionable if the link fails.
+    });
   }, []);
 
   const handleRetry = useCallback(() => {

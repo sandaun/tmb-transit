@@ -28,4 +28,5 @@ export const runtimeConfig = {
   realtimeStaleMaxMs: 30_000,
   serviceAlertsCacheTtlMs: 5 * 60_000,
   serviceAlertsStaleMaxMs: 60 * 60_000,
+  upstreamTimeoutMs: 10_000,
 } as const;

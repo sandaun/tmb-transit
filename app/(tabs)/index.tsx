@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -178,6 +179,7 @@ export default function MapTabScreen() {
     data: lines = [],
     isLoading: linesLoading,
     error: linesError,
+    refetch: refetchLines,
   } = useLinesQuery(mode);
 
   const lineCode =
@@ -188,6 +190,7 @@ export default function MapTabScreen() {
     data: stations = [],
     isLoading: stationsLoading,
     error: stationsError,
+    refetch: refetchStations,
   } = useLineStationsQuery(mode, lineCode);
   const interchangeLines = useMemo(() => (mode === 'metro' ? lines : []), [lines, mode]);
   const allStationsQuery = useAllLineStationsQuery(interchangeLines);
@@ -458,22 +461,37 @@ export default function MapTabScreen() {
     sheetRef.current?.resize(1);
   }, [plannerDestination, plannerOrigin]);
 
-  if (linesError || stationsError) {
+  const handleRetryMapData = useCallback(() => {
+    void refetchLines();
+    void refetchStations();
+  }, [refetchLines, refetchStations]);
+
+  if (linesLoading || stationsLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#2A70FF" />
+        <Text style={styles.loadingText}>Preparing live map...</Text>
+      </View>
+    );
+  }
+
+  // Reached only when loading finished: either an upstream error, or the line
+  // came back with no usable stations. Both must offer a way out instead of a
+  // spinner that never resolves.
+  if (linesError || stationsError || !lineCode || !stationCode) {
     return (
       <View style={styles.fallback}>
         <Text style={styles.fallbackTitle}>Map data could not be loaded.</Text>
         <Text style={styles.fallbackText}>
           Check the API connection and try again.
         </Text>
-      </View>
-    );
-  }
-
-  if (linesLoading || stationsLoading || !lineCode || !stationCode) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#2A70FF" />
-        <Text style={styles.loadingText}>Preparing live map...</Text>
+        <Pressable
+          accessibilityRole="button"
+          style={styles.fallbackButton}
+          onPress={handleRetryMapData}
+        >
+          <Text style={styles.fallbackButtonText}>Retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -592,5 +610,17 @@ const styles = StyleSheet.create({
     color: '#AABBDC',
     fontSize: 15,
     textAlign: 'center',
+  },
+  fallbackButton: {
+    marginTop: 8,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: '#2A70FF',
+  },
+  fallbackButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

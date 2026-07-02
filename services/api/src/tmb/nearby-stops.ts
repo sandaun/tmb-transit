@@ -8,52 +8,82 @@ interface CacheEntry<T> {
 }
 
 const TTL_MS = 24 * 60 * 60 * 1000;
+// Bus has ~100 lines; fanning out unbounded risks rate-limiting from TMB and
+// makes the first request very slow. Cap how many line requests run at once.
+const STATION_FETCH_CONCURRENCY = 6;
 
 let busStopsCache: CacheEntry<StationDto[]> | null = null;
 let metroStopsCache: CacheEntry<StationDto[]> | null = null;
 let busStopsInFlight: Promise<StationDto[]> | null = null;
 let metroStopsInFlight: Promise<StationDto[]> | null = null;
 
-async function fetchAllBusStops(): Promise<StationDto[]> {
-  const lines = await getBusLines();
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let cursor = 0;
+
+  async function runNext(): Promise<void> {
+    const index = cursor;
+    cursor += 1;
+    if (index >= items.length) {
+      return;
+    }
+
+    try {
+      results[index] = { status: 'fulfilled', value: await worker(items[index]) };
+    } catch (reason) {
+      results[index] = { status: 'rejected', reason };
+    }
+
+    await runNext();
+  }
+
+  const runners = Array.from({ length: Math.min(limit, items.length) }, runNext);
+  await Promise.all(runners);
+  return results;
+}
+
+async function collectStops(
+  lines: { code: string; color?: string }[],
+  fetchStations: (lineCode: string) => Promise<StationDto[]>,
+): Promise<StationDto[]> {
   const stops: StationDto[] = [];
   const seen = new Set<string>();
 
-  await Promise.all(
-    lines.map(async (line) => {
-      const stations = await getBusLineStations(line.code);
-      for (const station of stations) {
-        if (seen.has(station.code)) {
-          continue;
-        }
-        seen.add(station.code);
-        stops.push({ ...station, lineColor: line.color });
+  // One failing line must not drop every stop, so failures are settled and skipped.
+  const settled = await mapWithConcurrency(lines, STATION_FETCH_CONCURRENCY, async (line) => ({
+    line,
+    stations: await fetchStations(line.code),
+  }));
+
+  for (const result of settled) {
+    if (result.status !== 'fulfilled') {
+      continue;
+    }
+
+    for (const station of result.value.stations) {
+      if (seen.has(station.code)) {
+        continue;
       }
-    }),
-  );
+      seen.add(station.code);
+      stops.push({ ...station, lineColor: result.value.line.color });
+    }
+  }
 
   return stops;
 }
 
+async function fetchAllBusStops(): Promise<StationDto[]> {
+  const lines = await getBusLines();
+  return collectStops(lines, getBusLineStations);
+}
+
 async function fetchAllMetroStops(): Promise<StationDto[]> {
   const lines = await getMetroLines();
-  const stops: StationDto[] = [];
-  const seen = new Set<string>();
-
-  await Promise.all(
-    lines.map(async (line) => {
-      const stations = await getMetroLineStations(line.code);
-      for (const station of stations) {
-        if (seen.has(station.code)) {
-          continue;
-        }
-        seen.add(station.code);
-        stops.push({ ...station, lineColor: line.color });
-      }
-    }),
-  );
-
-  return stops;
+  return collectStops(lines, getMetroLineStations);
 }
 
 async function loadCached(

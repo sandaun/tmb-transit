@@ -1,5 +1,6 @@
 import { env } from '../config/env';
 import { devLogRawOnce } from '../utils/raw-log';
+import { fetchWithTimeout } from './http';
 import type { ArrivalDto } from '../types/api';
 
 interface IBusEntryRaw {
@@ -107,7 +108,7 @@ export async function fetchBusArrivalsByStation(
   url.searchParams.set('app_id', env.tmbAppId);
   url.searchParams.set('app_key', env.tmbAppKey);
 
-  const response = await fetch(url.toString());
+  const response = await fetchWithTimeout(url.toString());
   if (!response.ok) {
     throw new Error(`iBus API failed with status ${response.status}`);
   }

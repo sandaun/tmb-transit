@@ -1,6 +1,72 @@
 import { env } from '../config/env';
 import type { PlannedLegDto, PlannedRouteDto } from '../types/api';
 import { asNumber, asString } from './helpers';
+import { fetchWithTimeout } from './http';
+
+// TMB Planner interprets `date`/`time` as Barcelona wall-clock. Formatting the
+// server's local time instead would request the wrong schedule whenever the API
+// runs in another timezone (e.g. UTC in production).
+const PLANNER_TIME_ZONE = 'Europe/Madrid';
+
+interface WallClockParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+function localParts(date: Date): WallClockParts {
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hour: date.getHours(),
+    minute: date.getMinutes(),
+  };
+}
+
+function zonedParts(date: Date, timeZone: string): WallClockParts {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts: Record<string, string> = {};
+  for (const part of formatter.formatToParts(date)) {
+    parts[part.type] = part.value;
+  }
+
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    // Intl can emit '24' for midnight depending on the runtime; normalize it.
+    hour: parts.hour === '24' ? 0 : Number(parts.hour),
+    minute: Number(parts.minute),
+  };
+}
+
+function formatDateParts(parts: WallClockParts): string {
+  const month = String(parts.month).padStart(2, '0');
+  const day = String(parts.day).padStart(2, '0');
+  return `${month}-${day}-${parts.year}`;
+}
+
+function formatTimeParts(parts: WallClockParts): string {
+  let hours = parts.hour;
+  const minutes = String(parts.minute).padStart(2, '0');
+  const suffix = hours >= 12 ? 'pm' : 'am';
+  hours %= 12;
+  if (hours === 0) {
+    hours = 12;
+  }
+  return `${String(hours).padStart(2, '0')}:${minutes}${suffix}`;
+}
 
 interface PlanRoutesInput {
   from: { lat: number; lon: number };
@@ -50,31 +116,23 @@ interface RawPlannerResponse {
 }
 
 export function formatPlannerDate(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${month}-${day}-${date.getFullYear()}`;
+  return formatDateParts(localParts(date));
 }
 
 export function formatPlannerTime(date: Date): string {
-  let hours = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const suffix = hours >= 12 ? 'pm' : 'am';
-  hours %= 12;
-  if (hours === 0) {
-    hours = 12;
-  }
-  return `${String(hours).padStart(2, '0')}:${minutes}${suffix}`;
+  return formatTimeParts(localParts(date));
 }
 
 function buildPlannerUrl(input: PlanRoutesInput): string {
   const now = input.now ?? new Date();
+  const barcelonaParts = zonedParts(now, PLANNER_TIME_ZONE);
   const url = new URL(`${env.plannerBaseUrl}/plan`);
   url.searchParams.set('app_id', env.tmbAppId);
   url.searchParams.set('app_key', env.tmbAppKey);
   url.searchParams.set('fromPlace', `${input.from.lat},${input.from.lon}`);
   url.searchParams.set('toPlace', `${input.to.lat},${input.to.lon}`);
-  url.searchParams.set('date', formatPlannerDate(now));
-  url.searchParams.set('time', formatPlannerTime(now));
+  url.searchParams.set('date', formatDateParts(barcelonaParts));
+  url.searchParams.set('time', formatTimeParts(barcelonaParts));
   url.searchParams.set('arriveBy', 'false');
   url.searchParams.set('mode', 'TRANSIT,WALK');
   url.searchParams.set('showIntermediateStops', 'false');
@@ -173,7 +231,7 @@ export function mapPlannerResponse(payload: RawPlannerResponse): PlannedRouteDto
 }
 
 export async function getPlannedRoutes(input: PlanRoutesInput): Promise<PlannedRouteDto[]> {
-  const response = await fetch(buildPlannerUrl(input));
+  const response = await fetchWithTimeout(buildPlannerUrl(input));
   if (!response.ok) {
     throw new Error(`Planner API failed with status ${response.status}`);
   }

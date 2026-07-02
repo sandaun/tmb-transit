@@ -37,5 +37,11 @@ export async function writeCatalogCache<T>(baseKey: string, data: T): Promise<vo
     data,
   };
 
-  await AsyncStorage.setItem(keyFor(baseKey), JSON.stringify(payload));
+  // Caching is best-effort: a storage failure (e.g. full disk) must not fail the
+  // caller, which already holds freshly fetched data.
+  try {
+    await AsyncStorage.setItem(keyFor(baseKey), JSON.stringify(payload));
+  } catch {
+    // Ignore: the value is served from memory this session and refetched next time.
+  }
 }

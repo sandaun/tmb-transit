@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { ZodError } from 'zod';
 
 import { env } from './config/env';
@@ -16,6 +17,15 @@ export function createApp() {
   });
 
   app.register(cors, { origin: true });
+
+  // The proxy is unauthenticated, so cap per-IP request volume to protect the
+  // shared TMB quota from abuse or a runaway client. Registered before the
+  // routes so the limit applies to all of them.
+  app.register(rateLimit, {
+    max: 120,
+    timeWindow: '1 minute',
+  });
+
   app.register(healthRoutes);
   app.register(catalogRoutes);
   app.register(realtimeRoutes);

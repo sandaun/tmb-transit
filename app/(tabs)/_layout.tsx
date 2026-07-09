@@ -59,8 +59,8 @@ export default function TabsLayout() {
 
       <NativeTabs.Trigger name="you">
         <Icon
-          sf={{ default: 'bookmark', selected: 'bookmark.fill' }}
-          androidSrc={<VectorIcon family={MaterialIcons} name="bookmark" />}
+          sf={{ default: 'person', selected: 'person.fill' }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="person" />}
         />
         <Label>{t('tabs_saved')}</Label>
       </NativeTabs.Trigger>

@@ -1,11 +1,15 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Line } from '@/src/domain/catalog/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
+import { useAppLanguage } from '@/src/i18n';
 
 interface LineRowProps {
   line: Line;
   onPress: (line: Line) => void;
+  isFavorite: boolean;
+  onFavoritePress: (line: Line) => void;
 }
 
 function getRouteLabel(line: Line): string | null {
@@ -20,42 +24,40 @@ function getRouteLabel(line: Line): string | null {
   return null;
 }
 
-export function LineRow({ line, onPress }: LineRowProps) {
+export function LineRow({ line, onPress, isFavorite, onFavoritePress }: LineRowProps) {
+  const { t } = useAppLanguage();
   const routeLabel = getRouteLabel(line);
-  const supportLabel = line.mode === 'metro' ? 'Metro' : 'Bus';
+  const supportLabel = line.mode === 'metro' ? t('metro') : t('bus');
 
   return (
-    <Pressable
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-      onPress={() => onPress(line)}
-      accessibilityRole="button"
-      accessibilityLabel={`Línia ${line.code}${routeLabel ? `, ${routeLabel}` : ''}`}
-    >
-      <LineBadge
-        color={line.color}
-        lineCode={line.code}
-        mode={line.mode}
-        size="medium"
-        shape="square"
-      />
-      <View style={styles.textWrap}>
-        {routeLabel ? (
-          <>
-            <Text style={styles.route} numberOfLines={2}>
-              {routeLabel}
-            </Text>
-            <Text style={styles.support} numberOfLines={1}>
-              {supportLabel}
-            </Text>
-          </>
-        ) : (
-          <Text style={styles.route} numberOfLines={1}>
-            {supportLabel}
-          </Text>
-        )}
-      </View>
-      <Text style={styles.chevron}>{'›'}</Text>
-    </Pressable>
+    <View style={styles.row}>
+      <Pressable
+        style={({ pressed }) => [styles.rowContent, pressed && styles.rowPressed]}
+        onPress={() => onPress(line)}
+        accessibilityRole="button"
+        accessibilityLabel={`${t('line_accessibility', { code: line.code })}${routeLabel ? `, ${routeLabel}` : ''}`}
+      >
+        <LineBadge color={line.color} lineCode={line.code} mode={line.mode} size="medium" shape="square" />
+        <View style={styles.textWrap}>
+          {routeLabel ? (
+            <>
+              <Text style={styles.route} numberOfLines={2}>{routeLabel}</Text>
+              <Text style={styles.support} numberOfLines={1}>{supportLabel}</Text>
+            </>
+          ) : <Text style={styles.route} numberOfLines={1}>{supportLabel}</Text>}
+        </View>
+        <Text style={styles.chevron}>{'›'}</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={isFavorite ? t('line_unfavorite') : t('line_favorite')}
+        hitSlop={8}
+        style={styles.favoriteButton}
+        onPress={() => onFavoritePress(line)}
+      >
+        <MaterialIcons name={isFavorite ? 'star' : 'star-border'} size={22} color={isFavorite ? '#F5A623' : '#4F5D75'} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -63,13 +65,19 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E4E7EB',
+  },
+  rowContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 12,
+    paddingLeft: 14,
   },
   rowPressed: {
     backgroundColor: '#EAF1FF',
@@ -97,5 +105,11 @@ const styles = StyleSheet.create({
     color: '#90A4AE',
     fontSize: 22,
     fontWeight: '500',
+  },
+  favoriteButton: {
+    width: 48,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

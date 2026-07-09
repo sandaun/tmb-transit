@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -32,6 +33,9 @@ import type { NearbyStop } from '@/src/features/nearby/hooks/use-nearby-stops-qu
 import type { PlannedLeg, PlannedRoute } from '@/src/domain/planner/models';
 import { StationContent } from '@/src/features/station/components/station-content';
 import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
+import type { SavedPlaceId } from '@/src/features/preferences/models';
+import { useUserPreferencesStore } from '@/src/features/preferences/store';
+import { useAppLanguage } from '@/src/i18n';
 import { useTransitStore } from '@/src/state/store';
 
 function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null {
@@ -167,6 +171,14 @@ function getRoutePolylines(route: PlannedRoute | null): PlannerMapPolyline[] {
 }
 
 export default function MapTabScreen() {
+  const params = useLocalSearchParams<{
+    savePlace?: string;
+    planFrom?: string;
+    originLat?: string;
+    originLon?: string;
+    originLabel?: string;
+  }>();
+  const { t } = useAppLanguage();
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -174,6 +186,12 @@ export default function MapTabScreen() {
   const selectedLineCode = useTransitStore((s) => s.selectedLineCode);
   const selectedStationCode = useTransitStore((s) => s.selectedStationCode);
   const setSelection = useTransitStore((s) => s.setSelection);
+  const preferencesHydrated = useUserPreferencesStore((s) => s.isHydrated);
+  const lastMapSelection = useUserPreferencesStore((s) => s.lastMapSelection);
+  const savedPlaces = useUserPreferencesStore((s) => s.savedPlaces);
+  const setSavedPlace = useUserPreferencesStore((s) => s.setSavedPlace);
+  const setLastMapSelection = useUserPreferencesStore((s) => s.setLastMapSelection);
+  const addRecentItem = useUserPreferencesStore((s) => s.addRecentItem);
 
   const {
     data: lines = [],
@@ -223,9 +241,11 @@ export default function MapTabScreen() {
   );
   const [plannerRequested, setPlannerRequested] = useState(false);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [placeToSave, setPlaceToSave] = useState<SavedPlaceId | null>(null);
   const originLabelRequestRef = useRef(0);
   const destinationLabelRequestRef = useRef(0);
   const lineChangeRequestRef = useRef(0);
+  const handledRouteIntentRef = useRef<string | null>(null);
 
   const plannedRoutesQuery = usePlannedRoutesQuery(plannerOrigin, plannerDestination, {
     enabled: plannerEnabled && plannerRequested,
@@ -248,23 +268,43 @@ export default function MapTabScreen() {
   }, [detentIndex, insets.top, windowHeight]);
 
   useEffect(() => {
+    if (!preferencesHydrated || !lastMapSelection || selectedLineCode) {
+      return;
+    }
+    setSelection(
+      lastMapSelection.mode,
+      lastMapSelection.lineCode,
+      lastMapSelection.stationCode,
+    );
+  }, [lastMapSelection, preferencesHydrated, selectedLineCode, setSelection]);
+
+  useEffect(() => {
+    if (!preferencesHydrated) {
+      return;
+    }
     if (!lineCode || !stationCode) {
       return;
     }
 
-    if (
-      selectedLineCode === lineCode &&
-      selectedStationCode === stationCode
-    ) {
-      return;
+    if (selectedLineCode !== lineCode || selectedStationCode !== stationCode) {
+      setSelection(mode, lineCode, stationCode);
     }
 
-    setSelection(mode, lineCode, stationCode);
+    if (
+      lastMapSelection?.mode !== mode ||
+      lastMapSelection?.lineCode !== lineCode ||
+      lastMapSelection?.stationCode !== stationCode
+    ) {
+      setLastMapSelection({ mode, lineCode, stationCode });
+    }
   }, [
     lineCode,
+    lastMapSelection,
     mode,
+    preferencesHydrated,
     selectedLineCode,
     selectedStationCode,
+    setLastMapSelection,
     setSelection,
     stationCode,
   ]);
@@ -339,9 +379,20 @@ export default function MapTabScreen() {
       if (!lineCode) return;
       cancelPendingLineChange();
       setSelection(mode, lineCode, nextStationCode);
+      const station = stations.find((item) => item.code === nextStationCode);
+      if (station) {
+        addRecentItem({
+          kind: 'station',
+          mode,
+          lineCode,
+          stationCode: station.code,
+          stationName: station.name,
+          visitedAtMs: Date.now(),
+        });
+      }
       sheetRef.current?.resize(1);
     },
-    [cancelPendingLineChange, lineCode, mode, setSelection],
+    [addRecentItem, cancelPendingLineChange, lineCode, mode, setSelection, stations],
   );
   const handleLineStationSelect = useCallback(
     (nextMode: TransportMode, nextLineCode: string, nextStationCode: string) => {
@@ -358,9 +409,17 @@ export default function MapTabScreen() {
       const effectiveLineCode =
         stop.lineCode || (stop.mode === mode ? lineCode : '') || '';
       setSelection(stop.mode, effectiveLineCode, stop.code);
+      addRecentItem({
+        kind: 'station',
+        mode: stop.mode,
+        lineCode: effectiveLineCode,
+        stationCode: stop.code,
+        stationName: stop.name,
+        visitedAtMs: Date.now(),
+      });
       sheetRef.current?.resize(1);
     },
-    [cancelPendingLineChange, lineCode, mode, setSelection],
+    [addRecentItem, cancelPendingLineChange, lineCode, mode, setSelection],
   );
 
   const resetPlannerRequest = useCallback(() => {
@@ -418,15 +477,15 @@ export default function MapTabScreen() {
       }
 
       if (plannerActivePoint === 'origin') {
-        setPlannerPoint('origin', coordinate, 'Selected point');
+        setPlannerPoint('origin', coordinate, t('map_selected_point'));
         setPlannerActivePoint('destination');
       } else {
-        setPlannerPoint('destination', coordinate, 'Selected point');
+        setPlannerPoint('destination', coordinate, t('map_selected_point'));
       }
       resetPlannerRequest();
       sheetRef.current?.resize(1);
     },
-    [plannerActivePoint, plannerRequested, resetPlannerRequest, setPlannerPoint],
+    [plannerActivePoint, plannerRequested, resetPlannerRequest, setPlannerPoint, t],
   );
 
   const handlePlannerActivePointChange = useCallback(
@@ -445,21 +504,89 @@ export default function MapTabScreen() {
       if (!coordinate) {
         return;
       }
-      setPlannerPoint('origin', coordinate, 'Current location', false);
+      setPlannerPoint('origin', coordinate, t('map_current_location'), false);
       setPlannerActivePoint('destination');
       resetPlannerRequest();
       sheetRef.current?.resize(1);
     },
-    [resetPlannerRequest, setPlannerPoint],
+    [resetPlannerRequest, setPlannerPoint, t],
   );
 
   const handlePlannerPlan = useCallback(() => {
     if (!plannerOrigin || !plannerDestination) {
       return;
     }
+    addRecentItem({
+      kind: 'route',
+      origin: {
+        lat: plannerOrigin.lat,
+        lon: plannerOrigin.lon,
+        label: plannerOriginLabel ?? formatCoordinateLabel(plannerOrigin),
+      },
+      destination: {
+        lat: plannerDestination.lat,
+        lon: plannerDestination.lon,
+        label: plannerDestinationLabel ?? formatCoordinateLabel(plannerDestination),
+      },
+      visitedAtMs: Date.now(),
+    });
     setPlannerRequested(true);
     sheetRef.current?.resize(1);
-  }, [plannerDestination, plannerOrigin]);
+  }, [addRecentItem, plannerDestination, plannerDestinationLabel, plannerOrigin, plannerOriginLabel]);
+
+  const handlePlaceSaveMapPress = useCallback(
+    (coordinate: { lat: number; lon: number }) => {
+      if (!placeToSave) return;
+      const id = placeToSave;
+      setPlaceToSave(null);
+      void resolvePlannerPointLabel(coordinate).then((label) => {
+        setSavedPlace({ id, label, ...coordinate, updatedAtMs: Date.now() });
+        router.setParams({ savePlace: undefined });
+        router.navigate('/you');
+      });
+    },
+    [placeToSave, setSavedPlace],
+  );
+
+  useEffect(() => {
+    if (params.savePlace === 'home' || params.savePlace === 'work') {
+      setPlannerEnabled(false);
+      setPlaceToSave(params.savePlace);
+      sheetRef.current?.resize(1);
+    }
+  }, [params.savePlace]);
+
+  useEffect(() => {
+    const intentKey = [params.planFrom, params.originLat, params.originLon, params.originLabel].join(':');
+    if (!intentKey || handledRouteIntentRef.current === intentKey) return;
+
+    let origin: { lat: number; lon: number; label: string } | null = null;
+    if (params.planFrom === 'home' || params.planFrom === 'work') {
+      const place = savedPlaces[params.planFrom];
+      if (place) origin = place;
+    } else {
+      const lat = Number(params.originLat);
+      const lon = Number(params.originLon);
+      if (Number.isFinite(lat) && Number.isFinite(lon) && params.originLabel) {
+        origin = { lat, lon, label: params.originLabel };
+      }
+    }
+
+    if (!origin) return;
+    handledRouteIntentRef.current = intentKey;
+    setPlaceToSave(null);
+    setPlannerEnabled(true);
+    setPlannerPoint('origin', origin, origin.label, false);
+    setPlannerActivePoint('destination');
+    resetPlannerRequest();
+    sheetRef.current?.resize(1);
+    router.setParams({
+      planFrom: undefined,
+      originLat: undefined,
+      originLon: undefined,
+      originLabel: undefined,
+    });
+  }, [params.originLabel, params.originLat, params.originLon, params.planFrom, resetPlannerRequest, savedPlaces, setPlannerPoint]);
 
   const handleRetryMapData = useCallback(() => {
     void refetchLines();
@@ -470,7 +597,7 @@ export default function MapTabScreen() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#2A70FF" />
-        <Text style={styles.loadingText}>Preparing live map...</Text>
+        <Text style={styles.loadingText}>{t('map_loading')}</Text>
       </View>
     );
   }
@@ -481,16 +608,14 @@ export default function MapTabScreen() {
   if (linesError || stationsError || !lineCode || !stationCode) {
     return (
       <View style={styles.fallback}>
-        <Text style={styles.fallbackTitle}>Map data could not be loaded.</Text>
-        <Text style={styles.fallbackText}>
-          Check the API connection and try again.
-        </Text>
+        <Text style={styles.fallbackTitle}>{t('map_error_title')}</Text>
+        <Text style={styles.fallbackText}>{t('map_error_body')}</Text>
         <Pressable
           accessibilityRole="button"
           style={styles.fallbackButton}
           onPress={handleRetryMapData}
         >
-          <Text style={styles.fallbackButtonText}>Retry</Text>
+          <Text style={styles.fallbackButtonText}>{t('retry')}</Text>
         </Pressable>
       </View>
     );
@@ -518,8 +643,10 @@ export default function MapTabScreen() {
         plannerDestination={plannerDestination}
         plannerRoutePolylines={selectedRoutePolylines}
         plannerFocusKey={selectedRoute?.id ?? null}
+        placeToSave={Boolean(placeToSave)}
         onPlannerToggle={handlePlannerToggle}
         onPlannerMapPress={handlePlannerMapPress}
+        onPlaceSaveMapPress={handlePlaceSaveMapPress}
       />
 
       <LocalBottomSheet
@@ -532,7 +659,14 @@ export default function MapTabScreen() {
           style={isCollapsed ? styles.contentHidden : styles.contentVisible}
           pointerEvents={isCollapsed ? 'none' : 'auto'}
         >
-          {plannerEnabled ? (
+          {placeToSave ? (
+            <View style={styles.placePrompt}>
+              <Text style={styles.placePromptTitle}>
+                {t('map_select_place_title', { place: placeToSave === 'home' ? t('saved_home') : t('saved_work') })}
+              </Text>
+              <Text style={styles.placePromptBody}>{t('map_select_place_body')}</Text>
+            </View>
+          ) : plannerEnabled ? (
             <PlannerSheet
               origin={plannerOrigin}
               originLabel={plannerOriginLabel}
@@ -623,5 +757,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+  },
+  placePrompt: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 6,
+  },
+  placePromptTitle: {
+    color: '#F4F8FF',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  placePromptBody: {
+    color: '#AABBDC',
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

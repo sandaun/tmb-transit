@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAppLanguage } from '@/src/i18n';
 import type { TransportMode } from '@/src/domain/catalog/models';
 
 const SIZE = 48;
@@ -34,6 +35,7 @@ export function NearbyControl({
   onToggle,
   onModesChange,
 }: NearbyControlProps) {
+  const { t } = useAppLanguage();
   const [expanded, setExpanded] = useState(false);
   const widthAnim = useRef(new Animated.Value(COLLAPSED_WIDTH)).current;
   const chipsOpacity = useRef(new Animated.Value(0)).current;
@@ -168,7 +170,7 @@ export function NearbyControl({
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ selected: enabled }}
-        accessibilityLabel={enabled ? 'Amaga parades properes' : 'Mostra parades properes'}
+        accessibilityLabel={enabled ? t('nearby_hide') : t('nearby_show')}
         style={styles.iconHitArea}
         onPress={handlePress}
         onLongPress={handleLongPress}

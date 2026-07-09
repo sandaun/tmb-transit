@@ -1,4 +1,5 @@
 import { useQueries, useQuery } from '@tanstack/react-query';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,6 +29,8 @@ import {
   type StationInterchangeMember,
 } from '@/src/features/station/utils/station-interchanges';
 import { useTransitStore } from '@/src/state/store';
+import { useAppLanguage } from '@/src/i18n';
+import { useUserPreferencesStore } from '@/src/features/preferences/store';
 
 /**
  * Self-contained arrivals query that doesn't depend on navigation focus.
@@ -83,10 +86,13 @@ export function StationContent({
   active = true,
   onLineStationSelect,
 }: StationContentProps) {
+  const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const mode = useTransitStore((s) => s.selectedMode);
   const lineCode = useTransitStore((s) => s.selectedLineCode);
   const stationCode = useTransitStore((s) => s.selectedStationCode);
+  const favoriteStops = useUserPreferencesStore((s) => s.favoriteStops);
+  const toggleFavoriteStop = useUserPreferencesStore((s) => s.toggleFavoriteStop);
 
   const stationsQuery = useLineStationsQuery(mode, lineCode);
   const station = stationsQuery.data?.find((s) => s.code === stationCode);
@@ -135,6 +141,9 @@ export function StationContent({
   const followingArrivals = orderedArrivals.slice(1, 6);
   const stationName = selectedInterchange?.name ?? station?.name ?? stationCode;
   const hasMultipleLines = interchangeMembers.length > 1;
+  const isFavorite = favoriteStops.some(
+    (item) => item.mode === mode && item.lineCode === lineCode && item.stationCode === stationCode,
+  );
 
   const updatedAgoSec = arrivalsQuery.dataUpdatedAt
     ? Math.max(0, Math.floor((now - arrivalsQuery.dataUpdatedAt) / 1_000))
@@ -149,7 +158,7 @@ export function StationContent({
     metaParts.push({ key: 'access', label: station.accessibilityLabel });
   }
   if (updatedAgoSec !== null) {
-    metaParts.push({ key: 'updated', label: `Updated ${updatedAgoSec}s ago` });
+    metaParts.push({ key: 'updated', label: t('station_updated', { seconds: updatedAgoSec }) });
   }
 
   return (
@@ -167,6 +176,27 @@ export function StationContent({
             <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="small" />
           ) : null}
           <Text style={styles.title}>{stationName}</Text>
+          {station ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(isFavorite ? 'station_unfavorite' : 'station_favorite')}
+              style={styles.favoriteButton}
+              onPress={() =>
+                toggleFavoriteStop({
+                  mode,
+                  lineCode,
+                  stationCode,
+                  stationName: station.name,
+                })
+              }
+            >
+              <MaterialIcons
+                name={isFavorite ? 'star' : 'star-border'}
+                size={22}
+                color={isFavorite ? '#F5A623' : '#4F5D75'}
+              />
+            </Pressable>
+          ) : null}
         </View>
         {metaParts.length > 0 ? (
           <View style={styles.metaRow}>
@@ -183,7 +213,7 @@ export function StationContent({
 
       {hasMultipleLines ? (
         <View style={styles.lineSwitcher}>
-          <Text style={styles.sectionLabel}>Lines</Text>
+          <Text style={styles.sectionLabel}>{t('station_lines')}</Text>
           <View style={styles.lineOptions}>
             {interchangeMembers.map((member) => {
               const isActive = member.line.code === lineCode;
@@ -226,13 +256,13 @@ export function StationContent({
       {!hasMultipleLines && arrivalsQuery.isLoading ? (
         <View style={styles.feedbackRow}>
           <ActivityIndicator color="#2F7DFF" />
-          <Text style={styles.feedbackText}>Loading realtime arrivals...</Text>
+          <Text style={styles.feedbackText}>{t('station_loading_arrivals')}</Text>
         </View>
       ) : null}
 
       {!hasMultipleLines && arrivalsQuery.isError ? (
         <Text style={styles.errorText}>
-          Realtime data is temporarily unavailable.
+          {t('station_realtime_unavailable')}
         </Text>
       ) : null}
 
@@ -256,12 +286,12 @@ export function StationContent({
           <View style={styles.heroRow}>
             <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="large" />
             <View style={styles.heroTextWrap}>
-              <Text style={styles.heroEyebrow}>{mode === 'bus' ? 'Next bus' : 'Next train'}</Text>
+              <Text style={styles.heroEyebrow}>{mode === 'bus' ? t('station_next_bus') : t('station_next_train')}</Text>
               <Text style={styles.heroTitle}>{nextArrival.destination}</Text>
               <Text style={styles.heroSubtitle}>
                 {nextArrival.platformCode
-                  ? `Platform ${nextArrival.platformCode}`
-                  : `Direction ${nextArrival.directionId}`}
+                  ? t('station_platform', { platform: nextArrival.platformCode })
+                  : t('station_direction', { direction: nextArrival.directionId })}
               </Text>
             </View>
             <Text style={styles.heroEta}>
@@ -282,8 +312,8 @@ export function StationContent({
                 </View>
                 <Text style={styles.rowPlatform}>
                   {arrival.platformCode
-                    ? `Platform ${arrival.platformCode}`
-                    : `Direction ${arrival.directionId}`}
+                    ? t('station_platform', { platform: arrival.platformCode })
+                    : t('station_direction', { direction: arrival.directionId })}
                 </Text>
               </View>
               <Text style={styles.rowEta}>
@@ -299,7 +329,7 @@ export function StationContent({
       !arrivalsQuery.isError &&
       orderedArrivals.length === 0 ? (
         <Text style={styles.feedbackText}>
-          No realtime arrivals for this stop right now.
+          {t('station_no_arrivals')}
         </Text>
       ) : null}
     </ScrollView>
@@ -319,6 +349,7 @@ function InterchangeArrivalSection({
   query: ReturnType<typeof useInterchangeArrivals>[number] | undefined;
   onPress: () => void;
 }) {
+  const { t } = useAppLanguage();
   const arrivals = useMemo(
     () => sortArrivalsByEta(query?.data ?? []),
     [query?.data],
@@ -340,8 +371,8 @@ function InterchangeArrivalSection({
           {firstArrival ? (
             <Text style={styles.interchangePlatform}>
               {firstArrival.platformCode
-                ? `Platform ${firstArrival.platformCode}`
-                : `Direction ${firstArrival.directionId}`}
+                ? t('station_platform', { platform: firstArrival.platformCode })
+                : t('station_direction', { direction: firstArrival.directionId })}
             </Text>
           ) : null}
         </View>
@@ -355,16 +386,16 @@ function InterchangeArrivalSection({
       {query?.isLoading ? (
         <View style={styles.feedbackRow}>
           <ActivityIndicator color="#2F7DFF" />
-          <Text style={styles.feedbackText}>Loading arrivals...</Text>
+          <Text style={styles.feedbackText}>{t('station_loading_arrivals')}</Text>
         </View>
       ) : null}
 
       {query?.isError ? (
-        <Text style={styles.errorText}>Realtime data is temporarily unavailable.</Text>
+        <Text style={styles.errorText}>{t('station_realtime_unavailable')}</Text>
       ) : null}
 
       {!query?.isLoading && !query?.isError && arrivals.length === 0 ? (
-        <Text style={styles.feedbackText}>No realtime arrivals right now.</Text>
+        <Text style={styles.feedbackText}>{t('station_no_arrivals')}</Text>
       ) : null}
 
       {followingArrivals.length > 0 ? (
@@ -378,8 +409,8 @@ function InterchangeArrivalSection({
                 <Text style={styles.rowDestination}>{arrival.destination}</Text>
                 <Text style={styles.rowPlatform}>
                   {arrival.platformCode
-                    ? `Platform ${arrival.platformCode}`
-                    : `Direction ${arrival.directionId}`}
+                    ? t('station_platform', { platform: arrival.platformCode })
+                    : t('station_direction', { direction: arrival.directionId })}
                 </Text>
               </View>
               <Text style={styles.rowEta}>
@@ -416,6 +447,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.7,
     color: '#F4F8FF',
     flexShrink: 1,
+  },
+  favoriteButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   metaRow: {
     alignItems: 'center',

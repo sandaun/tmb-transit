@@ -32,6 +32,7 @@ import {
   makeArrivalKey,
   sortArrivalsByEta,
 } from '@/src/features/station/utils/arrival-helpers';
+import { useAppLanguage } from '@/src/i18n';
 
 interface StationScreenProps {
   lineCode: string;
@@ -83,11 +84,12 @@ function SearchShell({
   lineColor?: string;
   mode: TransportMode;
 }) {
+  const { t } = useAppLanguage();
   return (
     <View style={styles.modeRow}>
       <View style={[styles.modeChip, styles.modeChipActive]}>
         <Text style={[styles.modeChipText, styles.modeChipTextActive]}>
-          {mode === 'bus' ? 'Bus' : 'Metro'}
+          {mode === 'bus' ? t('bus') : t('metro')}
         </Text>
       </View>
       <View style={styles.lineModeChip}>
@@ -98,24 +100,25 @@ function SearchShell({
 }
 
 function MapTabBar({ bottomInset }: { bottomInset: number }) {
+  const { t } = useAppLanguage();
   return (
     <View style={[styles.tabBarDock, { paddingBottom: bottomInset + 10  }]}>
       <View style={styles.tabBarContent}>
         <View style={styles.tabItem}>
           <Text style={[styles.tabIcon, styles.tabIconActive]}>◉</Text>
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>Map</Text>
+          <Text style={[styles.tabLabel, styles.tabLabelActive]}>{t('tabs_map')}</Text>
         </View>
         <View style={styles.tabItem}>
           <Text style={styles.tabIcon}>◎</Text>
-          <Text style={styles.tabLabel}>Lines</Text>
+          <Text style={styles.tabLabel}>{t('tabs_lines')}</Text>
         </View>
         <View style={styles.tabItem}>
           <Text style={styles.tabIcon}>◌</Text>
-          <Text style={styles.tabLabel}>Saved</Text>
+          <Text style={styles.tabLabel}>{t('tabs_alerts')}</Text>
         </View>
         <View style={styles.tabItem}>
           <Text style={styles.tabIcon}>⌂</Text>
-          <Text style={styles.tabLabel}>You</Text>
+          <Text style={styles.tabLabel}>{t('tabs_saved')}</Text>
         </View>
       </View>
     </View>

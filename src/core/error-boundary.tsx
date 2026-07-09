@@ -1,6 +1,8 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useAppLanguage } from '@/src/i18n';
+
 interface ErrorBoundaryProps {
   children: ReactNode;
 }
@@ -14,7 +16,7 @@ interface ErrorBoundaryState {
  * throw shows a recoverable screen instead of a blank/crashed app. "Try again"
  * remounts the subtree by clearing the error state.
  */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundaryContent extends Component<ErrorBoundaryProps & { title: string; body: string; retry: string }, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(): ErrorBoundaryState {
@@ -38,14 +40,23 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Alguna cosa ha fallat.</Text>
-        <Text style={styles.body}>Torna-ho a provar. Si continua, reinicia l&apos;app.</Text>
+        <Text style={styles.title}>{this.props.title}</Text>
+        <Text style={styles.body}>{this.props.body}</Text>
         <Pressable accessibilityRole="button" style={styles.button} onPress={this.handleReset}>
-          <Text style={styles.buttonText}>Torna-ho a provar</Text>
+          <Text style={styles.buttonText}>{this.props.retry}</Text>
         </Pressable>
       </View>
     );
   }
+}
+
+export function ErrorBoundary({ children }: ErrorBoundaryProps) {
+  const { t } = useAppLanguage();
+  return (
+    <ErrorBoundaryContent title={t('error_title')} body={t('error_body')} retry={t('retry')}>
+      {children}
+    </ErrorBoundaryContent>
+  );
 }
 
 const styles = StyleSheet.create({

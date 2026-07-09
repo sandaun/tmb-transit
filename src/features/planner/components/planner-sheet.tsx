@@ -5,6 +5,7 @@ import type { TransportMode } from '@/src/domain/catalog/models';
 import type { PlannedLeg, PlannedRoute } from '@/src/domain/planner/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { formatDuration, getTransitRoutes } from '@/src/features/planner/utils/route-summary';
+import { useAppLanguage } from '@/src/i18n';
 
 const TAB_BAR_CLEARANCE = 150;
 
@@ -37,11 +38,11 @@ function formatDistance(meters: number | undefined): string {
   return `${Math.round(meters)} m`;
 }
 
-function getLegTitle(leg: PlannedLeg): string {
+function getLegTitle(leg: PlannedLeg, walkLabel: string, takeLabel: string): string {
   if (leg.mode === 'walk') {
-    return `Walk to ${leg.to.name}`;
+    return walkLabel.replace('{name}', leg.to.name);
   }
-  return `Take ${leg.route ?? 'transit'} to ${leg.to.name}`;
+  return takeLabel.replace('{route}', leg.route ?? 'transit').replace('{name}', leg.to.name);
 }
 
 function getLegMeta(leg: PlannedLeg): string {
@@ -56,22 +57,28 @@ function getLegMeta(leg: PlannedLeg): string {
   return parts.join(' · ');
 }
 
-function getPointValue(label: string | null, hasPoint: boolean, active: boolean): string {
+function getPointValue(
+  label: string | null,
+  hasPoint: boolean,
+  active: boolean,
+  tapMap: string,
+  notSet: string,
+): string {
   if (label) {
     return label;
   }
-  return active ? 'Tap the map' : 'Not set';
+  return active ? tapMap : notSet;
 }
 
 function getRouteMode(route: string): TransportMode {
   return /^L\d|^FM$/i.test(route.trim()) ? 'metro' : 'bus';
 }
 
-function getTransferLabel(transfers: number): string {
+function getTransferLabel(transfers: number, direct: string, one: string, other: string): string {
   if (transfers === 0) {
-    return 'Direct';
+    return direct;
   }
-  return `${transfers} transfer${transfers === 1 ? '' : 's'}`;
+  return transfers === 1 ? one : other.replace('{count}', String(transfers));
 }
 
 function getWalkDurationSec(route: PlannedRoute): number {
@@ -106,6 +113,7 @@ export function PlannerSheet({
   onPlan,
   onRouteSelect,
 }: PlannerSheetProps) {
+  const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const selectedRoute = requested
     ? routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null
@@ -124,21 +132,21 @@ export function PlannerSheet({
         <View style={styles.tripSummary}>
           <View style={styles.tripSummaryText}>
             <Text numberOfLines={1} style={styles.tripSummaryOrigin}>
-              {originLabel ?? 'Origin'}
+              {originLabel ?? t('planner_origin')}
             </Text>
             <Text style={styles.tripSummaryArrow}>{'→'}</Text>
             <Text numberOfLines={1} style={styles.tripSummaryDestination}>
-              {destinationLabel ?? 'Destination'}
+              {destinationLabel ?? t('planner_destination')}
             </Text>
           </View>
           <Pressable accessibilityRole="button" style={styles.editButton} onPress={onEdit}>
-            <Text style={styles.editButtonText}>Edit</Text>
+            <Text style={styles.editButtonText}>{t('planner_edit')}</Text>
           </Pressable>
         </View>
       ) : (
         <>
           <View style={styles.header}>
-            <Text style={styles.title}>Route</Text>
+            <Text style={styles.title}>{t('planner_title')}</Text>
           </View>
 
           <View style={styles.points}>
@@ -152,9 +160,9 @@ export function PlannerSheet({
                 <Text style={styles.pointDotText}>A</Text>
               </View>
               <View style={styles.pointTextWrap}>
-                <Text style={styles.pointLabel}>Origin</Text>
+                <Text style={styles.pointLabel}>{t('planner_origin')}</Text>
                 <Text numberOfLines={1} style={styles.pointValue}>
-                  {getPointValue(originLabel, Boolean(origin), activePoint === 'origin')}
+                  {getPointValue(originLabel, Boolean(origin), activePoint === 'origin', t('planner_tap_map'), t('planner_not_set'))}
                 </Text>
               </View>
             </Pressable>
@@ -169,12 +177,14 @@ export function PlannerSheet({
                 <Text style={styles.pointDotText}>B</Text>
               </View>
               <View style={styles.pointTextWrap}>
-                <Text style={styles.pointLabel}>Destination</Text>
+                <Text style={styles.pointLabel}>{t('planner_destination')}</Text>
                 <Text numberOfLines={1} style={styles.pointValue}>
                   {getPointValue(
                     destinationLabel,
                     Boolean(destination),
                     activePoint === 'destination',
+                    t('planner_tap_map'),
+                    t('planner_not_set'),
                   )}
                 </Text>
               </View>
@@ -197,7 +207,7 @@ export function PlannerSheet({
                   !userLocation ? styles.secondaryButtonTextUnavailable : null,
                 ]}
               >
-                {userLocation ? 'Use my location' : 'Location unavailable'}
+                {userLocation ? t('planner_use_location') : t('planner_location_unavailable')}
               </Text>
             </Pressable>
             <Pressable
@@ -206,7 +216,7 @@ export function PlannerSheet({
               onPress={onPlan}
               disabled={!canPlan}
             >
-              <Text style={styles.primaryButtonText}>Plan</Text>
+              <Text style={styles.primaryButtonText}>{t('planner_plan')}</Text>
             </Pressable>
           </View>
         </>
@@ -216,34 +226,34 @@ export function PlannerSheet({
 
       {!requested ? (
         <View style={styles.statusBlock}>
-          <Text style={styles.statusText}>Set A and B on the map, then plan the route.</Text>
+          <Text style={styles.statusText}>{t('planner_set_points')}</Text>
         </View>
       ) : null}
 
       {requested && isLoading ? (
         <View style={styles.statusBlock}>
           <ActivityIndicator color="#2A70FF" />
-          <Text style={styles.statusText}>Calculating routes...</Text>
+          <Text style={styles.statusText}>{t('planner_calculating')}</Text>
         </View>
       ) : null}
 
       {requested && isError ? (
         <View style={styles.statusBlock}>
-          <Text style={styles.statusTitle}>Planner unavailable</Text>
-          <Text style={styles.statusText}>Try again in a moment.</Text>
+          <Text style={styles.statusTitle}>{t('planner_unavailable')}</Text>
+          <Text style={styles.statusText}>{t('planner_try_later')}</Text>
         </View>
       ) : null}
 
       {requested && !isLoading && !isError && routes.length === 0 ? (
         <View style={styles.statusBlock}>
-          <Text style={styles.statusTitle}>No route found</Text>
-          <Text style={styles.statusText}>Move one of the points and plan again.</Text>
+          <Text style={styles.statusTitle}>{t('planner_no_route')}</Text>
+          <Text style={styles.statusText}>{t('planner_move_point')}</Text>
         </View>
       ) : null}
 
       {requested && routes.length > 0 ? (
         <>
-          <Text style={styles.sectionLabel}>Options</Text>
+          <Text style={styles.sectionLabel}>{t('planner_options')}</Text>
           <View style={styles.routeList}>
             {routes.map((route) => {
               const selected = route.id === selectedRoute?.id;
@@ -259,12 +269,12 @@ export function PlannerSheet({
                 >
                   <View style={styles.routeHeader}>
                     <Text style={styles.routeDuration}>{formatDuration(route.durationSec)}</Text>
-                    <Text style={styles.routeTransfer}>{getTransferLabel(route.transfers)}</Text>
+                    <Text style={styles.routeTransfer}>{getTransferLabel(route.transfers, t('planner_direct'), t('planner_transfers_one'), t('planner_transfers_other'))}</Text>
                   </View>
                   <View style={styles.routeModes}>
                     {transitRoutes.length === 0 ? (
                       <View style={styles.walkBadge}>
-                        <Text style={styles.walkBadgeText}>Walk</Text>
+                        <Text style={styles.walkBadgeText}>{t('planner_walk')}</Text>
                       </View>
                     ) : (
                       transitRoutes.map((transitRoute) => (
@@ -279,14 +289,16 @@ export function PlannerSheet({
                     )}
                     <View style={styles.walkDistanceBadge}>
                       <Text style={styles.walkDistanceText}>
-                        {formatWalkDuration(walkDurationSec)} walk ·{' '}
-                        {formatDistance(route.walkDistanceMeters)}
+                        {t('planner_walk_summary', {
+                          duration: formatWalkDuration(walkDurationSec),
+                          distance: formatDistance(route.walkDistanceMeters),
+                        })}
                       </Text>
                     </View>
                   </View>
                   {selected ? (
                     <View style={styles.routeSteps}>
-                      <Text style={styles.routeStepsLabel}>Steps</Text>
+                      <Text style={styles.routeStepsLabel}>{t('planner_steps')}</Text>
                       <View style={styles.steps}>
                         {route.legs.map((leg, index) => (
                           <View key={leg.id} style={styles.stepRow}>
@@ -294,7 +306,7 @@ export function PlannerSheet({
                               <Text style={styles.stepIndexText}>{index + 1}</Text>
                             </View>
                             <View style={styles.stepTextWrap}>
-                              <Text style={styles.stepTitle}>{getLegTitle(leg)}</Text>
+                              <Text style={styles.stepTitle}>{getLegTitle(leg, t('planner_walk_to'), t('planner_take_to'))}</Text>
                               <Text style={styles.stepMeta}>{getLegMeta(leg)}</Text>
                             </View>
                           </View>

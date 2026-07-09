@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   ActivityIndicator,
   FlatList,
@@ -16,6 +17,8 @@ import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { useTransitStore } from '@/src/state/store';
+import { useAppLanguage } from '@/src/i18n';
+import { useUserPreferencesStore } from '@/src/features/preferences/store';
 
 interface LineStationsScreenProps {
   mode: TransportMode;
@@ -30,9 +33,13 @@ function normalize(text: string): string {
 }
 
 export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) {
+  const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const setSelection = useTransitStore((state) => state.setSelection);
   const [query, setQuery] = useState('');
+  const addRecentItem = useUserPreferencesStore((state) => state.addRecentItem);
+  const favoriteStops = useUserPreferencesStore((state) => state.favoriteStops);
+  const toggleFavoriteStop = useUserPreferencesStore((state) => state.toggleFavoriteStop);
 
   const linesQuery = useLinesQuery(mode);
   const line = linesQuery.data?.find((entry) => entry.code === lineCode);
@@ -49,8 +56,27 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
         normalize(station.name).includes(needle) || station.code.includes(query.trim()),
     );
   }, [query, stations]);
+  const favoriteStationCodes = useMemo(
+    () => new Set(
+      favoriteStops
+        .filter((stop) => stop.mode === mode && stop.lineCode === lineCode)
+        .map((stop) => stop.stationCode),
+    ),
+    [favoriteStops, lineCode, mode],
+  );
 
   function handleStationPress(stationCode: string) {
+    const station = stations.find((item) => item.code === stationCode);
+    if (station) {
+      addRecentItem({
+        kind: 'station',
+        mode,
+        lineCode,
+        stationCode,
+        stationName: station.name,
+        visitedAtMs: Date.now(),
+      });
+    }
     setSelection(mode, lineCode, stationCode);
     router.dismissAll();
     router.navigate('/' as never);
@@ -63,7 +89,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
           <Pressable
             style={styles.backButton}
             onPress={() => router.back()}
-            accessibilityLabel="Tornar">
+            accessibilityLabel={t('back')}>
             <Text style={styles.backButtonText}>{'‹'}</Text>
           </Pressable>
           <View style={styles.titleWrap}>
@@ -86,7 +112,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
                   </Text>
                 )}
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {mode === 'bus' ? 'Línia bus' : 'Línia metro'}
+                  {mode === 'bus' ? t('bus') : t('metro')}
                 </Text>
               </View>
             </View>
@@ -95,7 +121,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
 
         <TextInput
           style={styles.searchInput}
-          placeholder="Cerca estació"
+          placeholder={t('station_search')}
           placeholderTextColor="#7A8AA1"
           value={query}
           onChangeText={setQuery}
@@ -104,7 +130,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
       </View>
 
       {error ? (
-        <Text style={styles.error}>{"No s'han pogut carregar les estacions."}</Text>
+        <Text style={styles.error}>{t('stations_load_error')}</Text>
       ) : null}
 
       <FlatList
@@ -115,37 +141,57 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
           { paddingBottom: insets.bottom + 32 },
         ]}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        renderItem={({ item, index }) => (
-          <Pressable
-            style={({ pressed }) => [styles.stationRow, pressed && styles.stationRowPressed]}
-            onPress={() => handleStationPress(item.code)}
-            accessibilityRole="button"
-            accessibilityLabel={`Estació ${item.name}`}
-          >
-            <View style={styles.indexBubble}>
-              <Text style={styles.indexText}>{item.order ?? index + 1}</Text>
+        renderItem={({ item, index }) => {
+          const isFavorite = favoriteStationCodes.has(item.code);
+          return (
+            <View style={styles.stationRow}>
+              <Pressable
+                style={({ pressed }) => [styles.stationRowContent, pressed && styles.stationRowPressed]}
+                onPress={() => handleStationPress(item.code)}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('saved_station')} ${item.name}`}
+              >
+                <View style={styles.indexBubble}>
+                  <Text style={styles.indexText}>{item.order ?? index + 1}</Text>
+                </View>
+                <View style={styles.stationTextWrap}>
+                  <Text style={styles.stationName} numberOfLines={1}>{item.name}</Text>
+                  {item.accessibilityLabel || item.statusLabel ? (
+                    <Text style={styles.stationMeta} numberOfLines={1}>
+                      {[item.statusLabel, item.accessibilityLabel].filter(Boolean).join(' · ')}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={styles.chevron}>{'›'}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(isFavorite ? 'station_unfavorite' : 'station_favorite')}
+                style={styles.favoriteButton}
+                onPress={() => toggleFavoriteStop({
+                  mode,
+                  lineCode,
+                  stationCode: item.code,
+                  stationName: item.name,
+                })}
+              >
+                <MaterialIcons
+                  name={isFavorite ? 'star' : 'star-border'}
+                  size={22}
+                  color={isFavorite ? '#F5A623' : '#4F5D75'}
+                />
+              </Pressable>
             </View>
-            <View style={styles.stationTextWrap}>
-              <Text style={styles.stationName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              {item.accessibilityLabel || item.statusLabel ? (
-                <Text style={styles.stationMeta} numberOfLines={1}>
-                  {[item.statusLabel, item.accessibilityLabel].filter(Boolean).join(' · ')}
-                </Text>
-              ) : null}
-            </View>
-            <Text style={styles.chevron}>{'›'}</Text>
-          </Pressable>
-        )}
+          );
+        }}
         ListEmptyComponent={
           isLoading ? (
             <View style={styles.empty}>
               <ActivityIndicator color="#0B5FFF" />
-              <Text style={styles.emptyText}>Carregant estacions...</Text>
+              <Text style={styles.emptyText}>{t('stations_loading')}</Text>
             </View>
           ) : (
-            <Text style={styles.emptyText}>No hi ha estacions per mostrar.</Text>
+            <Text style={styles.emptyText}>{t('stations_empty')}</Text>
           )
         }
       />
@@ -229,12 +275,19 @@ const styles = StyleSheet.create({
   stationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: 14,
+    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E4E7EB',
+  },
+  stationRowContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingLeft: 14,
   },
   stationRowPressed: {
     backgroundColor: '#EAF1FF',
@@ -271,6 +324,12 @@ const styles = StyleSheet.create({
     color: '#90A4AE',
     fontSize: 22,
     fontWeight: '500',
+  },
+  favoriteButton: {
+    alignSelf: 'stretch',
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   empty: {
     paddingTop: 24,

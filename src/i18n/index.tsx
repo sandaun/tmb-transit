@@ -1,0 +1,189 @@
+import { createContext, type ReactNode, useContext, useEffect, useMemo } from 'react';
+
+import type { AppLanguage } from '@/src/features/preferences/models';
+import { useUserPreferencesStore } from '@/src/features/preferences/store';
+
+const catalan = {
+  tabs_map: 'Mapa',
+  tabs_lines: 'Línies',
+  tabs_alerts: 'Alertes',
+  tabs_saved: 'Guardats',
+  saved_title: 'Guardats',
+  saved_subtitle: 'Les teves rutes i parades habituals.',
+  saved_places: 'Llocs guardats',
+  saved_home: 'Casa',
+  saved_work: 'Feina',
+  saved_set_place: 'Configura al mapa',
+  saved_edit_place: 'Edita al mapa',
+  saved_plan_from: 'Planifica des d’aquí',
+  saved_favorite_stops: 'Parades favorites',
+  saved_favorite_lines: 'Línies favorites',
+  saved_recent: 'Recents',
+  saved_empty_favorites: 'Encara no tens favorits.',
+  saved_empty_recent: 'Les parades i rutes que consultis apareixeran aquí.',
+  saved_preferences: 'Preferències',
+  saved_language: 'Idioma',
+  saved_clear_data: 'Esborra favorits i historial',
+  saved_clear_data_title: 'Esborrar favorits i historial?',
+  saved_clear_data_body: 'S’eliminaran les línies, parades i rutes recents guardades.',
+  saved_cancel: 'Cancel·la',
+  saved_delete: 'Esborra',
+  saved_remove: 'Elimina',
+  saved_station: 'Parada',
+  saved_route: 'Ruta',
+  map_loading: 'S’està preparant el mapa…',
+  map_error_title: 'No s’han pogut carregar les dades del mapa.',
+  map_error_body: 'Comprova la connexió amb l’API i torna-ho a provar.',
+  retry: 'Torna-ho a provar',
+  map_select_place_title: 'Tria la ubicació de {place}',
+  map_select_place_body: 'Toca un punt del mapa per desar-lo.',
+  map_selected_point: 'Punt seleccionat',
+  map_current_location: 'Ubicació actual',
+  map_center_location: 'Centra el mapa a la teva ubicació',
+  nearby_show: 'Mostra parades properes',
+  nearby_hide: 'Amaga parades properes',
+  planner_open: 'Obre el planificador de ruta',
+  planner_close: 'Tanca el planificador de ruta',
+  planner_title: 'Ruta',
+  planner_origin: 'Origen',
+  planner_destination: 'Destí',
+  planner_tap_map: 'Toca el mapa',
+  planner_not_set: 'No definit',
+  planner_edit: 'Edita',
+  planner_use_location: 'Fes servir la meva ubicació',
+  planner_location_unavailable: 'Ubicació no disponible',
+  planner_plan: 'Planifica',
+  planner_set_points: 'Defineix A i B al mapa i planifica la ruta.',
+  planner_walk_to: 'Camina fins a {name}',
+  planner_take_to: 'Agafa {route} fins a {name}',
+  planner_direct: 'Directe',
+  planner_transfers_one: '1 transbordament',
+  planner_transfers_other: '{count} transbordaments',
+  planner_calculating: 'S’estan calculant les rutes…',
+  planner_unavailable: 'El planificador no està disponible',
+  planner_try_later: 'Torna-ho a provar d’aquí a un moment.',
+  planner_no_route: 'No s’ha trobat cap ruta',
+  planner_move_point: 'Mou un dels punts i torna a planificar.',
+  planner_options: 'Opcions',
+  planner_walk: 'A peu',
+  planner_steps: 'Passos',
+  planner_walk_summary: '{duration} a peu · {distance}',
+  lines_title: 'Línies',
+  lines_subtitle: 'Tria una línia per veure les seves estacions.',
+  metro: 'Metro',
+  bus: 'Bus',
+  lines_search: 'Cerca línia',
+  lines_search_bus: 'Cerca línia o destí',
+  lines_all: 'Totes',
+  lines_loading: 'S’estan carregant les línies…',
+  lines_empty: 'No hi ha línies que coincideixin.',
+  lines_load_error: 'No s’han pogut carregar les línies.',
+  line_accessibility: 'Línia {code}',
+  line_favorite: 'Afegeix la línia als favorits',
+  line_unfavorite: 'Elimina la línia dels favorits',
+  station_search: 'Cerca estació',
+  stations_load_error: 'No s’han pogut carregar les estacions.',
+  stations_loading: 'S’estan carregant les estacions…',
+  stations_empty: 'No hi ha estacions per mostrar.',
+  alerts_title: 'Alertes',
+  alerts_network: 'Xarxa TMB',
+  alerts_all: 'Totes',
+  alerts_now: 'Ara',
+  alerts_planned: 'Planificat',
+  alerts_mine: 'Les meves',
+  alerts_one: 'avís',
+  alerts_other: 'avisos',
+  alerts_summary: '{current} ara · {planned} planificats',
+  alerts_load_error: 'No s’han pogut actualitzar les alertes.',
+  alerts_loading: 'S’estan carregant les alertes…',
+  alerts_empty_title: 'No hi ha alertes amb aquests filtres.',
+  alerts_empty_body: 'El servei no té avisos publicats ara mateix.',
+  alert_disruption: 'Incidència',
+  alert_warning: 'Avís',
+  alert_info: 'Info',
+  alert_metro_bus: 'Metro + Bus',
+  station_lines: 'Línies',
+  station_updated: 'Actualitzat fa {seconds} s',
+  station_loading_arrivals: 'S’estan carregant les arribades en temps real…',
+  station_realtime_unavailable: 'Les dades en temps real no estan disponibles temporalment.',
+  station_no_arrivals: 'No hi ha arribades en temps real ara mateix.',
+  station_next_bus: 'Pròxim bus',
+  station_next_train: 'Pròxim tren',
+  station_platform: 'Andana {platform}',
+  station_direction: 'Direcció {direction}',
+  station_favorite: 'Afegeix la parada als favorits',
+  station_unfavorite: 'Elimina la parada dels favorits',
+  back: 'Torna',
+  sheet_resize: 'Arrossega per canviar la mida del panell',
+  language_ca: 'Català',
+  language_en: 'English',
+  language_es: 'Español',
+  error_title: 'Alguna cosa ha fallat.',
+  error_body: 'Torna-ho a provar. Si continua, reinicia l’app.',
+} as const;
+
+type TranslationKey = keyof typeof catalan;
+type TranslationValues = Record<string, string | number>;
+type Translations = Record<TranslationKey, string>;
+
+const english: Translations = {
+  tabs_map: 'Map', tabs_lines: 'Lines', tabs_alerts: 'Alerts', tabs_saved: 'Saved',
+  saved_title: 'Saved', saved_subtitle: 'Your usual routes and stops.', saved_places: 'Saved places', saved_home: 'Home', saved_work: 'Work', saved_set_place: 'Set on map', saved_edit_place: 'Edit on map', saved_plan_from: 'Plan from here', saved_favorite_stops: 'Favourite stops', saved_favorite_lines: 'Favourite lines', saved_recent: 'Recent', saved_empty_favorites: 'You have no favourites yet.', saved_empty_recent: 'Stops and routes you view will appear here.', saved_preferences: 'Preferences', saved_language: 'Language', saved_clear_data: 'Clear favourites and history', saved_clear_data_title: 'Clear favourites and history?', saved_clear_data_body: 'Saved lines, stops and recent routes will be removed.', saved_cancel: 'Cancel', saved_delete: 'Clear', saved_remove: 'Remove', saved_station: 'Stop', saved_route: 'Route',
+  map_loading: 'Preparing live map…', map_error_title: 'Map data could not be loaded.', map_error_body: 'Check the API connection and try again.', retry: 'Retry', map_select_place_title: 'Choose the location for {place}', map_select_place_body: 'Tap a point on the map to save it.', map_selected_point: 'Selected point', map_current_location: 'Current location', map_center_location: 'Center map on your current location', nearby_show: 'Show nearby stops', nearby_hide: 'Hide nearby stops', planner_open: 'Open route planner', planner_close: 'Close route planner',
+  planner_title: 'Route', planner_origin: 'Origin', planner_destination: 'Destination', planner_tap_map: 'Tap the map', planner_not_set: 'Not set', planner_edit: 'Edit', planner_use_location: 'Use my location', planner_location_unavailable: 'Location unavailable', planner_plan: 'Plan', planner_set_points: 'Set A and B on the map, then plan the route.', planner_walk_to: 'Walk to {name}', planner_take_to: 'Take {route} to {name}', planner_direct: 'Direct', planner_transfers_one: '1 transfer', planner_transfers_other: '{count} transfers', planner_calculating: 'Calculating routes…', planner_unavailable: 'Planner unavailable', planner_try_later: 'Try again in a moment.', planner_no_route: 'No route found', planner_move_point: 'Move one of the points and plan again.', planner_options: 'Options', planner_walk: 'Walk', planner_steps: 'Steps', planner_walk_summary: '{duration} walk · {distance}',
+  lines_title: 'Lines', lines_subtitle: 'Choose a line to view its stations.', metro: 'Metro', bus: 'Bus', lines_search: 'Search line', lines_search_bus: 'Search line or destination', lines_all: 'All', lines_loading: 'Loading lines…', lines_empty: 'No matching lines.', lines_load_error: 'Lines could not be loaded.', line_accessibility: 'Line {code}', line_favorite: 'Add line to favourites', line_unfavorite: 'Remove line from favourites', station_search: 'Search stop', stations_load_error: 'Stations could not be loaded.', stations_loading: 'Loading stops…', stations_empty: 'There are no stops to show.',
+  alerts_title: 'Alerts', alerts_network: 'TMB network', alerts_all: 'All', alerts_now: 'Now', alerts_planned: 'Planned', alerts_mine: 'Mine', alerts_one: 'alert', alerts_other: 'alerts', alerts_summary: '{current} now · {planned} planned', alerts_load_error: 'Alerts could not be updated.', alerts_loading: 'Loading alerts…', alerts_empty_title: 'There are no alerts with these filters.', alerts_empty_body: 'The service has no published alerts right now.', alert_disruption: 'Disruption', alert_warning: 'Warning', alert_info: 'Info', alert_metro_bus: 'Metro + Bus',
+  station_lines: 'Lines', station_updated: 'Updated {seconds}s ago', station_loading_arrivals: 'Loading realtime arrivals…', station_realtime_unavailable: 'Realtime data is temporarily unavailable.', station_no_arrivals: 'There are no realtime arrivals right now.', station_next_bus: 'Next bus', station_next_train: 'Next train', station_platform: 'Platform {platform}', station_direction: 'Direction {direction}', station_favorite: 'Add stop to favourites', station_unfavorite: 'Remove stop from favourites', back: 'Back', sheet_resize: 'Drag to resize the panel', language_ca: 'Català', language_en: 'English', language_es: 'Español', error_title: 'Something went wrong.', error_body: 'Try again. If it continues, restart the app.',
+};
+
+const spanish: Translations = {
+  tabs_map: 'Mapa', tabs_lines: 'Líneas', tabs_alerts: 'Alertas', tabs_saved: 'Guardado',
+  saved_title: 'Guardado', saved_subtitle: 'Tus rutas y paradas habituales.', saved_places: 'Lugares guardados', saved_home: 'Casa', saved_work: 'Trabajo', saved_set_place: 'Configurar en el mapa', saved_edit_place: 'Editar en el mapa', saved_plan_from: 'Planificar desde aquí', saved_favorite_stops: 'Paradas favoritas', saved_favorite_lines: 'Líneas favoritas', saved_recent: 'Reciente', saved_empty_favorites: 'Aún no tienes favoritos.', saved_empty_recent: 'Las paradas y rutas que consultes aparecerán aquí.', saved_preferences: 'Preferencias', saved_language: 'Idioma', saved_clear_data: 'Borrar favoritos e historial', saved_clear_data_title: '¿Borrar favoritos e historial?', saved_clear_data_body: 'Se eliminarán las líneas, paradas y rutas recientes guardadas.', saved_cancel: 'Cancelar', saved_delete: 'Borrar', saved_remove: 'Eliminar', saved_station: 'Parada', saved_route: 'Ruta',
+  map_loading: 'Preparando el mapa en directo…', map_error_title: 'No se han podido cargar los datos del mapa.', map_error_body: 'Comprueba la conexión con la API y vuelve a intentarlo.', retry: 'Reintentar', map_select_place_title: 'Elige la ubicación de {place}', map_select_place_body: 'Toca un punto del mapa para guardarlo.', map_selected_point: 'Punto seleccionado', map_current_location: 'Ubicación actual', map_center_location: 'Centrar el mapa en tu ubicación', nearby_show: 'Mostrar paradas cercanas', nearby_hide: 'Ocultar paradas cercanas', planner_open: 'Abrir el planificador de rutas', planner_close: 'Cerrar el planificador de rutas',
+  planner_title: 'Ruta', planner_origin: 'Origen', planner_destination: 'Destino', planner_tap_map: 'Toca el mapa', planner_not_set: 'Sin definir', planner_edit: 'Editar', planner_use_location: 'Usar mi ubicación', planner_location_unavailable: 'Ubicación no disponible', planner_plan: 'Planificar', planner_set_points: 'Define A y B en el mapa y planifica la ruta.', planner_walk_to: 'Camina hasta {name}', planner_take_to: 'Toma {route} hasta {name}', planner_direct: 'Directo', planner_transfers_one: '1 transbordo', planner_transfers_other: '{count} transbordos', planner_calculating: 'Calculando rutas…', planner_unavailable: 'El planificador no está disponible', planner_try_later: 'Vuelve a intentarlo dentro de un momento.', planner_no_route: 'No se ha encontrado ninguna ruta', planner_move_point: 'Mueve uno de los puntos y vuelve a planificar.', planner_options: 'Opciones', planner_walk: 'A pie', planner_steps: 'Pasos', planner_walk_summary: '{duration} a pie · {distance}',
+  lines_title: 'Líneas', lines_subtitle: 'Elige una línea para ver sus estaciones.', metro: 'Metro', bus: 'Bus', lines_search: 'Buscar línea', lines_search_bus: 'Buscar línea o destino', lines_all: 'Todas', lines_loading: 'Cargando líneas…', lines_empty: 'No hay líneas que coincidan.', lines_load_error: 'No se han podido cargar las líneas.', line_accessibility: 'Línea {code}', line_favorite: 'Añadir línea a favoritos', line_unfavorite: 'Eliminar línea de favoritos', station_search: 'Buscar parada', stations_load_error: 'No se han podido cargar las estaciones.', stations_loading: 'Cargando paradas…', stations_empty: 'No hay paradas que mostrar.',
+  alerts_title: 'Alertas', alerts_network: 'Red TMB', alerts_all: 'Todas', alerts_now: 'Ahora', alerts_planned: 'Planificado', alerts_mine: 'Mías', alerts_one: 'aviso', alerts_other: 'avisos', alerts_summary: '{current} ahora · {planned} planificados', alerts_load_error: 'No se han podido actualizar las alertas.', alerts_loading: 'Cargando alertas…', alerts_empty_title: 'No hay alertas con estos filtros.', alerts_empty_body: 'El servicio no tiene avisos publicados ahora mismo.', alert_disruption: 'Incidencia', alert_warning: 'Aviso', alert_info: 'Info', alert_metro_bus: 'Metro + Bus',
+  station_lines: 'Líneas', station_updated: 'Actualizado hace {seconds} s', station_loading_arrivals: 'Cargando llegadas en tiempo real…', station_realtime_unavailable: 'Los datos en tiempo real no están disponibles temporalmente.', station_no_arrivals: 'No hay llegadas en tiempo real ahora mismo.', station_next_bus: 'Próximo bus', station_next_train: 'Próximo tren', station_platform: 'Andén {platform}', station_direction: 'Dirección {direction}', station_favorite: 'Añadir parada a favoritos', station_unfavorite: 'Eliminar parada de favoritos', back: 'Volver', sheet_resize: 'Arrastra para cambiar el tamaño del panel', language_ca: 'Català', language_en: 'English', language_es: 'Español', error_title: 'Algo ha fallado.', error_body: 'Vuelve a intentarlo. Si continúa, reinicia la app.',
+};
+
+const translations: Record<AppLanguage, Translations> = { ca: catalan, en: english, es: spanish };
+
+export function translate(language: AppLanguage, key: TranslationKey, values?: TranslationValues): string {
+  const template = translations[language][key] ?? catalan[key];
+  if (!values) return template;
+  return template.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? `{${name}}`));
+}
+
+interface AppLanguageContextValue {
+  language: AppLanguage;
+  t: (key: TranslationKey, values?: TranslationValues) => string;
+}
+
+const AppLanguageContext = createContext<AppLanguageContextValue>({
+  language: 'ca',
+  t: (key, values) => translate('ca', key, values),
+});
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const language = useUserPreferencesStore((state) => state.language) ?? 'ca';
+  const hydrate = useUserPreferencesStore((state) => state.hydrate);
+
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+
+  const value = useMemo<AppLanguageContextValue>(
+    () => ({ language, t: (key, values) => translate(language, key, values) }),
+    [language],
+  );
+
+  return <AppLanguageContext.Provider value={value}>{children}</AppLanguageContext.Provider>;
+}
+
+export function useAppLanguage(): AppLanguageContextValue {
+  return useContext(AppLanguageContext);
+}
+
+export function formatDateTime(language: AppLanguage, value: number): string {
+  return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short' }).format(value);
+}

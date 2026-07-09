@@ -13,6 +13,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
 import { LineRow } from '@/src/features/catalog/components/line-row';
+import { useAppLanguage } from '@/src/i18n';
+import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import {
   filterLinesByFamily,
   listAvailableFamilies,
@@ -30,10 +32,13 @@ function normalize(text: string): string {
 }
 
 export function LinesScreen() {
+  const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<TransportMode>('metro');
   const [busFamily, setBusFamily] = useState<BusLineFamily | null>(null);
   const [query, setQuery] = useState('');
+  const favoriteLines = useUserPreferencesStore((state) => state.favoriteLines);
+  const toggleFavoriteLine = useUserPreferencesStore((state) => state.toggleFavoriteLine);
 
   const { data: lines = [], isLoading, error } = useLinesQuery(mode);
 
@@ -50,7 +55,9 @@ export function LinesScreen() {
       next = next.filter(
         (line) =>
           normalize(line.code).includes(needle) ||
-          normalize(line.name).includes(needle),
+          normalize(line.name).includes(needle) ||
+          normalize(line.originStation ?? '').includes(needle) ||
+          normalize(line.destinationStation ?? '').includes(needle),
       );
     }
 
@@ -71,8 +78,8 @@ export function LinesScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Línies</Text>
-        <Text style={styles.subtitle}>Tria una línia per veure les seves estacions.</Text>
+        <Text style={styles.title}>{t('lines_title')}</Text>
+        <Text style={styles.subtitle}>{t('lines_subtitle')}</Text>
 
         <View style={styles.modeRow}>
           {(['metro', 'bus'] as const).map((entry) => {
@@ -92,7 +99,7 @@ export function LinesScreen() {
                     styles.modeChipText,
                     active ? styles.modeChipTextActive : null,
                   ]}>
-                  {entry === 'metro' ? 'Metro' : 'Bus'}
+                  {entry === 'metro' ? t('metro') : t('bus')}
                 </Text>
               </Pressable>
             );
@@ -101,7 +108,7 @@ export function LinesScreen() {
 
         <TextInput
           style={styles.searchInput}
-          placeholder={mode === 'bus' ? 'Cerca línia o destí' : 'Cerca línia'}
+          placeholder={mode === 'bus' ? t('lines_search_bus') : t('lines_search')}
           placeholderTextColor="#7A8AA1"
           value={query}
           onChangeText={setQuery}
@@ -120,7 +127,7 @@ export function LinesScreen() {
               const active = item === busFamily;
               const label =
                 item === null
-                  ? 'Totes'
+                  ? t('lines_all')
                   : (familyDescriptors.find((family) => family.id === item)?.label ?? item);
 
               return (
@@ -143,7 +150,7 @@ export function LinesScreen() {
 
       {error ? (
         <View style={styles.feedback}>
-          <Text style={styles.error}>{"No s'han pogut carregar les línies."}</Text>
+          <Text style={styles.error}>{t('lines_load_error')}</Text>
         </View>
       ) : null}
 
@@ -155,12 +162,19 @@ export function LinesScreen() {
           { paddingBottom: insets.bottom + TAB_BAR_CLEARANCE },
         ]}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        renderItem={({ item }) => <LineRow line={item} onPress={handleLinePress} />}
+        renderItem={({ item }) => (
+          <LineRow
+            line={item}
+            onPress={handleLinePress}
+            isFavorite={favoriteLines.some((favorite) => favorite.mode === item.mode && favorite.lineCode === item.code)}
+            onFavoritePress={(line) => toggleFavoriteLine({ mode: line.mode, lineCode: line.code })}
+          />
+        )}
         ListEmptyComponent={
           isLoading ? (
-            <Text style={styles.empty}>Carregant línies...</Text>
+            <Text style={styles.empty}>{t('lines_loading')}</Text>
           ) : (
-            <Text style={styles.empty}>No hi ha línies que coincideixin.</Text>
+            <Text style={styles.empty}>{t('lines_empty')}</Text>
           )
         }
       />

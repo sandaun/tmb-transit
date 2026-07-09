@@ -18,6 +18,7 @@ import MapView, {
 } from 'react-native-maps';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAppLanguage } from '@/src/i18n';
 import type { Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
@@ -167,6 +168,7 @@ export function MapAdapter({
   onNearbyStopPress,
   onMapPress,
 }: MapAdapterProps) {
+  const { t } = useAppLanguage();
   const mapRef = useRef<MapView | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
@@ -728,7 +730,7 @@ export function MapAdapter({
         {bottomActions}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Center map on your current location"
+          accessibilityLabel={t('map_center_location')}
           style={[
             styles.actionButton,
             !userCoordinate && !isWaitingForUserLocation && styles.actionButtonIdle,

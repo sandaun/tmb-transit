@@ -7,6 +7,8 @@ import {
   VectorIcon,
 } from 'expo-router/unstable-native-tabs';
 
+import { useAppLanguage } from '@/src/i18n';
+
 function getLiquidGlassColor() {
   if (Platform.OS === 'ios') {
     return DynamicColorIOS({
@@ -21,6 +23,8 @@ function getLiquidGlassColor() {
 const liquidGlassColor = getLiquidGlassColor();
 
 export default function TabsLayout() {
+  const { t } = useAppLanguage();
+
   return (
     <NativeTabs
       disableTransparentOnScrollEdge
@@ -34,7 +38,7 @@ export default function TabsLayout() {
           sf={{ default: 'map', selected: 'map.fill' }}
           androidSrc={<VectorIcon family={MaterialIcons} name="map" />}
         />
-        <Label>Map</Label>
+        <Label>{t('tabs_map')}</Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="lines">
@@ -42,7 +46,7 @@ export default function TabsLayout() {
           sf={{ default: 'tram', selected: 'tram.fill' }}
           androidSrc={<VectorIcon family={MaterialIcons} name="train" />}
         />
-        <Label>Lines</Label>
+        <Label>{t('tabs_lines')}</Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="alerts">
@@ -50,15 +54,15 @@ export default function TabsLayout() {
           sf={{ default: 'exclamationmark.triangle', selected: 'exclamationmark.triangle.fill' }}
           androidSrc={<VectorIcon family={MaterialIcons} name="notification-important" />}
         />
-        <Label>Alerts</Label>
+        <Label>{t('tabs_alerts')}</Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="you">
         <Icon
-          sf={{ default: 'person', selected: 'person.fill' }}
-          androidSrc={<VectorIcon family={MaterialIcons} name="person" />}
+          sf={{ default: 'bookmark', selected: 'bookmark.fill' }}
+          androidSrc={<VectorIcon family={MaterialIcons} name="bookmark" />}
         />
-        <Label>You</Label>
+        <Label>{t('tabs_saved')}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

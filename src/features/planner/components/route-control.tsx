@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAppLanguage } from '@/src/i18n';
 
 interface RouteControlProps {
   enabled: boolean;
@@ -8,11 +9,12 @@ interface RouteControlProps {
 }
 
 export function RouteControl({ enabled, onPress }: RouteControlProps) {
+  const { t } = useAppLanguage();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: enabled }}
-      accessibilityLabel={enabled ? 'Exit route planner' : 'Open route planner'}
+      accessibilityLabel={enabled ? t('planner_close') : t('planner_open')}
       style={[styles.button, enabled ? styles.buttonActive : null]}
       onPress={onPress}
     >

@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
+import { useAppLanguage } from '@/src/i18n';
 
 interface SearchShellProps {
   lineCode: string;
@@ -22,6 +23,7 @@ export function SearchShell({
   mode,
   onLineChange,
 }: SearchShellProps) {
+  const { t } = useAppLanguage();
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export function SearchShell({
               key={line.code}
               accessibilityRole="button"
               accessibilityState={{ selected }}
+              accessibilityLabel={t('line_accessibility', { code: line.code })}
               style={[styles.chip, selected ? styles.chipActive : styles.chipInactive]}
               onPress={() => onLineChange?.(line.code)}
             >

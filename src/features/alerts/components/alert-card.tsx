@@ -9,6 +9,7 @@ import type {
   ServiceAlertSeverity,
 } from '@/src/domain/alerts/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
+import { formatDateTime, useAppLanguage } from '@/src/i18n';
 
 type MaterialIconName = ComponentProps<typeof MaterialIcons>['name'];
 
@@ -21,41 +22,20 @@ interface SeverityStyle {
 
 const MAX_VISIBLE_LINES = 6;
 
-const SEVERITY_STYLES: Record<ServiceAlertSeverity, SeverityStyle> = {
-  disruption: {
-    color: '#D92D20',
-    icon: 'error-outline',
-    label: 'Incidència',
-    softBackground: '#FFF1F1',
-  },
-  warning: {
-    color: '#B7791F',
-    icon: 'warning-amber',
-    label: 'Avís',
-    softBackground: '#FFF7E6',
-  },
-  info: {
-    color: '#2563EB',
-    icon: 'info-outline',
-    label: 'Info',
-    softBackground: '#EAF2FF',
-  },
-};
-
-function getModeLabel(mode: ServiceAlertMode): string {
+function getModeLabel(mode: ServiceAlertMode, metro: string, bus: string, mixed: string): string {
   if (mode === 'metro') {
-    return 'Metro';
+    return metro;
   }
 
   if (mode === 'bus') {
-    return 'Bus';
+    return bus;
   }
 
-  return 'Metro + Bus';
+  return mixed;
 }
 
-function getKindLabel(kind: ServiceAlertKind): string {
-  return kind === 'current' ? 'Ara' : 'Planificat';
+function getKindLabel(kind: ServiceAlertKind, current: string, planned: string): string {
+  return kind === 'current' ? current : planned;
 }
 
 interface AlertCardProps {
@@ -66,6 +46,7 @@ interface AlertCardProps {
   kind: ServiceAlertKind;
   affectedLines: ServiceAlertLine[];
   dateLabel?: string;
+  updatedAtMs?: number;
   sourceUrl?: string;
   onSourcePress: (sourceUrl: string) => void;
 }
@@ -78,10 +59,17 @@ function AlertCardComponent({
   kind,
   affectedLines,
   dateLabel,
+  updatedAtMs,
   sourceUrl,
   onSourcePress,
 }: AlertCardProps) {
-  const severityStyle = SEVERITY_STYLES[severity];
+  const { language, t } = useAppLanguage();
+  const severityStyles: Record<ServiceAlertSeverity, SeverityStyle> = {
+    disruption: { color: '#D92D20', icon: 'error-outline', label: t('alert_disruption'), softBackground: '#FFF1F1' },
+    warning: { color: '#B7791F', icon: 'warning-amber', label: t('alert_warning'), softBackground: '#FFF7E6' },
+    info: { color: '#2563EB', icon: 'info-outline', label: t('alert_info'), softBackground: '#EAF2FF' },
+  };
+  const severityStyle = severityStyles[severity];
   const visibleLines = affectedLines.slice(0, MAX_VISIBLE_LINES);
   const hiddenLineCount = Math.max(affectedLines.length - visibleLines.length, 0);
   const canOpenSource = Boolean(sourceUrl);
@@ -109,7 +97,7 @@ function AlertCardComponent({
           </View>
 
           <Text style={styles.modeLabel}>
-            {getKindLabel(kind)} · {getModeLabel(mode)}
+            {getKindLabel(kind, t('alerts_now'), t('alerts_planned'))} · {getModeLabel(mode, t('metro'), t('bus'), t('alert_metro_bus'))}
           </Text>
         </View>
 
@@ -143,9 +131,9 @@ function AlertCardComponent({
         ) : null}
 
         <View style={styles.footerRow}>
-          {dateLabel ? (
+          {updatedAtMs || dateLabel ? (
             <Text style={styles.dateLabel} numberOfLines={1}>
-              {dateLabel}
+              {updatedAtMs ? formatDateTime(language, updatedAtMs) : dateLabel}
             </Text>
           ) : (
             <Text style={styles.dateLabel}>TMB</Text>

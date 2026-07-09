@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAppLanguage } from '@/src/i18n';
+
 interface LocalBottomSheetProps {
   detents: readonly number[];
   initialDetentIndex?: number;
@@ -45,6 +47,7 @@ export const LocalBottomSheet = forwardRef<
   },
   ref,
 ) {
+  const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [containerHeight, setContainerHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState(initialDetentIndex);
@@ -214,7 +217,7 @@ export const LocalBottomSheet = forwardRef<
           {...panResponder.panHandlers}
           style={styles.handleButton}
           accessibilityRole="button"
-          accessibilityLabel="Drag to resize bottom sheet"
+          accessibilityLabel={t('sheet_resize')}
         >
           <View style={styles.handle} />
         </View>

@@ -27,6 +27,7 @@ import {
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
+import { useAppLanguage } from '@/src/i18n';
 
 interface MapScreenProps {
   lineCode: string;
@@ -46,8 +47,10 @@ interface MapScreenProps {
   plannerDestination?: { lat: number; lon: number } | null;
   plannerRoutePolylines?: PlannerMapPolyline[];
   plannerFocusKey?: string | null;
+  placeToSave?: boolean;
   onPlannerToggle?: () => void;
   onPlannerMapPress?: (coordinate: { lat: number; lon: number }) => void;
+  onPlaceSaveMapPress?: (coordinate: { lat: number; lon: number }) => void;
 }
 
 const NEARBY_RADIUS_METERS = 500;
@@ -70,9 +73,12 @@ export function MapScreen({
   plannerDestination = null,
   plannerRoutePolylines = [],
   plannerFocusKey = null,
+  placeToSave = false,
   onPlannerToggle,
   onPlannerMapPress,
+  onPlaceSaveMapPress,
 }: MapScreenProps) {
+  const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus']);
@@ -227,12 +233,16 @@ export function MapScreen({
 
   const handleMapPress = useCallback(
     (coordinate: { lat: number; lon: number }) => {
+      if (placeToSave) {
+        onPlaceSaveMapPress?.(coordinate);
+        return;
+      }
       if (!plannerEnabled) {
         return;
       }
       onPlannerMapPress?.(coordinate);
     },
-    [onPlannerMapPress, plannerEnabled],
+    [onPlaceSaveMapPress, onPlannerMapPress, placeToSave, plannerEnabled],
   );
 
   const handleUserLocationChange = useCallback(
@@ -285,7 +295,12 @@ export function MapScreen({
       {showBackButton || explorationVisible ? (
         <View style={[styles.topOverlay, { top: insets.top + 8 }]}>
           {showBackButton ? (
-            <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('back')}
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
               <Text style={styles.backButtonText}>{'<'}</Text>
             </Pressable>
           ) : (

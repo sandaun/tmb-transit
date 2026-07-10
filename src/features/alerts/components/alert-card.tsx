@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { memo, type ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type {
   ServiceAlertKind,
@@ -10,6 +10,7 @@ import type {
 } from '@/src/domain/alerts/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { formatDateTime, useAppLanguage } from '@/src/i18n';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 type MaterialIconName = ComponentProps<typeof MaterialIcons>['name'];
 
@@ -63,11 +64,13 @@ function AlertCardComponent({
   sourceUrl,
   onSourcePress,
 }: AlertCardProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { language, t } = useAppLanguage();
   const severityStyles: Record<ServiceAlertSeverity, SeverityStyle> = {
-    disruption: { color: '#D92D20', icon: 'error-outline', label: t('alert_disruption'), softBackground: '#FFF1F1' },
-    warning: { color: '#B7791F', icon: 'warning-amber', label: t('alert_warning'), softBackground: '#FFF7E6' },
-    info: { color: '#2563EB', icon: 'info-outline', label: t('alert_info'), softBackground: '#EAF2FF' },
+    disruption: { color: palette.danger, icon: 'error-outline', label: t('alert_disruption'), softBackground: palette.dangerSoft },
+    warning: { color: palette.warning, icon: 'warning-amber', label: t('alert_warning'), softBackground: palette.warningSoft },
+    info: { color: palette.info, icon: 'info-outline', label: t('alert_info'), softBackground: palette.infoSoft },
   };
   const severityStyle = severityStyles[severity];
   const visibleLines = affectedLines.slice(0, MAX_VISIBLE_LINES);
@@ -140,7 +143,7 @@ function AlertCardComponent({
           )}
 
           {canOpenSource ? (
-            <MaterialIcons name="open-in-new" size={17} color="#7A8AA1" />
+            <MaterialIcons name="open-in-new" size={17} color={palette.textSubtle} />
           ) : null}
         </View>
       </View>
@@ -150,20 +153,20 @@ function AlertCardComponent({
 
 export const AlertCard = memo(AlertCardComponent);
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     minHeight: 156,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderRadius: 16,
     borderCurve: 'continuous',
     borderWidth: 1,
-    borderColor: '#E4E7EB',
+    borderColor: palette.border,
   },
   cardPressed: {
-    backgroundColor: '#F7FAFF',
-    borderColor: '#B8CCFF',
+    backgroundColor: palette.accentSoft,
+    borderColor: palette.accent,
   },
   severityRail: {
     width: 5,
@@ -194,19 +197,19 @@ const styles = StyleSheet.create({
   },
   modeLabel: {
     flexShrink: 0,
-    color: '#4F5D75',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
   title: {
-    color: '#0B1220',
+    color: palette.text,
     fontSize: 17,
     fontWeight: '800',
     lineHeight: 22,
   },
   description: {
-    color: '#4F5D75',
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -222,10 +225,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 10,
     borderRadius: 17,
-    backgroundColor: '#EEF2F7',
+    backgroundColor: palette.divider,
   },
   overflowText: {
-    color: '#4F5D75',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -239,7 +242,7 @@ const styles = StyleSheet.create({
   dateLabel: {
     flex: 1,
     minWidth: 0,
-    color: '#7A8AA1',
+    color: palette.textSubtle,
     fontSize: 13,
     fontWeight: '600',
   },

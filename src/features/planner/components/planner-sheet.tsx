@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { TransportMode } from '@/src/domain/catalog/models';
@@ -6,6 +6,7 @@ import type { PlannedLeg, PlannedRoute } from '@/src/domain/planner/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { formatDuration, getTransitRoutes } from '@/src/features/planner/utils/route-summary';
 import { useAppLanguage } from '@/src/i18n';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 const TAB_BAR_CLEARANCE = 150;
 
@@ -113,6 +114,8 @@ export function PlannerSheet({
   onPlan,
   onRouteSelect,
 }: PlannerSheetProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const selectedRoute = requested
@@ -232,7 +235,7 @@ export function PlannerSheet({
 
       {requested && isLoading ? (
         <View style={styles.statusBlock}>
-          <ActivityIndicator color="#2A70FF" />
+          <ActivityIndicator color={palette.accent} />
           <Text style={styles.statusText}>{t('planner_calculating')}</Text>
         </View>
       ) : null}
@@ -324,7 +327,7 @@ export function PlannerSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 8,
@@ -336,7 +339,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 20,
     fontWeight: '800',
   },
@@ -348,9 +351,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(10, 19, 36, 0.64)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: palette.borderStrong,
   },
   tripSummaryText: {
     flex: 1,
@@ -361,18 +364,18 @@ const styles = StyleSheet.create({
   },
   tripSummaryOrigin: {
     maxWidth: '42%',
-    color: '#D7E5FF',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
   tripSummaryArrow: {
-    color: '#7F93BA',
+    color: palette.textSubtle,
     fontSize: 15,
     fontWeight: '800',
   },
   tripSummaryDestination: {
     flex: 1,
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -382,14 +385,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   editButtonText: {
-    color: '#8FB4FF',
+    color: palette.accent,
     fontSize: 13,
     fontWeight: '800',
   },
   points: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: palette.border,
   },
   pointRow: {
     minHeight: 48,
@@ -401,7 +404,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   pointRowActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: palette.accentSoft,
   },
   pointDot: {
     width: 26,
@@ -411,13 +414,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   originDot: {
-    backgroundColor: '#0F7B5C',
+    backgroundColor: palette.statusOk,
   },
   destinationDot: {
-    backgroundColor: '#D24545',
+    backgroundColor: palette.danger,
   },
   pointDotText: {
-    color: '#FFFFFF',
+    color: palette.textInverse,
     fontSize: 12,
     fontWeight: '900',
   },
@@ -425,13 +428,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pointLabel: {
-    color: '#D7E5FF',
+    color: palette.textMuted,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
   pointValue: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 14,
     fontWeight: '800',
     marginTop: 1,
@@ -446,21 +449,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: palette.divider,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: palette.borderStrong,
   },
   secondaryButtonUnavailable: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: palette.background,
+    borderColor: palette.border,
   },
   secondaryButtonText: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 14,
     fontWeight: '800',
   },
   secondaryButtonTextUnavailable: {
-    color: '#AABBDC',
+    color: palette.textMuted,
   },
   primaryButton: {
     flex: 1,
@@ -468,10 +471,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: '#2A70FF',
+    backgroundColor: palette.accent,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: palette.onAccent,
     fontSize: 14,
     fontWeight: '900',
   },
@@ -480,7 +483,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: palette.divider,
   },
   statusBlock: {
     minHeight: 84,
@@ -490,18 +493,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   statusTitle: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 17,
     fontWeight: '800',
   },
   statusText: {
-    color: '#AABBDC',
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
   },
   sectionLabel: {
-    color: '#E7EEFF',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -515,14 +518,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(10, 19, 36, 0.58)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: palette.border,
     gap: 10,
   },
   routeRowSelected: {
-    backgroundColor: 'rgba(18, 39, 76, 0.88)',
-    borderColor: '#2A70FF',
+    backgroundColor: palette.surfaceElevated,
+    borderColor: palette.accent,
   },
   routeHeader: {
     flexDirection: 'row',
@@ -531,12 +534,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   routeDuration: {
-    color: '#FFFFFF',
+    color: palette.text,
     fontSize: 20,
     fontWeight: '900',
   },
   routeTransfer: {
-    color: '#D7E5FF',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -552,10 +555,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
     borderRadius: 17,
-    backgroundColor: '#2A70FF',
+    backgroundColor: palette.accent,
   },
   walkBadgeText: {
-    color: '#FFFFFF',
+    color: palette.onAccent,
     fontSize: 13,
     fontWeight: '900',
   },
@@ -564,12 +567,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 11,
     borderRadius: 17,
-    backgroundColor: 'rgba(42, 112, 255, 0.18)',
+    backgroundColor: palette.accentSoft,
     borderWidth: 1,
-    borderColor: 'rgba(88, 145, 255, 0.42)',
+    borderColor: palette.accent,
   },
   walkDistanceText: {
-    color: '#C9DBFF',
+    color: palette.accent,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -578,10 +581,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: palette.borderStrong,
   },
   routeStepsLabel: {
-    color: '#D7E5FF',
+    color: palette.textMuted,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.6,
@@ -600,10 +603,10 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#17243D',
+    backgroundColor: palette.divider,
   },
   stepIndexText: {
-    color: '#D7E5FF',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -612,12 +615,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   stepTitle: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 15,
     fontWeight: '800',
   },
   stepMeta: {
-    color: '#D7E5FF',
+    color: palette.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },

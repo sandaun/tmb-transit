@@ -1,24 +1,28 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { AppLanguage, RecentItem, SavedPlaceId } from '@/src/features/preferences/models';
+import type { AppLanguage, RecentItem, SavedPlaceId, ThemePreference } from '@/src/features/preferences/models';
 import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import { useTransitStore } from '@/src/state/store';
 import { useAppLanguage } from '@/src/i18n';
 import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 const TAB_BAR_CLEARANCE = 96;
 const LANGUAGES: AppLanguage[] = ['ca', 'en', 'es'];
+const THEMES: ThemePreference[] = ['system', 'light', 'dark'];
 
 function placeIcon(id: SavedPlaceId): 'home' | 'business' {
   return id === 'home' ? 'home' : 'business';
 }
 
 export default function YouTabScreen() {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const { language, t } = useAppLanguage();
   const savedPlaces = useUserPreferencesStore((state) => state.savedPlaces);
@@ -26,6 +30,8 @@ export default function YouTabScreen() {
   const favoriteStops = useUserPreferencesStore((state) => state.favoriteStops);
   const recentItems = useUserPreferencesStore((state) => state.recentItems);
   const setLanguage = useUserPreferencesStore((state) => state.setLanguage);
+  const theme = useUserPreferencesStore((state) => state.theme);
+  const setTheme = useUserPreferencesStore((state) => state.setTheme);
   const removeSavedPlace = useUserPreferencesStore((state) => state.removeSavedPlace);
   const clearSavedData = useUserPreferencesStore((state) => state.clearSavedData);
   const setSelection = useTransitStore((state) => state.setSelection);
@@ -85,7 +91,7 @@ export default function YouTabScreen() {
             style={styles.settingsButton}
             onPress={() => setPreferencesVisible(true)}
           >
-            <MaterialIcons name="settings" size={22} color="#14213D" />
+            <MaterialIcons name="settings" size={22} color={palette.text} />
           </Pressable>
         </View>
         <Text style={styles.subtitle}>{t('saved_subtitle')}</Text>
@@ -98,7 +104,7 @@ export default function YouTabScreen() {
             return (
               <View key={id} style={styles.placeCard}>
                 <View style={styles.placeHeading}>
-                  <MaterialIcons name={placeIcon(id)} size={20} color="#0B5FFF" />
+                  <MaterialIcons name={placeIcon(id)} size={20} color={palette.accent} />
                   <Text style={styles.placeName}>{placeName}</Text>
                   {place ? (
                     <Pressable
@@ -107,7 +113,7 @@ export default function YouTabScreen() {
                       hitSlop={8}
                       onPress={() => removeSavedPlace(id)}
                     >
-                      <MaterialIcons name="close" size={18} color="#4F5D75" />
+                      <MaterialIcons name="close" size={18} color={palette.textMuted} />
                     </Pressable>
                   ) : null}
                 </View>
@@ -144,12 +150,12 @@ export default function YouTabScreen() {
                 style={styles.listCard}
                 onPress={() => openFavoriteStop(stop.mode, stop.lineCode, stop.stationCode)}
               >
-                <MaterialIcons name="place" size={20} color="#0B5FFF" />
+                <MaterialIcons name="place" size={20} color={palette.accent} />
                 <View style={styles.listText}>
                   <Text style={styles.listTitle}>{stop.stationName}</Text>
                   <Text style={styles.listMeta}>{stop.lineCode} · {stop.mode === 'metro' ? t('metro') : t('bus')}</Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={22} color="#7A8AA1" />
+                <MaterialIcons name="chevron-right" size={22} color={palette.textSubtle} />
               </Pressable>
             ))}
           </View>
@@ -194,7 +200,7 @@ export default function YouTabScreen() {
                     </>
                   );
                 })()}
-                <MaterialIcons name="chevron-right" size={22} color="#7A8AA1" />
+                <MaterialIcons name="chevron-right" size={22} color={palette.textSubtle} />
               </Pressable>
             ))}
           </View>
@@ -212,14 +218,14 @@ export default function YouTabScreen() {
                 style={styles.listCard}
                 onPress={() => openRecent(item)}
               >
-                <MaterialIcons name={item.kind === 'station' ? 'place' : 'directions'} size={20} color="#0B5FFF" />
+                <MaterialIcons name={item.kind === 'station' ? 'place' : 'directions'} size={20} color={palette.accent} />
                 <View style={styles.listText}>
                   <Text numberOfLines={1} style={styles.listTitle}>
                     {item.kind === 'station' ? item.stationName : `${item.origin.label} → ${item.destination.label}`}
                   </Text>
                   <Text style={styles.listMeta}>{item.kind === 'station' ? t('saved_station') : t('saved_route')}</Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={22} color="#7A8AA1" />
+                <MaterialIcons name="chevron-right" size={22} color={palette.textSubtle} />
               </Pressable>
             ))}
           </View>
@@ -242,7 +248,7 @@ export default function YouTabScreen() {
               style={styles.settingsButton}
               onPress={() => setPreferencesVisible(false)}
             >
-              <MaterialIcons name="close" size={22} color="#14213D" />
+              <MaterialIcons name="close" size={22} color={palette.text} />
             </Pressable>
           </View>
           <View style={styles.preferencesCard}>
@@ -262,6 +268,22 @@ export default function YouTabScreen() {
                 </Pressable>
               ))}
             </View>
+            <Text style={styles.preferenceLabel}>{t('saved_theme')}</Text>
+            <View style={styles.languageRow}>
+              {THEMES.map((entry) => (
+                <Pressable
+                  key={entry}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: theme === entry }}
+                  style={[styles.languageButton, theme === entry ? styles.languageButtonActive : null]}
+                  onPress={() => setTheme(entry)}
+                >
+                  <Text style={[styles.languageText, theme === entry ? styles.languageTextActive : null]}>
+                    {t(`theme_${entry}`)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
             <Pressable accessibilityRole="button" style={styles.clearButton} onPress={confirmClear}>
               <Text style={styles.clearButtonText}>{t('saved_clear_data')}</Text>
             </Pressable>
@@ -273,44 +295,46 @@ export default function YouTabScreen() {
 }
 
 function SectionTitle({ title }: { title: string }) {
+  const styles = useThemedStyles(createStyles);
   return <Text style={styles.sectionTitle}>{title}</Text>;
 }
 
 function EmptyText({ text }: { text: string }) {
+  const styles = useThemedStyles(createStyles);
   return <Text style={styles.emptyText}>{text}</Text>;
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F7FB' },
+const createStyles = (palette: Palette) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: palette.background },
   content: { padding: 16, gap: 10 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { color: '#0B1220', fontSize: 28, fontWeight: '800', letterSpacing: -0.4 },
-  settingsButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E4E7EB' },
-  subtitle: { color: '#4F5D75', fontSize: 14, marginBottom: 6 },
-  sectionTitle: { color: '#14213D', fontSize: 17, fontWeight: '800', marginTop: 12 },
+  title: { color: palette.text, fontSize: 28, fontWeight: '800', letterSpacing: -0.4 },
+  settingsButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border },
+  subtitle: { color: palette.textMuted, fontSize: 14, marginBottom: 6 },
+  sectionTitle: { color: palette.text, fontSize: 17, fontWeight: '800', marginTop: 12 },
   placeGrid: { flexDirection: 'row', gap: 10 },
-  placeCard: { flex: 1, minHeight: 150, borderRadius: 16, borderWidth: 1, borderColor: '#E4E7EB', backgroundColor: '#FFFFFF', padding: 14, justifyContent: 'space-between' },
+  placeCard: { flex: 1, minHeight: 150, borderRadius: 16, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, padding: 14, justifyContent: 'space-between' },
   placeHeading: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  placeName: { flex: 1, color: '#0B1220', fontSize: 16, fontWeight: '800' },
-  placeLabel: { color: '#4F5D75', fontSize: 13, lineHeight: 18 },
+  placeName: { flex: 1, color: palette.text, fontSize: 16, fontWeight: '800' },
+  placeLabel: { color: palette.textMuted, fontSize: 13, lineHeight: 18 },
   placeActions: { gap: 8 },
-  placeAction: { color: '#0B5FFF', fontSize: 13, fontWeight: '800' },
+  placeAction: { color: palette.accent, fontSize: 13, fontWeight: '800' },
   cardList: { gap: 8 },
-  listCard: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, borderColor: '#E4E7EB', backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 10 },
+  listCard: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, paddingHorizontal: 14, paddingVertical: 10 },
   listText: { flex: 1, minWidth: 0 },
-  listTitle: { color: '#0B1220', fontSize: 15, fontWeight: '700' },
-  listMeta: { color: '#7A8AA1', fontSize: 12, marginTop: 2, fontWeight: '600' },
-  emptyText: { borderRadius: 14, borderWidth: 1, borderColor: '#E4E7EB', backgroundColor: '#FFFFFF', color: '#4F5D75', fontSize: 14, padding: 14 },
-  preferencesCard: { gap: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E4E7EB', backgroundColor: '#FFFFFF', padding: 14 },
-  preferenceLabel: { color: '#0B1220', fontSize: 15, fontWeight: '800' },
+  listTitle: { color: palette.text, fontSize: 15, fontWeight: '700' },
+  listMeta: { color: palette.textSubtle, fontSize: 12, marginTop: 2, fontWeight: '600' },
+  emptyText: { borderRadius: 14, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, color: palette.textMuted, fontSize: 14, padding: 14 },
+  preferencesCard: { gap: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, padding: 14 },
+  preferenceLabel: { color: palette.text, fontSize: 15, fontWeight: '800' },
   languageRow: { flexDirection: 'row', gap: 8 },
-  languageButton: { flex: 1, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#CED4DA', paddingVertical: 9 },
-  languageButtonActive: { borderColor: '#0B1220', backgroundColor: '#0B1220' },
-  languageText: { color: '#1D3557', fontSize: 13, fontWeight: '700' },
-  languageTextActive: { color: '#FFFFFF' },
+  languageButton: { flex: 1, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: palette.borderStrong, paddingVertical: 9 },
+  languageButtonActive: { borderColor: palette.accent, backgroundColor: palette.accent },
+  languageText: { color: palette.text, fontSize: 13, fontWeight: '700' },
+  languageTextActive: { color: palette.onAccent },
   clearButton: { alignSelf: 'flex-start', paddingVertical: 4 },
-  clearButtonText: { color: '#B42318', fontSize: 14, fontWeight: '800' },
-  modalSafeArea: { flex: 1, backgroundColor: '#F4F7FB', padding: 16 },
+  clearButtonText: { color: palette.danger, fontSize: 14, fontWeight: '800' },
+  modalSafeArea: { flex: 1, backgroundColor: palette.background, padding: 16 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
-  modalTitle: { color: '#0B1220', fontSize: 24, fontWeight: '800' },
+  modalTitle: { color: palette.text, fontSize: 24, fontWeight: '800' },
 });

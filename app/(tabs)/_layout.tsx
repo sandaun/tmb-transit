@@ -1,4 +1,3 @@
-import { DynamicColorIOS, Platform } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   Icon,
@@ -8,30 +7,22 @@ import {
 } from 'expo-router/unstable-native-tabs';
 
 import { useAppLanguage } from '@/src/i18n';
-
-function getLiquidGlassColor() {
-  if (Platform.OS === 'ios') {
-    return DynamicColorIOS({
-      light: '#0B1220',
-      dark: '#FFFFFF',
-    });
-  }
-
-  return '#0B1220';
-}
-
-const liquidGlassColor = getLiquidGlassColor();
+import { usePalette } from '@/src/design-system';
 
 export default function TabsLayout() {
   const { t } = useAppLanguage();
+  const palette = usePalette();
 
   return (
     <NativeTabs
       disableTransparentOnScrollEdge
+      backgroundColor={palette.surface}
+      iconColor={{ default: palette.textSubtle, selected: palette.accent }}
       labelStyle={{
-        color: liquidGlassColor,
+        default: { color: palette.textSubtle },
+        selected: { color: palette.accent },
       }}
-      tintColor={liquidGlassColor}
+      tintColor={palette.accent}
     >
       <NativeTabs.Trigger name="index">
         <Icon

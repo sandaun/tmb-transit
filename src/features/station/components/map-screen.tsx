@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -28,6 +28,7 @@ import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stat
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 import { useAppLanguage } from '@/src/i18n';
+import { Text, type Palette, useThemedStyles } from '@/src/design-system';
 
 interface MapScreenProps {
   lineCode: string;
@@ -78,6 +79,7 @@ export function MapScreen({
   onPlannerMapPress,
   onPlaceSaveMapPress,
 }: MapScreenProps) {
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
@@ -330,10 +332,10 @@ export function MapScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#09111E',
+    backgroundColor: palette.background,
   },
   topOverlay: {
     position: 'absolute',
@@ -350,12 +352,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(10, 19, 36, 0.78)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
   },
   backButtonText: {
-    color: '#F0F5FF',
+    color: palette.text,
     fontSize: 22,
     fontWeight: '700',
     marginTop: -1,

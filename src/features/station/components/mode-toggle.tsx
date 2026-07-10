@@ -1,7 +1,9 @@
 import { BlurView } from 'expo-blur';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { TransportMode } from '@/src/domain/catalog/models';
+import { Text, type Palette, useThemedStyles } from '@/src/design-system';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface ModeToggleProps {
   mode: TransportMode;
@@ -14,9 +16,11 @@ const MODES: { value: TransportMode; label: string }[] = [
 ];
 
 export function ModeToggle({ mode, onChange }: ModeToggleProps) {
+  const colorScheme = useColorScheme();
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.container}>
-      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={40} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
       <View style={styles.row}>
         {MODES.map((entry) => {
           const active = entry.value === mode;
@@ -39,14 +43,14 @@ export function ModeToggle({ mode, onChange }: ModeToggleProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   container: {
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    shadowColor: '#000',
+    borderColor: palette.borderStrong,
+    shadowColor: palette.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -62,14 +66,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   chipActive: {
-    backgroundColor: 'rgba(10, 19, 36, 0.86)',
+    backgroundColor: palette.accent,
   },
   chipText: {
-    color: '#1D3557',
+    color: palette.text,
     fontSize: 14,
     fontWeight: '700',
   },
   chipTextActive: {
-    color: '#F4F8FF',
+    color: palette.onAccent,
   },
 });

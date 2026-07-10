@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -33,6 +32,8 @@ import {
   sortArrivalsByEta,
 } from '@/src/features/station/utils/arrival-helpers';
 import { useAppLanguage } from '@/src/i18n';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface StationScreenProps {
   lineCode: string;
@@ -67,12 +68,12 @@ function toSheetSnap(value: number, minSnap: SheetSnap): SheetSnap {
   return 0;
 }
 
-function getStationStatusColor(station: Station | undefined): string {
+function getStationStatusColor(station: Station | undefined, palette: Palette): string {
   if (!station?.statusLabel) {
-    return '#BFD2F7';
+    return palette.textMuted;
   }
 
-  return station.statusLabel.toLowerCase() === 'operatiu' ? '#86F0B4' : '#FFD38E';
+  return station.statusLabel.toLowerCase() === 'operatiu' ? palette.statusOk : palette.warning;
 }
 
 function SearchShell({
@@ -84,6 +85,7 @@ function SearchShell({
   lineColor?: string;
   mode: TransportMode;
 }) {
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   return (
     <View style={styles.modeRow}>
@@ -100,6 +102,7 @@ function SearchShell({
 }
 
 function MapTabBar({ bottomInset }: { bottomInset: number }) {
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   return (
     <View style={[styles.tabBarDock, { paddingBottom: bottomInset + 10  }]}>
@@ -133,6 +136,9 @@ export function StationScreen({
   syncRoute = false,
   onStationChange,
 }: StationScreenProps) {
+  const colorScheme = useColorScheme();
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const linesQuery = useLinesQuery(mode);
   const activeLine = useMemo(
     () => linesQuery.data?.find((line) => line.code === lineCode),
@@ -406,7 +412,7 @@ export function StationScreen({
         <Animated.View
           pointerEvents="none"
           style={[styles.expandedBackdrop, { opacity: backdropOpacity }]}>
-          <BlurView intensity={48} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={48} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
           <View style={styles.expandedBackdropTint} />
         </Animated.View>
         <View pointerEvents="none" style={styles.mapScrim} />
@@ -434,7 +440,7 @@ export function StationScreen({
               borderRadius: surfaceRadius,
             },
           ]}>
-          <BlurView intensity={58} tint="dark" style={StyleSheet.absoluteFillObject} />
+          <BlurView intensity={58} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
           <View style={styles.bottomSurfaceTint} />
           <View style={styles.bottomSurfaceEdgeGlow} />
 
@@ -473,7 +479,7 @@ export function StationScreen({
 
               {arrivalsQuery.isLoading && orderedArrivals.length === 0 ? (
                 <View style={styles.feedbackRow}>
-                  <ActivityIndicator color="#2F7DFF" />
+                  <ActivityIndicator color={palette.accent} />
                   <Text style={styles.feedbackInlineText}>
                     Loading realtime arrivals...
                   </Text>
@@ -529,7 +535,7 @@ export function StationScreen({
                   <View style={styles.infoRow}>
                     {activeStation?.accessibilityLabel ? (
                       <View style={styles.infoPill}>
-                        <Text style={[styles.infoPillText, { color: '#86F0B4' }]}>
+                        <Text style={[styles.infoPillText, { color: palette.statusOk }]}>
                           {activeStation.accessibilityLabel}
                         </Text>
                       </View>
@@ -540,7 +546,7 @@ export function StationScreen({
                         <Text
                           style={[
                             styles.infoPillText,
-                            { color: getStationStatusColor(activeStation) },
+                            { color: getStationStatusColor(activeStation, palette) },
                           ]}>
                           {activeStation.statusLabel}
                         </Text>
@@ -620,14 +626,14 @@ export function StationScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#09111E',
+    backgroundColor: palette.background,
   },
   root: {
     flex: 1,
-    backgroundColor: '#09111E',
+    backgroundColor: palette.background,
   },
   topOverlay: {
     position: 'absolute',
@@ -635,16 +641,13 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 20,
   },
-  mapScrim: {
-    // ...StyleSheet.absoluteFillObject,
-    // backgroundColor: 'rgba(4, 10, 24, 0.24)',
-  },
+  mapScrim: {},
   expandedBackdrop: {
     ...StyleSheet.absoluteFillObject,
   },
   expandedBackdropTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(7, 14, 31, 0.28)',
+    backgroundColor: palette.surfaceTranslucent,
   },
   topGlow: {
     position: 'absolute',
@@ -652,7 +655,7 @@ const styles = StyleSheet.create({
     left: -40,
     right: -40,
     height: 260,
-    backgroundColor: 'rgba(12, 62, 170, 0.18)',
+    backgroundColor: palette.accentSoft,
     borderBottomLeftRadius: 180,
     borderBottomRightRadius: 180,
   },
@@ -662,7 +665,7 @@ const styles = StyleSheet.create({
     right: -80,
     bottom: -130,
     height: 260,
-    backgroundColor: 'rgba(13, 43, 120, 0.2)',
+    backgroundColor: palette.accentSoft,
     borderTopLeftRadius: 220,
     borderTopRightRadius: 220,
   },
@@ -672,12 +675,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(10, 19, 36, 0.78)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
   },
   backButtonText: {
-    color: '#F0F5FF',
+    color: palette.text,
     fontSize: 22,
     fontWeight: '700',
     marginTop: -1,
@@ -690,35 +693,35 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 11,
-    backgroundColor: 'rgba(9, 18, 36, 0.8)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: palette.border,
   },
   lineModeChip: {
     alignItems: 'center',
     borderRadius: 14,
     padding: 4,
-    backgroundColor: 'rgba(9, 18, 36, 0.8)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: palette.border,
   },
   modeChipActive: {
-    backgroundColor: '#2A70FF',
-    borderColor: '#2A70FF',
+    backgroundColor: palette.accent,
+    borderColor: palette.accent,
   },
   modeChipText: {
-    color: '#D5E2FF',
+    color: palette.textMuted,
     fontWeight: '700',
     fontSize: 15,
   },
   modeChipTextActive: {
-    color: '#FFFFFF',
+    color: palette.onAccent,
   },
   bottomSurface: {
     position: 'absolute',
     zIndex: 30,
     overflow: 'hidden',
-    shadowColor: '#00102B',
+    shadowColor: palette.shadow,
     shadowOpacity: 0.42,
     shadowRadius: 28,
     shadowOffset: {
@@ -727,19 +730,8 @@ const styles = StyleSheet.create({
     },
     elevation: 24,
   },
-  bottomSurfaceTint: {
-    // ...StyleSheet.absoluteFillObject,
-    // backgroundColor: 'rgba(8, 16, 34, 0.62)',
-  },
-  bottomSurfaceEdgeGlow: {
-    // position: 'absolute',
-    // top: -120,
-    // left: 40,
-    // right: 40,
-    // height: 240,
-    // backgroundColor: 'rgba(48, 120, 255, 0.1)',
-    // borderRadius: 200,
-  },
+  bottomSurfaceTint: {},
+  bottomSurfaceEdgeGlow: {},
   bottomSurfaceInner: {
     flex: 1,
     overflow: 'hidden',
@@ -753,7 +745,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.34)',
+    backgroundColor: palette.textSubtle,
   },
   contentClip: {
     overflow: 'hidden',
@@ -777,18 +769,18 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(13, 23, 42, 0.78)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
   },
   quickActionText: {
-    color: '#FFFFFF',
+    color: palette.text,
     fontSize: 24,
     fontWeight: '600',
     marginTop: -2,
   },
   stationTitle: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 24,
     lineHeight: 28,
     fontWeight: '800',
@@ -796,7 +788,7 @@ const styles = StyleSheet.create({
   },
   stationMetaText: {
     marginTop: 6,
-    color: '#9BB0D6',
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 19,
   },
@@ -808,19 +800,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   feedbackInlineText: {
-    color: '#AFC0DE',
+    color: palette.textMuted,
     fontSize: 15,
   },
   feedbackText: {
     marginHorizontal: 18,
     marginBottom: 12,
-    color: '#AFC0DE',
+    color: palette.textMuted,
     fontSize: 15,
   },
   errorText: {
     marginHorizontal: 18,
     marginBottom: 12,
-    color: '#FF98A6',
+    color: palette.danger,
     fontSize: 15,
   },
   compactList: {
@@ -832,9 +824,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 14,
-    backgroundColor: 'rgba(28, 42, 70, 0.76)',
+    backgroundColor: palette.surfaceElevated,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -850,17 +842,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   compactRouteText: {
-    color: '#F2F6FF',
+    color: palette.text,
     fontSize: 17,
     fontWeight: '700',
   },
   compactMetaText: {
     marginTop: 3,
-    color: '#96AACC',
+    color: palette.textMuted,
     fontSize: 13,
   },
   compactEta: {
-    color: '#4B94FF',
+    color: palette.realtime,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
@@ -877,7 +869,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   sectionLabel: {
-    color: '#8EA3C8',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.4,
@@ -893,9 +885,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: 'rgba(28, 42, 70, 0.76)',
+    backgroundColor: palette.surfaceElevated,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
     minHeight: 34,
     justifyContent: 'center',
   },
@@ -910,16 +902,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   serviceText: {
-    color: '#AFC0DE',
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
   groupCard: {
     borderRadius: 24,
     padding: 16,
-    backgroundColor: 'rgba(24, 38, 64, 0.78)',
+    backgroundColor: palette.surfaceElevated,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
     gap: 10,
   },
   heroRow: {
@@ -931,7 +923,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroEyebrow: {
-    color: '#90A5C8',
+    color: palette.textMuted,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.1,
@@ -940,23 +932,23 @@ const styles = StyleSheet.create({
   },
   groupTitle: {
     flex: 1,
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 17,
     fontWeight: '700',
   },
   groupSubTitle: {
     marginTop: 2,
-    color: '#93A8CB',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '600',
   },
   listDivider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: palette.divider,
     marginVertical: 4,
   },
   groupEta: {
-    color: '#4B94FF',
+    color: palette.realtime,
     fontSize: 24,
     fontWeight: '800',
   },
@@ -975,24 +967,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   groupDestination: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 15,
     fontWeight: '600',
   },
   groupPlatform: {
-    color: '#92A6C8',
+    color: palette.textMuted,
     fontSize: 13,
     marginTop: 2,
   },
   groupRowEta: {
-    color: '#EAF1FF',
+    color: palette.realtime,
     fontSize: 18,
     fontWeight: '700',
   },
   tabBarDivider: {
     height: 1,
     marginHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: palette.divider,
   },
   tabBarDock: {
     minHeight: HOME_TAB_BAR_HEIGHT,
@@ -1012,19 +1004,19 @@ const styles = StyleSheet.create({
     minWidth: 70,
   },
   tabIcon: {
-    color: '#7F93B8',
+    color: palette.textSubtle,
     fontSize: 18,
     fontWeight: '700',
   },
   tabIconActive: {
-    color: '#3E86FF',
+    color: palette.accent,
   },
   tabLabel: {
-    color: '#8EA3C8',
+    color: palette.textSubtle,
     fontSize: 12,
     fontWeight: '700',
   },
   tabLabelActive: {
-    color: '#E8F0FF',
+    color: palette.text,
   },
 });

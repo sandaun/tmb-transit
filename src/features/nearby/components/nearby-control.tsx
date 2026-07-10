@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text } from 'react-native';
+import { Animated, Pressable, StyleSheet } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAppLanguage } from '@/src/i18n';
 import type { TransportMode } from '@/src/domain/catalog/models';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 const SIZE = 48;
 const COLLAPSED_WIDTH = SIZE;
@@ -11,11 +12,6 @@ const EXPANDED_WIDTH = 200;
 const EXPAND_DURATION = 240;
 const COLLAPSE_DURATION = 200;
 const AUTO_COLLAPSE_MS = 4000;
-
-const IDLE_BG = 'rgba(10, 19, 36, 0.86)';
-const ACTIVE_BG = '#2A70FF';
-const IDLE_BORDER = 'rgba(255, 255, 255, 0.12)';
-const ACTIVE_BORDER = '#2A70FF';
 
 const MODE_CHIPS: { mode: TransportMode; label: string }[] = [
   { mode: 'metro', label: 'Metro' },
@@ -35,6 +31,8 @@ export function NearbyControl({
   onToggle,
   onModesChange,
 }: NearbyControlProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const [expanded, setExpanded] = useState(false);
   const widthAnim = useRef(new Animated.Value(COLLAPSED_WIDTH)).current;
@@ -132,8 +130,8 @@ export function NearbyControl({
         styles.pill,
         {
           width: widthAnim,
-          backgroundColor: enabled ? ACTIVE_BG : IDLE_BG,
-          borderColor: enabled ? ACTIVE_BORDER : IDLE_BORDER,
+          backgroundColor: enabled ? palette.accent : palette.surfaceTranslucent,
+          borderColor: enabled ? palette.accent : palette.borderStrong,
         },
       ]}
     >
@@ -179,7 +177,7 @@ export function NearbyControl({
         <IconSymbol
           name="location.magnifyingglass"
           size={22}
-          color={enabled ? '#FFFFFF' : '#AFC2E8'}
+          color={enabled ? palette.onAccent : palette.textMuted}
           weight="semibold"
         />
       </Pressable>
@@ -187,12 +185,12 @@ export function NearbyControl({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   pill: {
     height: SIZE,
     borderRadius: SIZE / 2,
     borderWidth: 1,
-    shadowColor: '#000000',
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.28,
     shadowRadius: 18,
@@ -228,17 +226,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipOnIdle: {
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: palette.divider,
   },
   chipOnActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: palette.accentSoft,
   },
   chipText: {
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: palette.onAccent,
   },
 });

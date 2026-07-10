@@ -5,6 +5,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { useAppLanguage } from '@/src/i18n';
+import { type Palette, useThemedStyles } from '@/src/design-system';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface SearchShellProps {
   lineCode: string;
@@ -23,6 +25,8 @@ export function SearchShell({
   mode,
   onLineChange,
 }: SearchShellProps) {
+  const colorScheme = useColorScheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -41,7 +45,7 @@ export function SearchShell({
   if (lines.length === 0) {
     return (
       <View style={styles.container}>
-        <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={40} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
         <View style={styles.row}>
           <View style={[styles.chip, styles.chipActive]}>
             <LineBadge lineCode={lineCode} mode={mode} size="small" />
@@ -53,7 +57,7 @@ export function SearchShell({
 
   return (
     <View style={styles.container}>
-      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={40} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -86,14 +90,14 @@ export function SearchShell({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   container: {
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    shadowColor: '#000',
+    borderColor: palette.borderStrong,
+    shadowColor: palette.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -116,10 +120,10 @@ const styles = StyleSheet.create({
     opacity: 0.42,
   },
   chipActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 2,
-    borderColor: '#0B1220',
-    shadowColor: '#000',
+    borderColor: palette.accent,
+    shadowColor: palette.shadow,
     shadowOpacity: 0.18,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },

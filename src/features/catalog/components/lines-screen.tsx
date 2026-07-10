@@ -3,7 +3,6 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -21,6 +20,7 @@ import {
   BUS_FAMILIES,
   type BusLineFamily,
 } from '@/src/features/catalog/utils/bus-line-family';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 const TAB_BAR_CLEARANCE = 96;
 
@@ -32,6 +32,8 @@ function normalize(text: string): string {
 }
 
 export function LinesScreen() {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<TransportMode>('metro');
@@ -109,7 +111,7 @@ export function LinesScreen() {
         <TextInput
           style={styles.searchInput}
           placeholder={mode === 'bus' ? t('lines_search_bus') : t('lines_search')}
-          placeholderTextColor="#7A8AA1"
+          placeholderTextColor={palette.textSubtle}
           value={query}
           onChangeText={setQuery}
           autoCorrect={false}
@@ -182,26 +184,26 @@ export function LinesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: palette.background,
   },
   header: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: palette.background,
     gap: 10,
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0B1220',
+    color: palette.text,
     letterSpacing: -0.4,
   },
   subtitle: {
-    color: '#4F5D75',
+    color: palette.textMuted,
     fontSize: 14,
     marginTop: -4,
   },
@@ -215,29 +217,29 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#CED4DA',
-    backgroundColor: '#FFFFFF',
+    borderColor: palette.borderStrong,
+    backgroundColor: palette.surface,
   },
   modeChipActive: {
-    backgroundColor: '#0B1220',
-    borderColor: '#0B1220',
+    backgroundColor: palette.accent,
+    borderColor: palette.accent,
   },
   modeChipText: {
-    color: '#1D3557',
+    color: palette.text,
     fontWeight: '700',
     fontSize: 14,
   },
   modeChipTextActive: {
-    color: '#F4F8FF',
+    color: palette.onAccent,
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: '#CED4DA',
-    backgroundColor: '#FFFFFF',
+    borderColor: palette.borderStrong,
+    backgroundColor: palette.surface,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#0B1220',
+    color: palette.text,
     fontSize: 15,
   },
   familyRow: {
@@ -249,20 +251,20 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#CED4DA',
-    backgroundColor: '#FFFFFF',
+    borderColor: palette.borderStrong,
+    backgroundColor: palette.surface,
   },
   familyChipActive: {
-    backgroundColor: '#1D3557',
-    borderColor: '#1D3557',
+    backgroundColor: palette.accent,
+    borderColor: palette.accent,
   },
   familyChipText: {
-    color: '#1D3557',
+    color: palette.text,
     fontWeight: '700',
     fontSize: 13,
   },
   familyChipTextActive: {
-    color: '#F4F8FF',
+    color: palette.onAccent,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -276,12 +278,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   error: {
-    color: '#B00020',
+    color: palette.danger,
     fontWeight: '600',
   },
   empty: {
     textAlign: 'center',
-    color: '#4F5D75',
+    color: palette.textMuted,
     paddingTop: 24,
   },
 });

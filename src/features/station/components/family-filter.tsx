@@ -1,10 +1,12 @@
 import { BlurView } from 'expo-blur';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   BUS_FAMILIES,
   type BusLineFamily,
 } from '@/src/features/catalog/utils/bus-line-family';
+import { Text, type Palette, useThemedStyles } from '@/src/design-system';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface FamilyFilterProps {
   available: BusLineFamily[];
@@ -13,6 +15,8 @@ interface FamilyFilterProps {
 }
 
 export function FamilyFilter({ available, selected, onChange }: FamilyFilterProps) {
+  const colorScheme = useColorScheme();
+  const styles = useThemedStyles(createStyles);
   if (available.length === 0) {
     return null;
   }
@@ -21,7 +25,7 @@ export function FamilyFilter({ available, selected, onChange }: FamilyFilterProp
 
   return (
     <View style={styles.container}>
-      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={40} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -63,14 +67,14 @@ export function FamilyFilter({ available, selected, onChange }: FamilyFilterProp
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   container: {
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    shadowColor: '#000',
+    borderColor: palette.borderStrong,
+    shadowColor: palette.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -89,14 +93,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chipActive: {
-    backgroundColor: 'rgba(10, 19, 36, 0.86)',
+    backgroundColor: palette.accent,
   },
   chipText: {
-    color: '#1D3557',
+    color: palette.text,
     fontSize: 13,
     fontWeight: '700',
   },
   chipTextActive: {
-    color: '#F4F8FF',
+    color: palette.onAccent,
   },
 });

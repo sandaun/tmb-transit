@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,7 +21,6 @@ import {
   makeArrivalKey,
   sortArrivalsByEta,
 } from '@/src/features/station/utils/arrival-helpers';
-import { getStationStatusColor } from '@/src/features/station/utils/station-helpers';
 import {
   findStationInterchange,
   type StationInterchange,
@@ -31,6 +29,7 @@ import {
 import { useTransitStore } from '@/src/state/store';
 import { useAppLanguage } from '@/src/i18n';
 import { useUserPreferencesStore } from '@/src/features/preferences/store';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 /**
  * Self-contained arrivals query that doesn't depend on navigation focus.
@@ -86,6 +85,8 @@ export function StationContent({
   active = true,
   onLineStationSelect,
 }: StationContentProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const mode = useTransitStore((s) => s.selectedMode);
@@ -149,7 +150,11 @@ export function StationContent({
     ? Math.max(0, Math.floor((now - arrivalsQuery.dataUpdatedAt) / 1_000))
     : null;
 
-  const statusColor = station ? getStationStatusColor(station) : '#86F0B4';
+  const statusColor = !station?.statusLabel
+    ? palette.textMuted
+    : station.statusLabel.toLowerCase() === 'operatiu'
+      ? palette.statusOk
+      : palette.warning;
   const metaParts: { key: string; label: string }[] = [];
   if (station?.statusLabel) {
     metaParts.push({ key: 'status', label: station.statusLabel });
@@ -193,7 +198,7 @@ export function StationContent({
               <MaterialIcons
                 name={isFavorite ? 'star' : 'star-border'}
                 size={22}
-                color={isFavorite ? '#F5A623' : '#4F5D75'}
+                color={isFavorite ? palette.favorite : palette.textMuted}
               />
             </Pressable>
           ) : null}
@@ -255,7 +260,7 @@ export function StationContent({
 
       {!hasMultipleLines && arrivalsQuery.isLoading ? (
         <View style={styles.feedbackRow}>
-          <ActivityIndicator color="#2F7DFF" />
+          <ActivityIndicator color={palette.accent} />
           <Text style={styles.feedbackText}>{t('station_loading_arrivals')}</Text>
         </View>
       ) : null}
@@ -349,6 +354,8 @@ function InterchangeArrivalSection({
   query: ReturnType<typeof useInterchangeArrivals>[number] | undefined;
   onPress: () => void;
 }) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const arrivals = useMemo(
     () => sortArrivalsByEta(query?.data ?? []),
@@ -385,7 +392,7 @@ function InterchangeArrivalSection({
 
       {query?.isLoading ? (
         <View style={styles.feedbackRow}>
-          <ActivityIndicator color="#2F7DFF" />
+          <ActivityIndicator color={palette.accent} />
           <Text style={styles.feedbackText}>{t('station_loading_arrivals')}</Text>
         </View>
       ) : null}
@@ -424,7 +431,7 @@ function InterchangeArrivalSection({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   scroll: {
     flex: 1,
   },
@@ -445,7 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.7,
-    color: '#F4F8FF',
+    color: palette.text,
     flexShrink: 1,
   },
   favoriteButton: {
@@ -454,7 +461,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: palette.divider,
   },
   metaRow: {
     alignItems: 'center',
@@ -469,12 +476,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   metaText: {
-    color: '#90A5C8',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
   metaSep: {
-    color: '#5C7099',
+    color: palette.textSubtle,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -485,7 +492,7 @@ const styles = StyleSheet.create({
     marginRight: 2,
   },
   sectionLabel: {
-    color: '#90A5C8',
+    color: palette.textMuted,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.1,
@@ -508,25 +515,25 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: 18,
     padding: 8,
-    backgroundColor: 'rgba(24, 38, 64, 0.58)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: palette.border,
   },
   lineOptionActive: {
-    backgroundColor: 'rgba(47, 125, 255, 0.18)',
-    borderColor: 'rgba(108, 165, 255, 0.46)',
+    backgroundColor: palette.accentSoft,
+    borderColor: palette.accent,
   },
   lineOptionText: {
     flex: 1,
-    color: '#AFC0DE',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
   lineOptionTextActive: {
-    color: '#F4F8FF',
+    color: palette.text,
   },
   serviceText: {
-    color: '#AFC0DE',
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -536,19 +543,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   feedbackText: {
-    color: '#93A8CB',
+    color: palette.textMuted,
     fontSize: 15,
   },
   errorText: {
-    color: '#FF6B6B',
+    color: palette.danger,
     fontSize: 15,
   },
   card: {
     borderRadius: 24,
     padding: 16,
-    backgroundColor: 'rgba(24, 38, 64, 0.78)',
+    backgroundColor: palette.surfaceElevated,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
     gap: 10,
   },
   lineSections: {
@@ -557,14 +564,14 @@ const styles = StyleSheet.create({
   interchangeCard: {
     borderRadius: 24,
     padding: 14,
-    backgroundColor: 'rgba(24, 38, 64, 0.72)',
+    backgroundColor: palette.surfaceElevated,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
     gap: 10,
   },
   interchangeCardActive: {
-    backgroundColor: 'rgba(38, 61, 100, 0.82)',
-    borderColor: 'rgba(100, 159, 255, 0.42)',
+    backgroundColor: palette.accentSoft,
+    borderColor: palette.accent,
   },
   interchangeHeader: {
     flexDirection: 'row',
@@ -575,18 +582,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   interchangeDestination: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 17,
     fontWeight: '800',
   },
   interchangePlatform: {
-    color: '#93A8CB',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 2,
   },
   interchangeEta: {
-    color: '#4B94FF',
+    color: palette.realtime,
     fontSize: 23,
     fontWeight: '800',
   },
@@ -611,7 +618,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroEyebrow: {
-    color: '#90A5C8',
+    color: palette.textMuted,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.1,
@@ -622,22 +629,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     fontWeight: '700',
-    color: '#F4F8FF',
+    color: palette.text,
   },
   heroSubtitle: {
     marginTop: 2,
-    color: '#93A8CB',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '600',
   },
   heroEta: {
-    color: '#4B94FF',
+    color: palette.realtime,
     fontSize: 24,
     fontWeight: '800',
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: palette.divider,
     marginVertical: 4,
   },
   row: {
@@ -657,16 +664,16 @@ const styles = StyleSheet.create({
   rowDestination: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#F4F8FF',
+    color: palette.text,
   },
   rowPlatform: {
-    color: '#92A6C8',
+    color: palette.textMuted,
     fontSize: 13,
     marginTop: 2,
   },
   rowEta: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#EAF1FF',
+    color: palette.realtime,
   },
 });

@@ -5,7 +5,6 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { useTransitStore } from '@/src/state/store';
 import { useAppLanguage } from '@/src/i18n';
 import { useUserPreferencesStore } from '@/src/features/preferences/store';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 interface LineStationsScreenProps {
   mode: TransportMode;
@@ -33,6 +33,8 @@ function normalize(text: string): string {
 }
 
 export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const setSelection = useTransitStore((state) => state.setSelection);
@@ -122,7 +124,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
         <TextInput
           style={styles.searchInput}
           placeholder={t('station_search')}
-          placeholderTextColor="#7A8AA1"
+          placeholderTextColor={palette.textSubtle}
           value={query}
           onChangeText={setQuery}
           autoCorrect={false}
@@ -178,7 +180,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
                 <MaterialIcons
                   name={isFavorite ? 'star' : 'star-border'}
                   size={22}
-                  color={isFavorite ? '#F5A623' : '#4F5D75'}
+                  color={isFavorite ? palette.favorite : palette.textMuted}
                 />
               </Pressable>
             </View>
@@ -187,7 +189,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
         ListEmptyComponent={
           isLoading ? (
             <View style={styles.empty}>
-              <ActivityIndicator color="#0B5FFF" />
+              <ActivityIndicator color={palette.accent} />
               <Text style={styles.emptyText}>{t('stations_loading')}</Text>
             </View>
           ) : (
@@ -199,16 +201,16 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: palette.background,
   },
   header: {
     paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 12,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: palette.background,
     gap: 12,
   },
   topRow: {
@@ -222,12 +224,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#E4E7EB',
+    borderColor: palette.border,
   },
   backButtonText: {
-    color: '#0B1220',
+    color: palette.text,
     fontSize: 24,
     fontWeight: '700',
     marginTop: -2,
@@ -247,22 +249,22 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0B1220',
+    color: palette.text,
     lineHeight: 22,
   },
   subtitle: {
-    color: '#4F5D75',
+    color: palette.textMuted,
     fontSize: 13,
     marginTop: 2,
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: '#CED4DA',
-    backgroundColor: '#FFFFFF',
+    borderColor: palette.borderStrong,
+    backgroundColor: palette.surface,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#0B1220',
+    color: palette.text,
     fontSize: 15,
   },
   listContent: {
@@ -276,10 +278,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E4E7EB',
+    borderColor: palette.border,
   },
   stationRowContent: {
     flex: 1,
@@ -290,19 +292,19 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
   },
   stationRowPressed: {
-    backgroundColor: '#EAF1FF',
-    borderColor: '#0B5FFF',
+    backgroundColor: palette.accentSoft,
+    borderColor: palette.accent,
   },
   indexBubble: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#EEF2F7',
+    backgroundColor: palette.divider,
     alignItems: 'center',
     justifyContent: 'center',
   },
   indexText: {
-    color: '#1D3557',
+    color: palette.text,
     fontWeight: '700',
     fontSize: 13,
   },
@@ -311,17 +313,17 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   stationName: {
-    color: '#0B1220',
+    color: palette.text,
     fontSize: 15,
     fontWeight: '600',
   },
   stationMeta: {
-    color: '#7A8AA1',
+    color: palette.textSubtle,
     fontSize: 12,
     marginTop: 2,
   },
   chevron: {
-    color: '#90A4AE',
+    color: palette.textSubtle,
     fontSize: 22,
     fontWeight: '500',
   },
@@ -338,10 +340,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-    color: '#4F5D75',
+    color: palette.textMuted,
   },
   error: {
-    color: '#B00020',
+    color: palette.danger,
     fontWeight: '600',
     paddingHorizontal: 16,
     paddingBottom: 8,

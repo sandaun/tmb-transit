@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -37,6 +36,7 @@ import type { SavedPlaceId } from '@/src/features/preferences/models';
 import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import { useAppLanguage } from '@/src/i18n';
 import { useTransitStore } from '@/src/state/store';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null {
   if (!lines.length) {
@@ -140,7 +140,7 @@ function isInternalTransferWalk(
   return (leg.distanceMeters ?? Number.POSITIVE_INFINITY) <= 80;
 }
 
-function getRoutePolylines(route: PlannedRoute | null): PlannerMapPolyline[] {
+function getRoutePolylines(route: PlannedRoute | null, walkColor: string): PlannerMapPolyline[] {
   if (!route) {
     return [];
   }
@@ -158,7 +158,7 @@ function getRoutePolylines(route: PlannedRoute | null): PlannerMapPolyline[] {
 
       const color =
         leg.mode === 'walk'
-          ? '#2A70FF'
+          ? walkColor
           : getLineBrand(getPlannedLegTransportMode(leg), leg.route ?? '').backgroundColor;
 
       return {
@@ -171,6 +171,8 @@ function getRoutePolylines(route: PlannedRoute | null): PlannerMapPolyline[] {
 }
 
 export default function MapTabScreen() {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const params = useLocalSearchParams<{
     savePlace?: string;
     planFrom?: string;
@@ -257,7 +259,10 @@ export default function MapTabScreen() {
   const selectedRoute = plannerRequested
     ? plannedRoutes.find((route) => route.id === selectedRouteId) ?? plannedRoutes[0] ?? null
     : null;
-  const selectedRoutePolylines = useMemo(() => getRoutePolylines(selectedRoute), [selectedRoute]);
+  const selectedRoutePolylines = useMemo(
+    () => getRoutePolylines(selectedRoute, palette.accent),
+    [palette.accent, selectedRoute],
+  );
 
   const sheetHeight = useMemo(() => {
     const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
@@ -596,7 +601,7 @@ export default function MapTabScreen() {
   if (linesLoading || stationsLoading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#2A70FF" />
+        <ActivityIndicator size="large" color={palette.accent} />
         <Text style={styles.loadingText}>{t('map_loading')}</Text>
       </View>
     );
@@ -702,10 +707,10 @@ export default function MapTabScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#09111E',
+    backgroundColor: palette.background,
   },
   contentVisible: {
     flex: 1,
@@ -719,11 +724,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#09111E',
+    backgroundColor: palette.background,
     gap: 12,
   },
   loadingText: {
-    color: '#D7E5FF',
+    color: palette.textMuted,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -731,18 +736,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#09111E',
+    backgroundColor: palette.background,
     paddingHorizontal: 24,
     gap: 8,
   },
   fallbackTitle: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 20,
     fontWeight: '700',
     textAlign: 'center',
   },
   fallbackText: {
-    color: '#AABBDC',
+    color: palette.textMuted,
     fontSize: 15,
     textAlign: 'center',
   },
@@ -751,10 +756,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: 999,
-    backgroundColor: '#2A70FF',
+    backgroundColor: palette.accent,
   },
   fallbackButtonText: {
-    color: '#FFFFFF',
+    color: palette.onAccent,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -764,12 +769,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   placePromptTitle: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 18,
     fontWeight: '800',
   },
   placePromptBody: {
-    color: '#AABBDC',
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },

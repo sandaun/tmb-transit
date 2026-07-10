@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   View,
   type ImageRequireSource,
 } from 'react-native';
@@ -23,6 +22,8 @@ import type { Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface NearbyStopMarker {
   code: string;
@@ -168,6 +169,9 @@ export function MapAdapter({
   onNearbyStopPress,
   onMapPress,
 }: MapAdapterProps) {
+  const colorScheme = useColorScheme();
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const mapRef = useRef<MapView | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -575,6 +579,7 @@ export function MapAdapter({
         onUserLocationChange={handleUserLocationChange}
         showsUserLocation={hasLocationPermission || isWaitingForUserLocation}
         userLocationPriority="balanced"
+        userInterfaceStyle={colorScheme}
       >
         {shouldRenderRoutePolylines
           ? routePolylines.map((polyline) => (
@@ -738,12 +743,12 @@ export function MapAdapter({
           onPress={handleCenterUserLocation}
         >
           {isWaitingForUserLocation ? (
-            <ActivityIndicator color="#F4F8FF" />
+            <ActivityIndicator color={palette.text} />
           ) : (
             <IconSymbol
               name="location.fill"
               size={22}
-              color={userCoordinate ? '#F4F8FF' : '#AFC2E8'}
+              color={userCoordinate ? palette.text : palette.textMuted}
               weight="semibold"
             />
           )}
@@ -768,6 +773,7 @@ function StationTransferBadges({
   lineCodes: string[];
   mode: TransportMode;
 }) {
+  const styles = useThemedStyles(createStyles);
   const visibleLineCodes = lineCodes.slice(0, 3);
   const extraCount = Math.max(0, lineCodes.length - visibleLineCodes.length);
 
@@ -806,6 +812,7 @@ function StationTransferBadges({
 }
 
 function NearbyStopDot({ mode, lineCode, lineColor }: { mode: TransportMode; lineCode: string; lineColor?: string }) {
+  const styles = useThemedStyles(createStyles);
   const brand = getLineBrand(mode, lineCode, lineColor);
   return (
     <View
@@ -825,6 +832,7 @@ function NearbyStopLabel({
   lineColor?: string;
   name: string;
 }) {
+  const styles = useThemedStyles(createStyles);
   const brand = getLineBrand(mode, lineCode, lineColor);
   return (
     <View style={styles.nearbyLabel}>
@@ -849,6 +857,7 @@ function StationNameLabel({
   stationName: string;
   emphasized?: boolean;
 }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View
       style={[
@@ -876,6 +885,7 @@ function PlannerMarkerPill({
   label: string;
   kind: 'origin' | 'destination';
 }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View
       style={[
@@ -888,7 +898,7 @@ function PlannerMarkerPill({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
   },
@@ -908,10 +918,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(10, 19, 36, 0.86)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000000',
+    borderColor: palette.borderStrong,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.28,
     shadowRadius: 18,
@@ -927,13 +937,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    backgroundColor: 'rgba(10, 19, 36, 0.88)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: palette.border,
     zIndex: 15,
   },
   locationMessageText: {
-    color: '#D7E5FF',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 16,
@@ -958,7 +968,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: palette.surface,
   },
   transferBadgeText: {
     fontSize: 10,
@@ -971,12 +981,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    backgroundColor: '#152136',
+    backgroundColor: palette.surfaceElevated,
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: palette.surface,
   },
   extraBadgeText: {
-    color: '#FFFFFF',
+    color: palette.text,
     fontSize: 10,
     fontWeight: '900',
   },
@@ -985,8 +995,8 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
+    borderColor: palette.surface,
+    shadowColor: palette.shadow,
     shadowOpacity: 0.32,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
@@ -998,9 +1008,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
     borderRadius: 6,
-    backgroundColor: 'rgba(11, 18, 32, 0.82)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: palette.borderStrong,
     paddingLeft: 3,
     paddingRight: 6,
     paddingVertical: 2,
@@ -1014,13 +1024,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   nearbyLabelBadgeText: {
-    color: '#FFFFFF',
+    color: palette.textInverse,
     fontSize: 8,
     fontWeight: '900',
     letterSpacing: 0.3,
   },
   nearbyLabelText: {
-    color: '#D0D8E8',
+    color: palette.textMuted,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.1,
@@ -1034,21 +1044,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 10,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000000',
+    borderColor: palette.surface,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.28,
     shadowRadius: 10,
     elevation: 6,
   },
   plannerMarkerOrigin: {
-    backgroundColor: '#0F7B5C',
+    backgroundColor: palette.statusOk,
   },
   plannerMarkerDestination: {
-    backgroundColor: '#D24545',
+    backgroundColor: palette.danger,
   },
   plannerMarkerText: {
-    color: '#FFFFFF',
+    color: palette.textInverse,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1058,26 +1068,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
     borderRadius: 7,
-    backgroundColor: 'rgba(11, 18, 32, 0.86)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: palette.borderStrong,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    shadowColor: '#000000',
+    shadowColor: palette.shadow,
     shadowOpacity: 0.28,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
   stationNameLabelEmphasized: {
-    backgroundColor: 'rgba(7, 12, 24, 0.94)',
+    backgroundColor: palette.surfaceElevated,
     borderWidth: 2.5,
     shadowOpacity: 0.4,
     shadowRadius: 6,
     transform: [{ scale: 1.04 }],
   },
   stationNameText: {
-    color: '#F4F8FF',
+    color: palette.text,
     fontSize: 10,
     fontWeight: '700',
     textAlign: 'left',
@@ -1086,6 +1096,6 @@ const styles = StyleSheet.create({
   stationNameTextEmphasized: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: palette.text,
   },
 });

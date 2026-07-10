@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
+
+import { Text } from '@/src/design-system';
 
 import type { TransportMode } from '@/src/domain/catalog/models';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';

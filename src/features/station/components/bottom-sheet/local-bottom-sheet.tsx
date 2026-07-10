@@ -19,6 +19,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppLanguage } from '@/src/i18n';
+import { type Palette, useThemedStyles } from '@/src/design-system';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface LocalBottomSheetProps {
   detents: readonly number[];
@@ -47,6 +49,8 @@ export const LocalBottomSheet = forwardRef<
   },
   ref,
 ) {
+  const colorScheme = useColorScheme();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [containerHeight, setContainerHeight] = useState(0);
@@ -211,7 +215,7 @@ export const LocalBottomSheet = forwardRef<
           },
         ]}
       >
-        <BlurView intensity={58} tint="dark" style={StyleSheet.absoluteFillObject} />
+        <BlurView intensity={58} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
 
         <View
           {...panResponder.panHandlers}
@@ -230,7 +234,7 @@ export const LocalBottomSheet = forwardRef<
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     elevation: 40,
@@ -241,15 +245,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(10, 19, 36, 0.12)',
+    backgroundColor: palette.surfaceTranslucent,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: palette.border,
     overflow: 'hidden',
-    shadowColor: '#00102B',
+    shadowColor: palette.shadow,
     shadowOpacity: 0.42,
     shadowRadius: 28,
     shadowOffset: {
@@ -267,7 +271,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.34)',
+    backgroundColor: palette.textSubtle,
   },
   content: {
     flex: 1,

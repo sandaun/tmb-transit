@@ -5,7 +5,6 @@ import {
   Linking,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +16,7 @@ import { lineKey } from '@/src/features/preferences/models';
 import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import { useAppLanguage } from '@/src/i18n';
 import type { AlertsFilter } from '@/src/features/preferences/models';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 const TAB_BAR_CLEARANCE = 96;
 
@@ -67,6 +67,7 @@ function SegmentButton({
   label,
   onPress,
 }: SegmentButtonProps) {
+  const styles = useThemedStyles(createStyles);
   return (
     <Pressable
       style={[styles.segmentButton, active ? styles.segmentButtonActive : null]}
@@ -100,6 +101,8 @@ function AlertsHeader({
   stats,
   timeFilter,
 }: AlertsHeaderProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const filters: { id: TimeFilter; label: string }[] = [
     { id: 'all', label: t('alerts_all') },
@@ -114,7 +117,7 @@ function AlertsHeader({
           <Text style={styles.title}>{t('alerts_title')}</Text>
           <Text style={styles.subtitle}>{t('alerts_network')}</Text>
         </View>
-        {isFetching ? <ActivityIndicator color="#0B5FFF" /> : null}
+        {isFetching ? <ActivityIndicator color={palette.accent} /> : null}
       </View>
 
       <View style={styles.summaryBand}>
@@ -158,11 +161,13 @@ interface EmptyStateProps {
 }
 
 function EmptyState({ isLoading }: EmptyStateProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   if (isLoading) {
     return (
       <View style={styles.emptyState}>
-        <ActivityIndicator color="#0B5FFF" />
+        <ActivityIndicator color={palette.accent} />
         <Text style={styles.emptyTitle}>{t('alerts_loading')}</Text>
       </View>
     );
@@ -177,6 +182,7 @@ function EmptyState({ isLoading }: EmptyStateProps) {
 }
 
 export function AlertsScreen() {
+  const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const timeFilter = useUserPreferencesStore((state) => state.alertsFilter);
   const setTimeFilter = useUserPreferencesStore((state) => state.setAlertsFilter);
@@ -255,10 +261,10 @@ export function AlertsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: palette.background,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -280,13 +286,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   title: {
-    color: '#0B1220',
+    color: palette.text,
     fontSize: 28,
     fontWeight: '800',
   },
   subtitle: {
     marginTop: 2,
-    color: '#4F5D75',
+    color: palette.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -299,11 +305,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 16,
     borderCurve: 'continuous',
-    backgroundColor: '#0B1220',
+    backgroundColor: palette.surfaceStrong,
   },
   summaryValue: {
     width: 48,
-    color: '#FFFFFF',
+    color: palette.textInverse,
     fontSize: 30,
     fontWeight: '900',
     textAlign: 'center',
@@ -313,13 +319,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   summaryLabel: {
-    color: '#FFFFFF',
+    color: palette.textInverse,
     fontSize: 16,
     fontWeight: '800',
   },
   summaryDetail: {
     marginTop: 3,
-    color: '#CBD5E1',
+    color: palette.background,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -332,7 +338,7 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 16,
     borderCurve: 'continuous',
-    backgroundColor: '#E9EEF5',
+    backgroundColor: palette.divider,
   },
   segmentButton: {
     flex: 1,
@@ -347,8 +353,8 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   segmentButtonActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#0B1220',
+    backgroundColor: palette.surface,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 3,
@@ -356,20 +362,20 @@ const styles = StyleSheet.create({
   },
   segmentLabel: {
     flexShrink: 1,
-    color: '#1D3557',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '800',
   },
   segmentLabelActive: {
-    color: '#0B1220',
+    color: palette.text,
   },
   segmentCount: {
-    color: '#4F5D75',
+    color: palette.textMuted,
     fontSize: 12,
     fontWeight: '900',
   },
   segmentCountActive: {
-    color: '#0B5FFF',
+    color: palette.accent,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -378,12 +384,12 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderCurve: 'continuous',
-    backgroundColor: '#FFF1F1',
+    backgroundColor: palette.dangerSoft,
   },
   errorText: {
     flex: 1,
     minWidth: 0,
-    color: '#A11212',
+    color: palette.danger,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -391,10 +397,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: '#D92D20',
+    backgroundColor: palette.danger,
   },
   retryText: {
-    color: '#FFFFFF',
+    color: palette.textInverse,
     fontSize: 12,
     fontWeight: '900',
   },
@@ -411,17 +417,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderCurve: 'continuous',
     borderWidth: 1,
-    borderColor: '#E4E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
   },
   emptyTitle: {
-    color: '#0B1220',
+    color: palette.text,
     fontSize: 16,
     fontWeight: '800',
     textAlign: 'center',
   },
   emptyBody: {
-    color: '#4F5D75',
+    color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',

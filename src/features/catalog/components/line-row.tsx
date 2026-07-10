@@ -1,9 +1,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { Line } from '@/src/domain/catalog/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { useAppLanguage } from '@/src/i18n';
+import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 interface LineRowProps {
   line: Line;
@@ -25,6 +26,8 @@ function getRouteLabel(line: Line): string | null {
 }
 
 export function LineRow({ line, onPress, isFavorite, onFavoritePress }: LineRowProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const routeLabel = getRouteLabel(line);
   const supportLabel = line.mode === 'metro' ? t('metro') : t('bus');
@@ -55,21 +58,21 @@ export function LineRow({ line, onPress, isFavorite, onFavoritePress }: LineRowP
         style={styles.favoriteButton}
         onPress={() => onFavoritePress(line)}
       >
-        <MaterialIcons name={isFavorite ? 'star' : 'star-border'} size={22} color={isFavorite ? '#F5A623' : '#4F5D75'} />
+        <MaterialIcons name={isFavorite ? 'star' : 'star-border'} size={22} color={isFavorite ? palette.favorite : palette.textMuted} />
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: palette.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E4E7EB',
+    borderColor: palette.border,
   },
   rowContent: {
     flex: 1,
@@ -80,21 +83,21 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
   },
   rowPressed: {
-    backgroundColor: '#EAF1FF',
-    borderColor: '#0B5FFF',
+    backgroundColor: palette.accentSoft,
+    borderColor: palette.accent,
   },
   textWrap: {
     flex: 1,
     minWidth: 0,
   },
   route: {
-    color: '#0B1220',
+    color: palette.text,
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 19,
   },
   support: {
-    color: '#7A8AA1',
+    color: palette.textSubtle,
     fontSize: 12,
     marginTop: 3,
     fontWeight: '600',
@@ -102,7 +105,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   chevron: {
-    color: '#90A4AE',
+    color: palette.textSubtle,
     fontSize: 22,
     fontWeight: '500',
   },

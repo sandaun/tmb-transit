@@ -2,6 +2,7 @@ import { Pressable, StyleSheet } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAppLanguage } from '@/src/i18n';
+import { usePalette, useThemedStyles, type Palette } from '@/src/design-system';
 
 interface RouteControlProps {
   enabled: boolean;
@@ -9,6 +10,8 @@ interface RouteControlProps {
 }
 
 export function RouteControl({ enabled, onPress }: RouteControlProps) {
+  const palette = usePalette();
+  const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   return (
     <Pressable
@@ -21,31 +24,31 @@ export function RouteControl({ enabled, onPress }: RouteControlProps) {
       <IconSymbol
         name="arrow.triangle.turn.up.right.diamond.fill"
         size={22}
-        color={enabled ? '#FFFFFF' : '#AFC2E8'}
+        color={enabled ? palette.onAccent : palette.textMuted}
         weight="semibold"
       />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: Palette) => StyleSheet.create({
   button: {
     width: 48,
     height: 48,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(10, 19, 36, 0.86)',
+    backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000000',
+    borderColor: palette.borderStrong,
+    shadowColor: palette.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.28,
     shadowRadius: 18,
     elevation: 8,
   },
   buttonActive: {
-    backgroundColor: '#2A70FF',
-    borderColor: '#2A70FF',
+    backgroundColor: palette.accent,
+    borderColor: palette.accent,
   },
 });

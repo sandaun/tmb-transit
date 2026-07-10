@@ -1,7 +1,31 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { mapPlannedRouteDto } from '@/src/data/tmb/mappers';
+import { mapPlannedRouteDto, mapServiceAlertDto } from '@/src/data/tmb/mappers';
+
+describe('mapServiceAlertDto', () => {
+  it('removes internal TMB prefixes from alert titles', () => {
+    const cases = [
+      ['NP3 Linia amb Servei Parcial', 'Linia amb Servei Parcial'],
+      ['PP1 Servei parcial', 'Servei parcial'],
+    ] as const;
+
+    for (const [title, expectedTitle] of cases) {
+      const alert = mapServiceAlertDto({
+        id: 'alert-1',
+        title,
+        description: '',
+        mode: 'metro',
+        severity: 'disruption',
+        kind: 'current',
+        affectedLines: [],
+        source: 'tmb-alerts-api',
+      });
+
+      assert.equal(alert.title, expectedTitle);
+    }
+  });
+});
 
 describe('mapPlannedRouteDto', () => {
   it('maps planned route DTOs to domain routes', () => {

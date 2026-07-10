@@ -23,7 +23,7 @@ describe('TMB alerts API mappers', () => {
       id: 225594,
       publications: [
         {
-          headerCa: 'PP1 Servei parcial',
+          headerCa: 'NP3 Linia amb Servei Parcial',
           textCa: 'Per obres de millora, afectacions a les línies L9 Nord i L10 Nord.',
         },
       ],
@@ -32,7 +32,7 @@ describe('TMB alerts API mappers', () => {
 
     assert.ok(alert);
     assert.equal(alert.id, 'tmb-alerts-api:metro:225594');
-    assert.equal(alert.title, 'Servei parcial');
+    assert.equal(alert.title, 'Linia amb Servei Parcial');
     assert.equal(alert.mode, 'metro');
     assert.equal(alert.kind, 'current');
     assert.equal(alert.source, 'tmb-alerts-api');

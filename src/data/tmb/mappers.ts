@@ -69,7 +69,7 @@ export function mapArrivalDto(dto: ArrivalDto): Arrival {
 }
 
 function cleanServiceAlertTitle(title: string): string {
-  return title.replace(/^PP\d+\s+/i, '').trim();
+  return title.replace(/^[NP]P\d+\s+/i, '').trim();
 }
 
 export function mapServiceAlertDto(dto: ServiceAlertDto): ServiceAlert {

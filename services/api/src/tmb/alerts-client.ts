@@ -109,7 +109,7 @@ function pickLocalizedText(publication: LocalizedPublication | undefined, field:
 }
 
 function cleanMetroAlertTitle(title: string): string {
-  return title.replace(/^PP\d+\s+/i, '').trim();
+  return title.replace(/^[NP]P\d+\s+/i, '').trim();
 }
 
 function normalizeMetroLineCode(lineCode: string | number | undefined, lineName?: string): string | null {

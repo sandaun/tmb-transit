@@ -14,6 +14,7 @@ import {
   type RecentItem,
   type SavedPlace,
   type SavedPlaceId,
+  type ThemePreference,
   type UserPreferences,
 } from '@/src/features/preferences/models';
 import { readUserPreferences, writeUserPreferences } from '@/src/features/preferences/storage';
@@ -22,6 +23,7 @@ interface UserPreferencesStore extends UserPreferences {
   isHydrated: boolean;
   hydrate: () => Promise<void>;
   setLanguage: (language: AppLanguage) => void;
+  setTheme: (theme: ThemePreference) => void;
   setAlertsFilter: (filter: AlertsFilter) => void;
   setSavedPlace: (place: SavedPlace) => void;
   removeSavedPlace: (id: SavedPlaceId) => void;
@@ -36,6 +38,7 @@ function preferencesFromState(state: UserPreferencesStore): UserPreferences {
   return {
     version: 1,
     language: state.language,
+    theme: state.theme,
     alertsFilter: state.alertsFilter,
     savedPlaces: state.savedPlaces,
     favoriteLines: state.favoriteLines,
@@ -64,6 +67,10 @@ export const useUserPreferencesStore = create<UserPreferencesStore>((set, get) =
   },
   setLanguage: (language) => {
     set({ language });
+    persist(get);
+  },
+  setTheme: (theme) => {
+    set({ theme });
     persist(get);
   },
   setAlertsFilter: (alertsFilter) => {

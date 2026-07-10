@@ -1,6 +1,7 @@
 import type { TransportMode } from '@/src/domain/catalog/models';
 
 export type AppLanguage = 'ca' | 'en' | 'es';
+export type ThemePreference = 'system' | 'light' | 'dark';
 export type SavedPlaceId = 'home' | 'work';
 export type AlertsFilter = 'all' | 'mine' | 'current' | 'planned';
 
@@ -53,6 +54,7 @@ export interface MapSelection {
 export interface UserPreferences {
   version: 1;
   language: AppLanguage | null;
+  theme: ThemePreference;
   alertsFilter: AlertsFilter;
   savedPlaces: Partial<Record<SavedPlaceId, SavedPlace>>;
   favoriteLines: FavoriteLine[];
@@ -87,6 +89,7 @@ export function createDefaultPreferences(): UserPreferences {
   return {
     version: 1,
     language: null,
+    theme: 'system',
     alertsFilter: 'all',
     savedPlaces: {},
     favoriteLines: [],
@@ -98,6 +101,10 @@ export function createDefaultPreferences(): UserPreferences {
 
 export function isAppLanguage(value: unknown): value is AppLanguage {
   return value === 'ca' || value === 'en' || value === 'es';
+}
+
+export function isThemePreference(value: unknown): value is ThemePreference {
+  return value === 'system' || value === 'light' || value === 'dark';
 }
 
 export function isAlertsFilter(value: unknown): value is AlertsFilter {
@@ -179,6 +186,7 @@ export function normalizePreferences(value: unknown): UserPreferences {
   return {
     ...defaults,
     language: isAppLanguage(candidate.language) ? candidate.language : null,
+    theme: isThemePreference(candidate.theme) ? candidate.theme : 'system',
     alertsFilter: isAlertsFilter(candidate.alertsFilter) ? candidate.alertsFilter : 'all',
     savedPlaces,
     favoriteLines: Array.isArray(candidate.favoriteLines)

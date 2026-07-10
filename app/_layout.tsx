@@ -9,16 +9,30 @@ import { queryClient } from '@/src/core/query-client';
 import { ErrorBoundary } from '@/src/core/error-boundary';
 import { LanguageProvider } from '@/src/i18n';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { usePalette } from '@/src/design-system';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const palette = usePalette();
+  const navigationTheme = {
+    ...(colorScheme === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(colorScheme === 'dark' ? DarkTheme.colors : DefaultTheme.colors),
+      primary: palette.accent,
+      background: palette.background,
+      card: palette.surface,
+      text: palette.text,
+      border: palette.border,
+      notification: palette.danger,
+    },
+  };
 
   return (
     <LanguageProvider>
       <ErrorBoundary>
         <SafeAreaProvider>
           <QueryClientProvider client={queryClient}>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <ThemeProvider value={navigationTheme}>
               <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="station/[lineCode]/[stationCode]" options={{ headerShown: false }} />
@@ -27,7 +41,7 @@ export default function RootLayout() {
                   options={{ headerShown: false, animation: 'slide_from_right' }}
                 />
               </Stack>
-              <StatusBar style="auto" />
+              <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
             </ThemeProvider>
           </QueryClientProvider>
         </SafeAreaProvider>

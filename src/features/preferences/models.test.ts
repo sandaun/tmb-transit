@@ -22,9 +22,16 @@ test('normalizes malformed stored preferences to safe defaults', () => {
 
   assert.equal(preferences.version, 1);
   assert.equal(preferences.language, null);
+  assert.equal(preferences.theme, 'system');
   assert.deepEqual(preferences.favoriteLines, []);
   assert.equal(preferences.recentItems.length, MAX_RECENT_ITEMS);
   assert.deepEqual(preferences.savedPlaces, {});
+});
+
+test('preserves supported theme preferences', () => {
+  assert.equal(normalizePreferences({ theme: 'light' }).theme, 'light');
+  assert.equal(normalizePreferences({ theme: 'dark' }).theme, 'dark');
+  assert.equal(normalizePreferences({ theme: 'contrast' }).theme, 'system');
 });
 
 test('uses supported device languages and falls back to Catalan', () => {

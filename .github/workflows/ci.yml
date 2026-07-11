@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Expo dependencies
+        run: npm run check:expo
+
+      - name: Lint app
+        run: npm run lint:app
+
+      - name: Typecheck app
+        run: npm run typecheck
+
+      - name: Test app
+        run: npm test
+
+      - name: Bundle iOS
+        run: npm run bundle:ios
+        env:
+          EXPO_PUBLIC_APP_ENV: preview
+          EXPO_PUBLIC_API_BASE_URL: https://api.example.invalid
+          EXPO_PUBLIC_USE_MOCK: "false"
+
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            services/api/package-lock.json
+
+      - name: Install lint dependencies
+        run: npm ci
+
+      - name: Install API dependencies
+        run: npm ci --prefix services/api
+
+      - name: Lint API
+        run: npm run lint:api
+
+      - name: Typecheck API
+        run: npm run api:typecheck
+
+      - name: Test API
+        run: npm run api:test
+        env:
+          TMB_APP_ID: test-app
+          TMB_APP_KEY: test-key
+
+      - name: Build API
+        run: npm run api:build
+
+  pr-title:
+    name: PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate Conventional Commit title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\([a-z0-9._/-]+\))?!?: .+'
+          if [[ ! "$PR_TITLE" =~ $pattern ]]; then
+            echo "PR title must follow Conventional Commits: type(scope): subject"
+            exit 1
+          fi
+

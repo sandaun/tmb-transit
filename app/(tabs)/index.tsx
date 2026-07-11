@@ -470,18 +470,17 @@ export default function MapTabScreen() {
   );
 
   const handlePlannerToggle = useCallback(() => {
-    setPlannerEnabled((current) => {
-      const next = !current;
-      if (next) {
-        setPlannerActivePoint(plannerOrigin ? 'destination' : 'origin');
-        sheetRef.current?.resize(1);
-      } else {
-        resetPlannerRequest();
-        sheetRef.current?.resize(0);
-      }
-      return next;
-    });
-  }, [plannerOrigin, resetPlannerRequest]);
+    const nextPlannerEnabled = !plannerEnabled;
+    setPlannerEnabled(nextPlannerEnabled);
+
+    if (nextPlannerEnabled) {
+      setPlannerActivePoint(plannerOrigin ? 'destination' : 'origin');
+      sheetRef.current?.resize(1);
+    } else {
+      resetPlannerRequest();
+      sheetRef.current?.resize(0);
+    }
+  }, [plannerEnabled, plannerOrigin, resetPlannerRequest]);
 
   const handlePlannerMapPress = useCallback(
     (coordinate: { lat: number; lon: number }) => {

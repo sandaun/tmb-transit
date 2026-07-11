@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useRootNavigationState } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -29,7 +29,6 @@ import { sortPlannedRoutes } from '@/src/features/planner/utils/route-summary';
 import {
   buildRouteLandmarks,
   buildRoutePolylines,
-  coordinatesAreNear,
   type RouteLandmark,
 } from '@/src/features/planner/utils/route-presentation';
 import {
@@ -108,6 +107,7 @@ export default function MapTabScreen() {
     originLon?: string;
     originLabel?: string;
   }>();
+  const rootNavigationState = useRootNavigationState();
   const { t } = useAppLanguage();
   const { height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -195,16 +195,9 @@ export default function MapTabScreen() {
     [palette.accent, selectedRoute],
   );
   const selectedRouteLandmarks = useMemo<RouteLandmark[]>(() => {
-    const routeLandmarks = buildRouteLandmarks(selectedRoute).filter((landmark) => {
-      if (landmark.kind === 'origin' || landmark.kind === 'destination') return false;
-      if (landmark.kind === 'boarding' && plannerOrigin) {
-        return !coordinatesAreNear(landmark.coordinate, plannerOrigin);
-      }
-      if (landmark.kind === 'alighting' && plannerDestination) {
-        return !coordinatesAreNear(landmark.coordinate, plannerDestination);
-      }
-      return true;
-    });
+    const routeLandmarks = buildRouteLandmarks(selectedRoute).filter(
+      (landmark) => landmark.kind !== 'origin' && landmark.kind !== 'destination',
+    );
     const endpoints: RouteLandmark[] = [];
     if (plannerOrigin) {
       endpoints.push({
@@ -613,6 +606,7 @@ export default function MapTabScreen() {
   }, [params.savePlace]);
 
   useEffect(() => {
+    if (!rootNavigationState?.key) return;
     const intentKey = [params.planFrom, params.originLat, params.originLon, params.originLabel].join(':');
     if (!intentKey || handledRouteIntentRef.current === intentKey) return;
 
@@ -642,7 +636,7 @@ export default function MapTabScreen() {
       originLon: undefined,
       originLabel: undefined,
     });
-  }, [params.originLabel, params.originLat, params.originLon, params.planFrom, resetPlannerRequest, savedPlaces, setPlannerPoint]);
+  }, [params.originLabel, params.originLat, params.originLon, params.planFrom, resetPlannerRequest, rootNavigationState?.key, savedPlaces, setPlannerPoint]);
 
   const handleRetryMapData = useCallback(() => {
     void refetchLines();

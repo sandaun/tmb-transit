@@ -146,7 +146,7 @@ describe('buildRouteLandmarks', () => {
     assert.deepEqual(buildRouteLandmarks(route), []);
   });
 
-  it('does not duplicate endpoints at the same named coordinate', () => {
+  it('preserves transit roles when endpoints share the same coordinate', () => {
     const route = createRoute([
       createLeg({
         id: 'transit',
@@ -158,7 +158,7 @@ describe('buildRouteLandmarks', () => {
     ]);
     assert.deepEqual(
       buildRouteLandmarks(route).map((landmark) => landmark.kind),
-      ['origin', 'destination'],
+      ['origin', 'boarding', 'alighting', 'destination'],
     );
   });
 });

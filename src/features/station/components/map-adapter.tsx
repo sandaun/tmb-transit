@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -718,23 +718,82 @@ export function MapAdapter({
             ))
           : null}
 
-        {plannerMarkers.map((marker) => (
-          <Marker
-            key={`planner-marker:${marker.id}:${marker.selected ? 'selected' : 'idle'}`}
-            accessibilityLabel={marker.accessibilityLabel}
-            anchor={STATION_MARKER_ANCHOR}
-            centerOffset={STATION_MARKER_CENTER_OFFSET}
-            coordinate={{
-              latitude: marker.coordinate.lat,
-              longitude: marker.coordinate.lon,
-            }}
-            tracksViewChanges={false}
-            zIndex={60}
-            onPress={() => onPlannerMarkerPress?.(marker.legId)}
-          >
-            <PlannerMarker marker={marker} />
-          </Marker>
-        ))}
+        {plannerMarkers.map((marker) => {
+          const coordinate = {
+            latitude: marker.coordinate.lat,
+            longitude: marker.coordinate.lon,
+          };
+          const selectionKey = marker.selected ? 'selected' : 'idle';
+          const handlePress = () => onPlannerMarkerPress?.(marker.legId);
+
+          if (marker.kind === 'origin' || marker.kind === 'destination') {
+            return (
+              <Marker
+                key={`planner-endpoint:${marker.id}:${selectionKey}`}
+                accessibilityLabel={marker.accessibilityLabel}
+                anchor={STATION_MARKER_ANCHOR}
+                centerOffset={STATION_MARKER_CENTER_OFFSET}
+                coordinate={coordinate}
+                tracksViewChanges={false}
+                zIndex={75}
+                onPress={handlePress}
+              >
+                <PlannerEndpointMarker marker={marker} />
+              </Marker>
+            );
+          }
+
+          const routeCode = marker.outgoingRoute ?? marker.incomingRoute ?? '';
+          const routeBrand = getLineBrand(getPlannerRouteMode(routeCode), routeCode);
+          const transferRoutes = Array.from(
+            new Set([marker.incomingRoute, marker.outgoingRoute].filter(
+              (value): value is string => Boolean(value),
+            )),
+          );
+
+          return (
+            <Fragment key={`planner-station:${marker.id}:${selectionKey}`}>
+              <Marker
+                accessibilityLabel={marker.accessibilityLabel}
+                anchor={STATION_MARKER_ANCHOR}
+                centerOffset={STATION_MARKER_CENTER_OFFSET}
+                coordinate={coordinate}
+                image={getStationMarkerImage(routeBrand.label, Boolean(marker.selected))}
+                tracksViewChanges={false}
+                zIndex={60}
+                onPress={handlePress}
+              />
+              {marker.kind === 'transfer' && transferRoutes.length > 1 ? (
+                <Marker
+                  accessibilityElementsHidden
+                  anchor={STATION_BADGE_ANCHOR}
+                  centerOffset={STATION_MARKER_CENTER_OFFSET}
+                  coordinate={coordinate}
+                  tracksViewChanges={false}
+                  zIndex={65}
+                  onPress={handlePress}
+                >
+                  <PlannerTransferBadges routeCodes={transferRoutes} />
+                </Marker>
+              ) : null}
+              <Marker
+                accessibilityElementsHidden
+                anchor={STATION_NAME_ANCHOR}
+                centerOffset={STATION_NAME_CENTER_OFFSET}
+                coordinate={coordinate}
+                tracksViewChanges={false}
+                zIndex={70}
+                onPress={handlePress}
+              >
+                <StationNameLabel
+                  lineColor={routeBrand.backgroundColor}
+                  stationName={marker.name}
+                  emphasized={marker.selected}
+                />
+              </Marker>
+            </Fragment>
+          );
+        })}
 
       </MapView>
 
@@ -821,6 +880,33 @@ function StationTransferBadges({
   );
 }
 
+function PlannerTransferBadges({ routeCodes }: { routeCodes: string[] }) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={styles.transferBadgeAnchorBox}>
+      <View style={styles.transferBadgeRow}>
+        {routeCodes.slice(0, 3).map((routeCode) => {
+          const brand = getLineBrand(getPlannerRouteMode(routeCode), routeCode);
+          return (
+            <View
+              key={routeCode}
+              style={[styles.transferBadge, { backgroundColor: brand.backgroundColor }]}
+            >
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={[styles.transferBadgeText, { color: brand.textColor }]}
+              >
+                {brand.label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function NearbyStopDot({ mode, lineCode, lineColor }: { mode: TransportMode; lineCode: string; lineColor?: string }) {
   const styles = useThemedStyles(createStyles);
   const brand = getLineBrand(mode, lineCode, lineColor);
@@ -888,51 +974,8 @@ function StationNameLabel({
   );
 }
 
-function PlannerMarker({ marker }: { marker: PlannerMapMarker }) {
-  const palette = usePalette();
+function PlannerEndpointMarker({ marker }: { marker: PlannerMapMarker }) {
   const styles = useThemedStyles(createStyles);
-  const isEndpoint = marker.kind === 'origin' || marker.kind === 'destination';
-  const route = marker.outgoingRoute ?? marker.incomingRoute;
-  const routeBrand = route
-    ? getLineBrand(getPlannerRouteMode(route), route)
-    : null;
-
-  if (!isEndpoint) {
-    return (
-      <View style={styles.plannerStopWrap}>
-        <View
-          style={[
-            styles.plannerStopMarker,
-            marker.kind === 'transfer' ? styles.plannerTransferMarker : null,
-            marker.selected ? styles.plannerMarkerSelected : null,
-          ]}
-        >
-          {marker.kind === 'transfer' ? (
-            <View style={styles.transferRoutes}>
-              {[marker.incomingRoute, marker.outgoingRoute]
-                .filter((routeCode): routeCode is string => Boolean(routeCode))
-                .map((routeCode) => {
-                  const brand = getLineBrand(getPlannerRouteMode(routeCode), routeCode);
-                  return (
-                    <View key={routeCode} style={[styles.transferRoute, { backgroundColor: brand.backgroundColor }]}>
-                      <Text style={[styles.transferRouteText, { color: brand.textColor }]}>{brand.label}</Text>
-                    </View>
-                  );
-                })}
-            </View>
-          ) : (
-            <View style={[styles.stopDot, { backgroundColor: routeBrand?.backgroundColor ?? palette.surfaceStrong }]} />
-          )}
-        </View>
-        {marker.kind === 'transfer' ? (
-          <View style={styles.plannerStopLabel}>
-            <Text numberOfLines={1} style={styles.plannerStopLabelText}>{marker.name}</Text>
-          </View>
-        ) : null}
-      </View>
-    );
-  }
-
   return (
     <View style={styles.plannerEndpointWrap}>
       <View style={[styles.plannerMarker, marker.selected ? styles.plannerMarkerSelected : null]}>
@@ -1118,63 +1161,6 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   plannerMarkerText: {
     color: palette.textInverse,
     fontSize: 13,
-    fontWeight: '800',
-  },
-  plannerStopWrap: {
-    alignItems: 'center',
-  },
-  plannerStopMarker: {
-    minWidth: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    borderWidth: 3,
-    borderColor: palette.surface,
-    backgroundColor: palette.surface,
-    shadowColor: palette.shadow,
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  plannerTransferMarker: {
-    minWidth: 56,
-    paddingHorizontal: 3,
-  },
-  stopDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  transferRoutes: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  transferRoute: {
-    minWidth: 23,
-    height: 20,
-    paddingHorizontal: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 7,
-  },
-  transferRouteText: {
-    fontSize: 8,
-    fontWeight: '900',
-  },
-  plannerStopLabel: {
-    maxWidth: 132,
-    marginTop: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: palette.surfaceTranslucent,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-  },
-  plannerStopLabelText: {
-    color: palette.text,
-    fontSize: 10,
     fontWeight: '800',
   },
   stationNameLabel: {

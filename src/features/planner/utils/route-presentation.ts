@@ -54,7 +54,7 @@ function coordinateDistanceMeters(
   return Math.hypot(latitudeMeters, longitudeMeters);
 }
 
-export function coordinatesAreNear(
+function coordinatesAreNear(
   first: { lat: number; lon: number },
   second: { lat: number; lon: number },
   thresholdMeters = 18,
@@ -62,24 +62,11 @@ export function coordinatesAreNear(
   return coordinateDistanceMeters(first, second) <= thresholdMeters;
 }
 
-function pointsMatch(
-  firstName: string,
-  firstCoordinate: { lat: number; lon: number },
-  secondName: string,
-  secondCoordinate: { lat: number; lon: number },
-): boolean {
-  return (
-    normalizePointName(firstName) !== '' &&
-    normalizePointName(firstName) === normalizePointName(secondName) &&
-    coordinateDistanceMeters(firstCoordinate, secondCoordinate) <= 18
-  );
-}
-
 function appendLandmark(landmarks: RouteLandmark[], landmark: RouteLandmark): void {
   const duplicate = landmarks.some((existing) => {
     const sameName = normalizePointName(existing.name) === normalizePointName(landmark.name);
     const samePlace = coordinatesAreNear(existing.coordinate, landmark.coordinate);
-    return (sameName && samePlace) || (samePlace && existing.kind === landmark.kind);
+    return existing.kind === landmark.kind && (sameName || samePlace);
   });
 
   if (!duplicate) {
@@ -221,13 +208,7 @@ export function buildRouteLandmarks(route: PlannedRoute | null): RouteLandmark[]
   if (lastTransitIndex !== undefined) {
     const lastTransit = route.legs[lastTransitIndex];
     const coordinate = getPointCoordinate(lastTransit.to);
-    if (
-      coordinate &&
-      !(
-        destinationCoordinate &&
-        pointsMatch(lastTransit.to.name, coordinate, lastLeg.to.name, destinationCoordinate)
-      )
-    ) {
+    if (coordinate) {
       appendLandmark(landmarks, {
         id: `alighting:${lastTransit.id}`,
         kind: 'alighting',

@@ -114,7 +114,7 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
                   </Text>
                 )}
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {mode === 'bus' ? t('bus') : t('metro')}
+                  {t(mode)}
                 </Text>
               </View>
             </View>

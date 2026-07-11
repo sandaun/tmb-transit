@@ -1,15 +1,23 @@
-import type { TransportMode } from '@/src/domain/catalog/models';
+import type {
+  TransitOperator,
+  TransportMode,
+  VehicleMode,
+} from '@/src/domain/catalog/models';
 
 export type ServiceAlertModeDto = TransportMode | 'mixed';
 export type ServiceAlertSeverityDto = 'info' | 'warning' | 'disruption';
 export type ServiceAlertKindDto = 'current' | 'planned';
-export type ServiceAlertSourceDto = 'tmb-alerts-api' | 'tmb-service-notices';
+export type ServiceAlertSourceDto = 'tmb-alerts-api' | 'tmb-service-notices' | 'fgc-gtfs-rt';
 
 export interface LineDto {
   code: string;
   name: string;
   color?: string;
   mode: TransportMode;
+  operator?: TransitOperator;
+  vehicleMode?: VehicleMode;
+  network?: string;
+  textColor?: string;
   originStation?: string;
   destinationStation?: string;
 }
@@ -19,6 +27,9 @@ export interface StationDto {
   lineCode: string;
   lineColor?: string;
   mode: TransportMode;
+  operator?: TransitOperator;
+  vehicleMode?: VehicleMode;
+  network?: string;
   name: string;
   lat: number;
   lon: number;
@@ -41,6 +52,7 @@ export interface SegmentDto {
   id: string;
   lineCode: string;
   mode: TransportMode;
+  operator?: TransitOperator;
   points: SegmentPointDto[];
   fromStationCode?: string;
   toStationCode?: string;
@@ -50,16 +62,34 @@ export interface ArrivalDto {
   lineCode: string;
   stationCode: string;
   mode: TransportMode;
+  operator?: TransitOperator;
   directionId: string;
   platformCode?: string;
   destination: string;
   etaSec: number;
   sourceTimestampMs: number;
   serviceId?: string;
+  realtimeStatus?: 'realtime' | 'scheduled';
+  delaySec?: number;
+  isCancelled?: boolean;
+}
+
+export interface TransitVehicleDto {
+  id: string;
+  lineCode: string;
+  mode: TransportMode;
+  operator: TransitOperator;
+  lat: number;
+  lon: number;
+  destination?: string;
+  nextStops: string[];
+  isOnTime?: boolean;
+  occupancyPercent?: number;
 }
 
 export interface ServiceAlertLineDto {
   mode: TransportMode;
+  operator?: TransitOperator;
   code: string;
 }
 
@@ -68,6 +98,7 @@ export interface ServiceAlertDto {
   title: string;
   description: string;
   mode: ServiceAlertModeDto;
+  operator?: TransitOperator;
   severity: ServiceAlertSeverityDto;
   kind: ServiceAlertKindDto;
   affectedLines: ServiceAlertLineDto[];
@@ -93,6 +124,9 @@ export interface PlannedLegDto {
   route?: string;
   routeLongName?: string;
   agencyName?: string;
+  operator?: TransitOperator;
+  transportMode?: TransportMode;
+  network?: string;
   from: PlannerPointDto;
   to: PlannerPointDto;
   startTimeMs?: number;

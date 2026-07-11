@@ -36,7 +36,7 @@ interface UserPreferencesStore extends UserPreferences {
 
 function preferencesFromState(state: UserPreferencesStore): UserPreferences {
   return {
-    version: 1,
+    version: 2,
     language: state.language,
     theme: state.theme,
     alertsFilter: state.alertsFilter,

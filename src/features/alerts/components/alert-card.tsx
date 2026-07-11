@@ -23,13 +23,23 @@ interface SeverityStyle {
 
 const MAX_VISIBLE_LINES = 6;
 
-function getModeLabel(mode: ServiceAlertMode, metro: string, bus: string, mixed: string): string {
+function getModeLabel(
+  mode: ServiceAlertMode,
+  metro: string,
+  bus: string,
+  fgc: string,
+  mixed: string,
+): string {
   if (mode === 'metro') {
     return metro;
   }
 
   if (mode === 'bus') {
     return bus;
+  }
+
+  if (mode === 'fgc') {
+    return fgc;
   }
 
   return mixed;
@@ -100,7 +110,7 @@ function AlertCardComponent({
           </View>
 
           <Text style={styles.modeLabel}>
-            {getKindLabel(kind, t('alerts_now'), t('alerts_planned'))} · {getModeLabel(mode, t('metro'), t('bus'), t('alert_metro_bus'))}
+            {getKindLabel(kind, t('alerts_now'), t('alerts_planned'))} · {getModeLabel(mode, t('metro'), t('bus'), t('fgc'), t('alert_metro_bus'))}
           </Text>
         </View>
 

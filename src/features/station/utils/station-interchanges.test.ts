@@ -5,6 +5,7 @@ import type { Line, Station } from '@/src/domain/catalog/models';
 import {
   buildStationInterchanges,
   findStationInterchange,
+  getUniqueInterchangeLines,
   prioritizeSelectedInterchangeMember,
   type StationInterchangeMember,
 } from '@/src/features/station/utils/station-interchanges';
@@ -124,6 +125,29 @@ describe('station interchanges', () => {
     assert.deepEqual(
       members.map((member) => member.line.code),
       ['L3', 'L5', 'L9S'],
+    );
+  });
+
+  it('deduplicates platforms belonging to the same operator line', () => {
+    const s1: Line = { code: 'S1', name: 'S1', mode: 'fgc' };
+    const members: StationInterchangeMember[] = [
+      {
+        line: s1,
+        station: { ...makeStation('S1', 'NA1', 'Terrassa Nacions Unides', 41.584, 2.052), mode: 'fgc' },
+      },
+      {
+        line: s1,
+        station: { ...makeStation('S1', 'NA2', 'Terrassa Nacions Unides', 41.5841, 2.0521), mode: 'fgc' },
+      },
+      {
+        line: lines[0],
+        station: makeStation('L3', 'transfer-l3', 'Transfer', 41.38, 2.14),
+      },
+    ];
+
+    assert.deepEqual(
+      getUniqueInterchangeLines(members).map((line) => `${line.mode}:${line.code}`),
+      ['fgc:S1', 'metro:L3'],
     );
   });
 });

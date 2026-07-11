@@ -1,4 +1,4 @@
-import type { TransportMode } from '@/src/domain/catalog/models';
+import type { TransitOperator, TransportMode } from '@/src/domain/catalog/models';
 
 export interface LatLng {
   lat: number;
@@ -9,6 +9,7 @@ export interface Segment {
   id: string;
   lineCode: string;
   mode: TransportMode;
+  operator?: TransitOperator;
   points: LatLng[];
   fromStationCode?: string;
   toStationCode?: string;

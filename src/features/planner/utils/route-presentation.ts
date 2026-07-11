@@ -17,6 +17,8 @@ export interface RouteLandmark {
   legId?: string;
   incomingRoute?: string;
   outgoingRoute?: string;
+  incomingMode?: TransportMode;
+  outgoingMode?: TransportMode;
 }
 
 export interface PlannerRoutePolyline {
@@ -74,7 +76,14 @@ function appendLandmark(landmarks: RouteLandmark[], landmark: RouteLandmark): vo
   }
 }
 
-export function getPlannerRouteMode(route: string | undefined): TransportMode {
+export function getPlannerRouteMode(
+  route: string | undefined,
+  agencyName?: string,
+): TransportMode {
+  const normalizedAgency = agencyName?.toLowerCase() ?? '';
+  if (normalizedAgency.includes('fgc') || normalizedAgency.includes('ferrocarrils')) {
+    return 'fgc';
+  }
   return /^L\d|^FM$/i.test(route?.trim() ?? '') ? 'metro' : 'bus';
 }
 
@@ -133,7 +142,10 @@ export function buildRoutePolylines(
         color:
           leg.mode === 'walk'
             ? walkColor
-            : getLineBrand(getPlannerRouteMode(leg.route), leg.route ?? '').backgroundColor,
+            : getLineBrand(
+                leg.transportMode ?? getPlannerRouteMode(leg.route, leg.agencyName),
+                leg.route ?? '',
+              ).backgroundColor,
       };
     })
     .filter((polyline): polyline is PlannerRoutePolyline => polyline !== null);
@@ -177,6 +189,7 @@ export function buildRouteLandmarks(route: PlannedRoute | null): RouteLandmark[]
         coordinate,
         legId: firstTransit.id,
         outgoingRoute: firstTransit.route,
+        ...(firstTransit.transportMode ? { outgoingMode: firstTransit.transportMode } : {}),
       });
     }
   }
@@ -201,6 +214,8 @@ export function buildRouteLandmarks(route: PlannedRoute | null): RouteLandmark[]
         legId: transferLeg?.id ?? outgoingLeg.id,
         incomingRoute: incomingLeg.route,
         outgoingRoute: outgoingLeg.route,
+        ...(incomingLeg.transportMode ? { incomingMode: incomingLeg.transportMode } : {}),
+        ...(outgoingLeg.transportMode ? { outgoingMode: outgoingLeg.transportMode } : {}),
       });
     }
   }
@@ -216,6 +231,7 @@ export function buildRouteLandmarks(route: PlannedRoute | null): RouteLandmark[]
         coordinate,
         legId: lastTransit.id,
         incomingRoute: lastTransit.route,
+        ...(lastTransit.transportMode ? { incomingMode: lastTransit.transportMode } : {}),
       });
     }
   }

@@ -30,7 +30,7 @@ export function LineRow({ line, onPress, isFavorite, onFavoritePress }: LineRowP
   const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const routeLabel = getRouteLabel(line);
-  const supportLabel = line.mode === 'metro' ? t('metro') : t('bus');
+  const supportLabel = t(line.mode);
 
   return (
     <View style={styles.row}>

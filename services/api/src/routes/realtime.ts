@@ -3,12 +3,13 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { TtlCache } from '../cache/ttl-cache';
 import { runtimeConfig } from '../config/env';
+import { getFgcArrivals, getFgcVehicles } from '../fgc/client';
 import { fetchBusArrivalsByStation } from '../tmb/ibus-client';
 import { fetchArrivalsByStation } from '../tmb/imetro-client';
-import type { ArrivalDto, TransportMode } from '../types/api';
+import type { ArrivalDto, TransitVehicleDto, TransportMode } from '../types/api';
 import { toSafeErrorDetails } from '../utils/safe-logging';
 
-const modeParams = z.object({ mode: z.enum(['metro', 'bus']) });
+const modeParams = z.object({ mode: z.enum(['metro', 'bus', 'fgc']) });
 const querySchema = z.object({
   lineCode: z.string().min(1),
   stationCode: z.string().min(1),
@@ -26,6 +27,9 @@ async function fetchArrivals(
   lineCode: string,
   stationCode: string,
 ): Promise<ArrivalDto[]> {
+  if (mode === 'fgc') {
+    return getFgcArrivals(lineCode, stationCode);
+  }
   if (mode === 'bus') {
     return fetchBusArrivalsByStation(stationCode, lineCode);
   }
@@ -80,7 +84,7 @@ export const realtimeRoutes: FastifyPluginAsync = async (fastify) => {
       return {
         data: arrivals,
         meta: {
-          source: mode === 'bus' ? 'tmb-ibus' : 'tmb-imetro',
+          source: mode === 'fgc' ? 'fgc-gtfs-rt' : mode === 'bus' ? 'tmb-ibus' : 'tmb-imetro',
           stale: false,
           fetchedAt: new Date().toISOString(),
         },
@@ -102,6 +106,42 @@ export const realtimeRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(502).send({
         error: 'Upstream unavailable',
       });
+    }
+  });
+
+  const vehicleCache = new TtlCache<TransitVehicleDto[]>();
+  const vehicleFlights = new Map<string, Promise<TransitVehicleDto[]>>();
+
+  fastify.get('/v1/realtime/fgc/vehicles', async (request, reply) => {
+    const query = z.object({ lineCode: z.string().min(1).optional() }).parse(request.query);
+    const key = `vehicles:fgc:${query.lineCode ?? 'all'}`;
+    const fresh = vehicleCache.getFresh(key);
+    if (fresh) {
+      return { data: fresh, meta: { source: 'cache', stale: false } };
+    }
+
+    let flight = vehicleFlights.get(key);
+    if (!flight) {
+      flight = getFgcVehicles(query.lineCode)
+        .then((vehicles) => {
+          vehicleCache.set(key, vehicles, runtimeConfig.realtimeCacheTtlMs);
+          return vehicles;
+        })
+        .finally(() => {
+          vehicleFlights.delete(key);
+        });
+      vehicleFlights.set(key, flight);
+    }
+
+    try {
+      return { data: await flight, meta: { source: 'fgc-geotren', stale: false } };
+    } catch (error) {
+      const stale = vehicleCache.getStale(key, runtimeConfig.realtimeStaleMaxMs);
+      if (stale) {
+        return { data: stale, meta: { source: 'stale-cache', stale: true } };
+      }
+      fastify.log.error({ error: toSafeErrorDetails(error) }, 'FGC vehicles upstream failed');
+      return reply.status(502).send({ error: 'Upstream unavailable' });
     }
   });
 };

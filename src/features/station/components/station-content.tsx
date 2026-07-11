@@ -302,6 +302,9 @@ export function StationContent({
                 {nextArrival.platformCode
                   ? t('station_platform', { platform: nextArrival.platformCode })
                   : t('station_direction', { direction: nextArrival.directionId })}
+                {nextArrival.realtimeStatus
+                  ? ` · ${t(nextArrival.realtimeStatus === 'scheduled' ? 'station_scheduled' : 'station_live')}`
+                  : ''}
               </Text>
             </View>
             <Text style={styles.heroEta}>
@@ -324,6 +327,9 @@ export function StationContent({
                   {arrival.platformCode
                     ? t('station_platform', { platform: arrival.platformCode })
                     : t('station_direction', { direction: arrival.directionId })}
+                  {arrival.realtimeStatus
+                    ? ` · ${t(arrival.realtimeStatus === 'scheduled' ? 'station_scheduled' : 'station_live')}`
+                    : ''}
                 </Text>
               </View>
               <Text style={styles.rowEta}>

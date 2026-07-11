@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { TtlCache } from '../cache/ttl-cache';
+import { getFgcLineSegments, getFgcLines, getFgcLineStations } from '../fgc/client';
 import { getBusLineSegments, getBusLineStations, getBusLines } from '../tmb/bus-client';
 import {
   getMetroLineSegments,
@@ -10,7 +11,7 @@ import {
 } from '../tmb/transit-client';
 import type { LineDto, SegmentDto, StationDto } from '../types/api';
 
-const modeSchema = z.enum(['metro', 'bus']);
+const modeSchema = z.enum(['metro', 'bus', 'fgc']);
 const modeParams = z.object({ mode: modeSchema });
 const modeAndLineParams = z.object({ mode: modeSchema, lineCode: z.string().min(1) });
 
@@ -55,23 +56,30 @@ async function loadCached<T>(key: string, loader: () => Promise<T>): Promise<T> 
   }
 }
 
-async function listLines(mode: 'metro' | 'bus'): Promise<LineDto[]> {
+async function listLines(mode: 'metro' | 'bus' | 'fgc'): Promise<LineDto[]> {
+  if (mode === 'fgc') return getFgcLines();
   return mode === 'bus' ? getBusLines() : getMetroLines();
 }
 
-async function listLineStations(mode: 'metro' | 'bus', lineCode: string): Promise<StationDto[]> {
+async function listLineStations(mode: 'metro' | 'bus' | 'fgc', lineCode: string): Promise<StationDto[]> {
+  if (mode === 'fgc') return getFgcLineStations(lineCode);
   return mode === 'bus' ? getBusLineStations(lineCode) : getMetroLineStations(lineCode);
 }
 
-async function listLineSegments(mode: 'metro' | 'bus', lineCode: string): Promise<SegmentDto[]> {
+async function listLineSegments(mode: 'metro' | 'bus' | 'fgc', lineCode: string): Promise<SegmentDto[]> {
+  if (mode === 'fgc') return getFgcLineSegments(lineCode);
   return mode === 'bus' ? getBusLineSegments(lineCode) : getMetroLineSegments(lineCode);
+}
+
+function sourceForMode(mode: 'metro' | 'bus' | 'fgc'): string {
+  return mode === 'fgc' ? 'fgc-open-data' : 'tmb-transit';
 }
 
 export const catalogRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/v1/catalog/:mode/lines', async (request) => {
     const { mode } = modeParams.parse(request.params);
     const lines = await loadCached(`lines:${mode}`, () => listLines(mode));
-    return { data: lines, meta: { source: 'tmb-transit', mode } };
+    return { data: lines, meta: { source: sourceForMode(mode), mode } };
   });
 
   fastify.get('/v1/catalog/:mode/lines/:lineCode/stations', async (request) => {
@@ -79,7 +87,7 @@ export const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     const stations = await loadCached(`stations:${mode}:${lineCode}`, () =>
       listLineStations(mode, lineCode),
     );
-    return { data: stations, meta: { source: 'tmb-transit', mode } };
+    return { data: stations, meta: { source: sourceForMode(mode), mode } };
   });
 
   fastify.get('/v1/catalog/:mode/lines/:lineCode/segments', async (request) => {
@@ -87,6 +95,6 @@ export const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     const segments = await loadCached(`segments:${mode}:${lineCode}`, () =>
       listLineSegments(mode, lineCode),
     );
-    return { data: segments, meta: { source: 'tmb-transit', mode } };
+    return { data: segments, meta: { source: sourceForMode(mode), mode } };
   });
 };

@@ -31,6 +31,12 @@ function normalize(text: string): string {
     .toLowerCase();
 }
 
+function getNetworkLabel(network: string | undefined): string | null {
+  if (network === 'barcelona-valles') return 'Barcelona–Vallès';
+  if (network === 'llobregat-anoia') return 'Llobregat–Anoia';
+  return null;
+}
+
 export function LinesScreen() {
   const palette = usePalette();
   const styles = useThemedStyles(createStyles);
@@ -84,7 +90,7 @@ export function LinesScreen() {
         <Text style={styles.subtitle}>{t('lines_subtitle')}</Text>
 
         <View style={styles.modeRow}>
-          {(['metro', 'bus'] as const).map((entry) => {
+          {(['metro', 'bus', 'fgc'] as const).map((entry) => {
             const active = mode === entry;
             return (
               <Pressable
@@ -101,7 +107,7 @@ export function LinesScreen() {
                     styles.modeChipText,
                     active ? styles.modeChipTextActive : null,
                   ]}>
-                  {entry === 'metro' ? t('metro') : t('bus')}
+                  {t(entry)}
                 </Text>
               </Pressable>
             );
@@ -164,14 +170,23 @@ export function LinesScreen() {
           { paddingBottom: insets.bottom + TAB_BAR_CLEARANCE },
         ]}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        renderItem={({ item }) => (
-          <LineRow
-            line={item}
-            onPress={handleLinePress}
-            isFavorite={favoriteLines.some((favorite) => favorite.mode === item.mode && favorite.lineCode === item.code)}
-            onFavoritePress={(line) => toggleFavoriteLine({ mode: line.mode, lineCode: line.code })}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          const previous = filteredLines[index - 1];
+          const networkLabel = mode === 'fgc' && previous?.network !== item.network
+            ? getNetworkLabel(item.network)
+            : null;
+          return (
+            <View>
+              {networkLabel ? <Text style={styles.networkTitle}>{networkLabel}</Text> : null}
+              <LineRow
+                line={item}
+                onPress={handleLinePress}
+                isFavorite={favoriteLines.some((favorite) => favorite.mode === item.mode && favorite.lineCode === item.code)}
+                onFavoritePress={(line) => toggleFavoriteLine({ mode: line.mode, lineCode: line.code })}
+              />
+            </View>
+          );
+        }}
         ListEmptyComponent={
           isLoading ? (
             <Text style={styles.empty}>{t('lines_loading')}</Text>
@@ -272,6 +287,15 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   },
   separator: {
     height: 8,
+  },
+  networkTitle: {
+    color: palette.textMuted,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 8,
+    textTransform: 'uppercase',
   },
   feedback: {
     paddingHorizontal: 16,

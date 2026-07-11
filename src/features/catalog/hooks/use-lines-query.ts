@@ -16,7 +16,7 @@ export async function fetchAndCacheLines(mode: TransportMode): Promise<Line[]> {
   return lines;
 }
 
-export function useLinesQuery(mode: TransportMode) {
+export function useLinesQuery(mode: TransportMode, active = true) {
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['catalog', mode, 'lines'] as const, [mode]);
   const cacheKey = `lines:${mode}`;
@@ -32,6 +32,7 @@ export function useLinesQuery(mode: TransportMode) {
     let isCancelled = false;
 
     async function bootstrap() {
+      if (!active) return;
       const cached = await readCatalogCache<Line[]>(cacheKey);
 
       if (isCancelled) {
@@ -55,7 +56,7 @@ export function useLinesQuery(mode: TransportMode) {
     return () => {
       isCancelled = true;
     };
-  }, [cacheKey, queryClient, queryKey, refetch]);
+  }, [active, cacheKey, queryClient, queryKey, refetch]);
 
   return query;
 }

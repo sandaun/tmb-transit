@@ -135,3 +135,19 @@ export function prioritizeSelectedInterchangeMember(
     ...members.slice(selectedIndex + 1),
   ];
 }
+
+export function getUniqueInterchangeLines(
+  members: StationInterchangeMember[],
+): Line[] {
+  const seenLineKeys = new Set<string>();
+
+  return members.flatMap((member) => {
+    const lineKey = `${member.line.mode}:${member.line.code}`;
+    if (seenLineKeys.has(lineKey)) {
+      return [];
+    }
+
+    seenLineKeys.add(lineKey);
+    return [member.line];
+  });
+}

@@ -13,7 +13,8 @@ function ensureString(value: string | string[] | undefined): string {
 
 function parseMode(value: string | string[] | undefined): TransportMode {
   const raw = Array.isArray(value) ? value[0] : value;
-  return raw === 'bus' ? 'bus' : 'metro';
+  if (raw === 'bus' || raw === 'fgc') return raw;
+  return 'metro';
 }
 
 export default function StationRoute() {

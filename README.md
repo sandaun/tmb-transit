@@ -1,9 +1,10 @@
-# TMB Transit MVP
+# Barcelona Transit
 
-Expo React Native MVP for Barcelona metro with:
-- Metro line/station catalog
-- Station arrivals via iMetro
-- Estimated vehicle positions (ETA-based simulation, no GPS)
+Expo React Native app for TMB and Barcelona-connected FGC services with:
+- Metro, bus, and FGC line/station catalogs
+- Scheduled and realtime station arrivals
+- FGC GeoTren vehicle positions and occupancy when available
+- Combined service alerts, nearby stops, favorites, and route planning
 - Thin Fastify proxy backend with short cache and single-flight dedupe
 
 ## Project layout
@@ -95,6 +96,9 @@ Fill:
 Optional:
 - `TMB_TRANSIT_BASE_URL` (default `https://api.tmb.cat/v1/transit`)
 - `TMB_IMETRO_BASE_URL` (default `https://api.tmb.cat/v1/itransit`)
+- `FGC_OPEN_DATA_BASE_URL` (default `https://dadesobertes.fgc.cat/api/explore/v2.1`)
+
+FGC Open Data does not require credentials.
 
 3. Run backend:
 
@@ -106,9 +110,14 @@ npm run api:dev
 
 - `GET /health`
 - `GET /v1/catalog/metro/lines`
+- `GET /v1/catalog/bus/lines`
+- `GET /v1/catalog/fgc/lines`
 - `GET /v1/catalog/metro/lines/:lineCode/stations`
 - `GET /v1/catalog/metro/lines/:lineCode/segments`
 - `GET /v1/realtime/metro/arrivals?lineCode={lineCode}&stationCode={stationCode}`
+- `GET /v1/realtime/fgc/vehicles?lineCode={lineCode}`
+- `GET /v1/service-alerts?lang={ca|es|en}`
+- `GET /v1/nearby/stops?lat={lat}&lon={lon}&modes={metro,bus,fgc}`
 
 ## ETA vehicle simulation
 

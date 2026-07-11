@@ -37,7 +37,12 @@ export default function YouTabScreen() {
   const setSelection = useTransitStore((state) => state.setSelection);
   const metroLinesQuery = useLinesQuery('metro');
   const busLinesQuery = useLinesQuery('bus');
-  const favoriteLineDetails = [...(metroLinesQuery.data ?? []), ...(busLinesQuery.data ?? [])];
+  const fgcLinesQuery = useLinesQuery('fgc');
+  const favoriteLineDetails = [
+    ...(metroLinesQuery.data ?? []),
+    ...(busLinesQuery.data ?? []),
+    ...(fgcLinesQuery.data ?? []),
+  ];
   const [preferencesVisible, setPreferencesVisible] = useState(false);
   const visibleRecentItems = recentItems.slice(0, 3);
 
@@ -49,7 +54,7 @@ export default function YouTabScreen() {
     router.navigate({ pathname: '/', params: { planFrom: id } } as never);
   };
 
-  const openFavoriteStop = (mode: 'metro' | 'bus', lineCode: string, stationCode: string) => {
+  const openFavoriteStop = (mode: 'metro' | 'bus' | 'fgc', lineCode: string, stationCode: string) => {
     setSelection(mode, lineCode, stationCode);
     router.navigate('/');
   };
@@ -153,7 +158,7 @@ export default function YouTabScreen() {
                 <MaterialIcons name="place" size={20} color={palette.accent} />
                 <View style={styles.listText}>
                   <Text style={styles.listTitle}>{stop.stationName}</Text>
-                  <Text style={styles.listMeta}>{stop.lineCode} · {stop.mode === 'metro' ? t('metro') : t('bus')}</Text>
+                  <Text style={styles.listMeta}>{stop.lineCode} · {t(stop.mode)}</Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={22} color={palette.textSubtle} />
               </Pressable>
@@ -194,7 +199,7 @@ export default function YouTabScreen() {
                       <View style={styles.listText}>
                         <Text style={styles.listTitle}>{routeLabel}</Text>
                         <Text style={styles.listMeta}>
-                          {line.mode === 'metro' ? t('metro') : t('bus')} · {line.lineCode}
+                          {t(line.mode)} · {line.lineCode}
                         </Text>
                       </View>
                     </>

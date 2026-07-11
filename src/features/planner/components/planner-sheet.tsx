@@ -1,10 +1,25 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import {
+  ActivityIndicator,
+  AccessibilityInfo,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { TransportMode } from '@/src/domain/catalog/models';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { PlannedLeg, PlannedRoute } from '@/src/domain/planner/models';
 import { LineBadge } from '@/src/features/catalog/components/line-badge';
-import { formatDuration, getTransitRoutes } from '@/src/features/planner/utils/route-summary';
+import {
+  formatDistance,
+  formatDuration,
+  formatRouteTime,
+  getTransitRoutes,
+} from '@/src/features/planner/utils/route-summary';
+import { getPlannerRouteMode } from '@/src/features/planner/utils/route-presentation';
 import { useAppLanguage } from '@/src/i18n';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
@@ -20,23 +35,17 @@ interface PlannerSheetProps {
   requested: boolean;
   routes: PlannedRoute[];
   selectedRouteId: string | null;
+  selectedLegId: string | null;
+  isExpanded: boolean;
   isLoading: boolean;
   isError: boolean;
   onActivePointChange: (point: 'origin' | 'destination') => void;
-  onEdit: () => void;
+  onSwap: () => void;
   onUseCurrentLocation: () => void;
   onPlan: () => void;
+  onRetry: () => void;
   onRouteSelect: (routeId: string) => void;
-}
-
-function formatDistance(meters: number | undefined): string {
-  if (!meters) {
-    return '';
-  }
-  if (meters >= 1_000) {
-    return `${(meters / 1_000).toFixed(1)} km`;
-  }
-  return `${Math.round(meters)} m`;
+  onStepSelect: (legId: string) => void;
 }
 
 function getLegTitle(leg: PlannedLeg, walkLabel: string, takeLabel: string): string {
@@ -49,36 +58,13 @@ function getLegTitle(leg: PlannedLeg, walkLabel: string, takeLabel: string): str
 function getLegMeta(leg: PlannedLeg): string {
   const parts = [formatDuration(leg.durationSec)];
   const distance = formatDistance(leg.distanceMeters);
-  if (distance) {
-    parts.push(distance);
-  }
-  if (leg.routeLongName && leg.routeLongName !== leg.route) {
-    parts.push(leg.routeLongName);
-  }
+  if (distance) parts.push(distance);
+  if (leg.routeLongName && leg.routeLongName !== leg.route) parts.push(leg.routeLongName);
   return parts.join(' · ');
 }
 
-function getPointValue(
-  label: string | null,
-  hasPoint: boolean,
-  active: boolean,
-  tapMap: string,
-  notSet: string,
-): string {
-  if (label) {
-    return label;
-  }
-  return active ? tapMap : notSet;
-}
-
-function getRouteMode(route: string): TransportMode {
-  return /^L\d|^FM$/i.test(route.trim()) ? 'metro' : 'bus';
-}
-
 function getTransferLabel(transfers: number, direct: string, one: string, other: string): string {
-  if (transfers === 0) {
-    return direct;
-  }
+  if (transfers === 0) return direct;
   return transfers === 1 ? one : other.replace('{count}', String(transfers));
 }
 
@@ -89,11 +75,13 @@ function getWalkDurationSec(route: PlannedRoute): number {
   );
 }
 
-function formatWalkDuration(durationSec: number): string {
-  if (durationSec < 60) {
-    return '<1 min';
-  }
-  return formatDuration(durationSec);
+function PointBadge({ label, active }: { label: 'A' | 'B'; active: boolean }) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <View style={[styles.pointBadge, active ? styles.pointBadgeActive : null]}>
+      <Text style={styles.pointBadgeText}>{label}</Text>
+    </View>
+  );
 }
 
 export function PlannerSheet({
@@ -106,149 +94,181 @@ export function PlannerSheet({
   requested,
   routes,
   selectedRouteId,
+  selectedLegId,
+  isExpanded,
   isLoading,
   isError,
   onActivePointChange,
-  onEdit,
+  onSwap,
   onUseCurrentLocation,
   onPlan,
+  onRetry,
   onRouteSelect,
+  onStepSelect,
 }: PlannerSheetProps) {
   const palette = usePalette();
   const styles = useThemedStyles(createStyles);
-  const { t } = useAppLanguage();
+  const { language, t } = useAppLanguage();
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView | null>(null);
+  const stepOffsetsRef = useRef(new Map<string, number>());
+  const stepsOffsetRef = useRef(0);
   const selectedRoute = requested
     ? routes.find((route) => route.id === selectedRouteId) ?? routes[0] ?? null
     : null;
   const canPlan = Boolean(origin && destination);
+  const canSwap = Boolean(origin || destination);
+
+  useEffect(() => {
+    if (!isExpanded || !selectedLegId) return;
+    const offset = stepOffsetsRef.current.get(selectedLegId);
+    if (offset !== undefined) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, offset - 120), animated: true });
+    }
+  }, [isExpanded, selectedLegId]);
+
+  useEffect(() => {
+    if (!requested) return;
+    if (isLoading) {
+      AccessibilityInfo.announceForAccessibility(t('planner_calculating'));
+    } else if (isError) {
+      AccessibilityInfo.announceForAccessibility(t('planner_unavailable'));
+    } else if (routes.length === 0) {
+      AccessibilityInfo.announceForAccessibility(t('planner_no_route'));
+    } else {
+      AccessibilityInfo.announceForAccessibility(
+        t('planner_routes_found', { count: routes.length }),
+      );
+    }
+  }, [isError, isLoading, requested, routes.length, t]);
+
+  const instruction = !origin
+    ? t('planner_select_origin')
+    : !destination
+      ? t('planner_select_destination')
+      : t('planner_ready');
+
+  const renderPointRow = (
+    point: 'origin' | 'destination',
+    label: string | null,
+    hasPoint: boolean,
+    compact: boolean,
+  ) => {
+    const isOrigin = point === 'origin';
+    const active = activePoint === point && !requested;
+    const value = label ?? (active ? t('planner_tap_map') : t('planner_not_set'));
+    return (
+      <View style={[styles.pointRow, active ? styles.pointRowActive : null]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${isOrigin ? t('planner_origin') : t('planner_destination')}: ${value}`}
+          accessibilityHint={isOrigin ? t('planner_edit_origin_hint') : t('planner_edit_destination_hint')}
+          accessibilityState={{ selected: active }}
+          style={styles.pointMainAction}
+          onPress={() => onActivePointChange(point)}
+        >
+          <PointBadge label={isOrigin ? 'A' : 'B'} active={active} />
+          <View style={styles.pointTextWrap}>
+            <Text style={styles.pointLabel}>
+              {isOrigin ? t('planner_origin') : t('planner_destination')}
+            </Text>
+            <Text numberOfLines={compact ? 2 : 1} style={styles.pointValue}>
+              {value}
+            </Text>
+          </View>
+        </Pressable>
+        {isOrigin && !compact ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              userLocation ? t('planner_use_location') : t('planner_location_unavailable')
+            }
+            accessibilityState={{ disabled: !userLocation }}
+            disabled={!userLocation}
+            style={[styles.locationButton, !userLocation ? styles.unavailable : null]}
+            onPress={onUseCurrentLocation}
+          >
+            <IconSymbol name="location.fill" size={19} color={palette.textMuted} />
+          </Pressable>
+        ) : null}
+        {hasPoint ? <View accessibilityElementsHidden style={styles.pointSetIndicator} /> : null}
+      </View>
+    );
+  };
 
   return (
     <ScrollView
+      ref={scrollRef}
       contentContainerStyle={[
         styles.content,
         { paddingBottom: TAB_BAR_CLEARANCE + insets.bottom },
       ]}
       scrollIndicatorInsets={{ bottom: TAB_BAR_CLEARANCE + insets.bottom }}
     >
-      {requested ? (
-        <View style={styles.tripSummary}>
-          <View style={styles.tripSummaryText}>
-            <Text numberOfLines={1} style={styles.tripSummaryOrigin}>
-              {originLabel ?? t('planner_origin')}
-            </Text>
-            <Text style={styles.tripSummaryArrow}>{'→'}</Text>
-            <Text numberOfLines={1} style={styles.tripSummaryDestination}>
-              {destinationLabel ?? t('planner_destination')}
-            </Text>
-          </View>
-          <Pressable accessibilityRole="button" style={styles.editButton} onPress={onEdit}>
-            <Text style={styles.editButtonText}>{t('planner_edit')}</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>{t('planner_title')}</Text>
+        {canSwap ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('planner_swap')}
+            style={styles.swapButton}
+            onPress={onSwap}
+          >
+            <IconSymbol name="arrow.up.arrow.down" size={20} color={palette.accent} />
           </Pressable>
-        </View>
-      ) : (
-        <>
-          <View style={styles.header}>
-            <Text style={styles.title}>{t('planner_title')}</Text>
-          </View>
+        ) : null}
+      </View>
 
-          <View style={styles.points}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: activePoint === 'origin' }}
-              style={[styles.pointRow, activePoint === 'origin' ? styles.pointRowActive : null]}
-              onPress={() => onActivePointChange('origin')}
-            >
-              <View style={[styles.pointDot, styles.originDot]}>
-                <Text style={styles.pointDotText}>A</Text>
-              </View>
-              <View style={styles.pointTextWrap}>
-                <Text style={styles.pointLabel}>{t('planner_origin')}</Text>
-                <Text numberOfLines={1} style={styles.pointValue}>
-                  {getPointValue(originLabel, Boolean(origin), activePoint === 'origin', t('planner_tap_map'), t('planner_not_set'))}
-                </Text>
-              </View>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: activePoint === 'destination' }}
-              style={[styles.pointRow, activePoint === 'destination' ? styles.pointRowActive : null]}
-              onPress={() => onActivePointChange('destination')}
-            >
-              <View style={[styles.pointDot, styles.destinationDot]}>
-                <Text style={styles.pointDotText}>B</Text>
-              </View>
-              <View style={styles.pointTextWrap}>
-                <Text style={styles.pointLabel}>{t('planner_destination')}</Text>
-                <Text numberOfLines={1} style={styles.pointValue}>
-                  {getPointValue(
-                    destinationLabel,
-                    Boolean(destination),
-                    activePoint === 'destination',
-                    t('planner_tap_map'),
-                    t('planner_not_set'),
-                  )}
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              style={[
-                styles.secondaryButton,
-                !userLocation ? styles.secondaryButtonUnavailable : null,
-              ]}
-              onPress={onUseCurrentLocation}
-              disabled={!userLocation}
-            >
-              <Text
-                style={[
-                  styles.secondaryButtonText,
-                  !userLocation ? styles.secondaryButtonTextUnavailable : null,
-                ]}
-              >
-                {userLocation ? t('planner_use_location') : t('planner_location_unavailable')}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              style={[styles.primaryButton, !canPlan ? styles.disabled : null]}
-              onPress={onPlan}
-              disabled={!canPlan}
-            >
-              <Text style={styles.primaryButtonText}>{t('planner_plan')}</Text>
-            </Pressable>
-          </View>
-        </>
-      )}
-
-      {!requested ? <View style={styles.divider} /> : null}
+      <View style={styles.pointsCard}>
+        {renderPointRow('origin', originLabel, Boolean(origin), requested)}
+        <View style={styles.pointDivider} />
+        {renderPointRow('destination', destinationLabel, Boolean(destination), requested)}
+        <View style={styles.pointConnector} />
+      </View>
 
       {!requested ? (
-        <View style={styles.statusBlock}>
-          <Text style={styles.statusText}>{t('planner_set_points')}</Text>
-        </View>
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canPlan }}
+            disabled={!canPlan}
+            style={[styles.primaryButton, !canPlan ? styles.primaryButtonDisabled : null]}
+            onPress={onPlan}
+          >
+            <Text
+              style={[
+                styles.primaryButtonText,
+                !canPlan ? styles.primaryButtonTextDisabled : null,
+              ]}
+            >
+              {t('planner_plan')}
+            </Text>
+          </Pressable>
+          <Text accessibilityLiveRegion="polite" style={styles.instructionText}>
+            {instruction}
+          </Text>
+        </>
       ) : null}
 
       {requested && isLoading ? (
-        <View style={styles.statusBlock}>
+        <View accessibilityLiveRegion="polite" style={styles.statusBlock}>
           <ActivityIndicator color={palette.accent} />
           <Text style={styles.statusText}>{t('planner_calculating')}</Text>
         </View>
       ) : null}
 
-      {requested && isError ? (
-        <View style={styles.statusBlock}>
+      {requested && !isLoading && isError ? (
+        <View accessibilityLiveRegion="polite" style={styles.statusBlock}>
           <Text style={styles.statusTitle}>{t('planner_unavailable')}</Text>
           <Text style={styles.statusText}>{t('planner_try_later')}</Text>
+          <Pressable accessibilityRole="button" style={styles.retryButton} onPress={onRetry}>
+            <Text style={styles.retryButtonText}>{t('retry')}</Text>
+          </Pressable>
         </View>
       ) : null}
 
       {requested && !isLoading && !isError && routes.length === 0 ? (
-        <View style={styles.statusBlock}>
+        <View accessibilityLiveRegion="polite" style={styles.statusBlock}>
           <Text style={styles.statusTitle}>{t('planner_no_route')}</Text>
           <Text style={styles.statusText}>{t('planner_move_point')}</Text>
         </View>
@@ -261,66 +281,114 @@ export function PlannerSheet({
             {routes.map((route) => {
               const selected = route.id === selectedRoute?.id;
               const transitRoutes = getTransitRoutes(route);
-              const walkDurationSec = getWalkDurationSec(route);
+              const startTime = formatRouteTime(route.startTimeMs, language);
+              const endTime = formatRouteTime(route.endTimeMs, language);
+              const timeRange = startTime && endTime ? `${startTime}–${endTime}` : '';
+              const walkSummary = [
+                formatDuration(getWalkDurationSec(route)),
+                formatDistance(route.walkDistanceMeters),
+              ].filter(Boolean).join(' · ');
+
               return (
                 <Pressable
                   key={route.id}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
+                  accessibilityHint={t('planner_expand_route')}
                   style={[styles.routeRow, selected ? styles.routeRowSelected : null]}
                   onPress={() => onRouteSelect(route.id)}
                 >
+                  {selected ? <View style={styles.selectedRail} /> : null}
                   <View style={styles.routeHeader}>
-                    <Text style={styles.routeDuration}>{formatDuration(route.durationSec)}</Text>
-                    <Text style={styles.routeTransfer}>{getTransferLabel(route.transfers, t('planner_direct'), t('planner_transfers_one'), t('planner_transfers_other'))}</Text>
+                    <View style={styles.routeTimeBlock}>
+                      <Text style={styles.routeDuration}>{formatDuration(route.durationSec)}</Text>
+                      {timeRange ? <Text style={styles.routeClock}>{timeRange}</Text> : null}
+                    </View>
+                    <Text style={styles.routeTransfer}>
+                      {getTransferLabel(
+                        route.transfers,
+                        t('planner_direct'),
+                        t('planner_transfers_one'),
+                        t('planner_transfers_other'),
+                      )}
+                    </Text>
                   </View>
                   <View style={styles.routeModes}>
                     {transitRoutes.length === 0 ? (
-                      <View style={styles.walkBadge}>
-                        <Text style={styles.walkBadgeText}>{t('planner_walk')}</Text>
-                      </View>
+                      <Text style={styles.walkOnlyText}>{t('planner_walk')}</Text>
                     ) : (
-                      transitRoutes.map((transitRoute) => (
+                      transitRoutes.map((routeCode) => (
                         <LineBadge
-                          key={transitRoute}
-                          lineCode={transitRoute}
-                          mode={getRouteMode(transitRoute)}
+                          key={routeCode}
+                          lineCode={routeCode}
+                          mode={getPlannerRouteMode(routeCode)}
                           shape="pill"
                           size="small"
                         />
                       ))
                     )}
-                    <View style={styles.walkDistanceBadge}>
-                      <Text style={styles.walkDistanceText}>
-                        {t('planner_walk_summary', {
-                          duration: formatWalkDuration(walkDurationSec),
-                          distance: formatDistance(route.walkDistanceMeters),
-                        })}
-                      </Text>
+                    <View style={styles.walkMeta}>
+                      <IconSymbol name="figure.walk" size={16} color={palette.textMuted} />
+                      <Text style={styles.walkMetaText}>{walkSummary}</Text>
                     </View>
                   </View>
-                  {selected ? (
-                    <View style={styles.routeSteps}>
-                      <Text style={styles.routeStepsLabel}>{t('planner_steps')}</Text>
-                      <View style={styles.steps}>
-                        {route.legs.map((leg, index) => (
-                          <View key={leg.id} style={styles.stepRow}>
-                            <View style={styles.stepIndex}>
-                              <Text style={styles.stepIndexText}>{index + 1}</Text>
-                            </View>
-                            <View style={styles.stepTextWrap}>
-                              <Text style={styles.stepTitle}>{getLegTitle(leg, t('planner_walk_to'), t('planner_take_to'))}</Text>
-                              <Text style={styles.stepMeta}>{getLegMeta(leg)}</Text>
-                            </View>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  ) : null}
                 </Pressable>
               );
             })}
           </View>
+          {selectedRoute && isExpanded ? (
+            <View
+              style={styles.routeSteps}
+              onLayout={(event) => {
+                stepsOffsetRef.current = event.nativeEvent.layout.y;
+              }}
+            >
+              <Text style={styles.routeStepsLabel}>{t('planner_steps')}</Text>
+              {selectedRoute.legs.map((leg, index) => {
+                const stepSelected = selectedLegId === leg.id;
+                const handleLayout = (event: LayoutChangeEvent) => {
+                  const offset = stepsOffsetRef.current + event.nativeEvent.layout.y;
+                  stepOffsetsRef.current.set(leg.id, offset);
+                  if (stepSelected) {
+                    requestAnimationFrame(() => {
+                      scrollRef.current?.scrollTo({ y: Math.max(0, offset - 120), animated: true });
+                    });
+                  }
+                };
+                return (
+                  <Pressable
+                    key={leg.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: stepSelected }}
+                    style={[styles.stepRow, stepSelected ? styles.stepRowSelected : null]}
+                    onLayout={handleLayout}
+                    onPress={() => onStepSelect(leg.id)}
+                  >
+                    <View style={styles.stepMarkerColumn}>
+                      {index < selectedRoute.legs.length - 1 ? <View style={styles.timelineLine} /> : null}
+                      {leg.mode === 'transit' && leg.route ? (
+                        <LineBadge
+                          lineCode={leg.route}
+                          mode={getPlannerRouteMode(leg.route)}
+                          size="small"
+                        />
+                      ) : (
+                        <View style={styles.walkStepIcon}>
+                          <IconSymbol name="figure.walk" size={18} color={palette.textMuted} />
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.stepTextWrap}>
+                      <Text style={styles.stepTitle}>
+                        {getLegTitle(leg, t('planner_walk_to'), t('planner_take_to'))}
+                      </Text>
+                      <Text style={styles.stepMeta}>{getLegMeta(leg)}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
         </>
       ) : null}
     </ScrollView>
@@ -328,300 +396,57 @@ export function PlannerSheet({
 }
 
 const createStyles = (palette: Palette) => StyleSheet.create({
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 28,
-    gap: 10,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  title: {
-    color: palette.text,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  tripSummary: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: palette.surfaceTranslucent,
-    borderWidth: 1,
-    borderColor: palette.borderStrong,
-  },
-  tripSummaryText: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  tripSummaryOrigin: {
-    maxWidth: '42%',
-    color: palette.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  tripSummaryArrow: {
-    color: palette.textSubtle,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  tripSummaryDestination: {
-    flex: 1,
-    color: palette.text,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  editButton: {
-    minHeight: 34,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  editButtonText: {
-    color: palette.accent,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  points: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-  },
-  pointRow: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-  },
-  pointRowActive: {
-    backgroundColor: palette.accentSoft,
-  },
-  pointDot: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  originDot: {
-    backgroundColor: palette.statusOk,
-  },
-  destinationDot: {
-    backgroundColor: palette.danger,
-  },
-  pointDotText: {
-    color: palette.textInverse,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  pointTextWrap: {
-    flex: 1,
-  },
-  pointLabel: {
-    color: palette.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  pointValue: {
-    color: palette.text,
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 1,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  secondaryButton: {
-    flex: 1,
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: palette.divider,
-    borderWidth: 1,
-    borderColor: palette.borderStrong,
-  },
-  secondaryButtonUnavailable: {
-    backgroundColor: palette.background,
-    borderColor: palette.border,
-  },
-  secondaryButtonText: {
-    color: palette.text,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  secondaryButtonTextUnavailable: {
-    color: palette.textMuted,
-  },
-  primaryButton: {
-    flex: 1,
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: palette.accent,
-  },
-  primaryButtonText: {
-    color: palette.onAccent,
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  disabled: {
-    opacity: 0.45,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: palette.divider,
-  },
-  statusBlock: {
-    minHeight: 84,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-  },
-  statusTitle: {
-    color: palette.text,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  statusText: {
-    color: palette.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  sectionLabel: {
-    color: palette.textMuted,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  routeList: {
-    gap: 8,
-  },
-  routeRow: {
-    minHeight: 92,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: palette.surfaceTranslucent,
-    borderWidth: 1,
-    borderColor: palette.border,
-    gap: 10,
-  },
-  routeRowSelected: {
-    backgroundColor: palette.surfaceElevated,
-    borderColor: palette.accent,
-  },
-  routeHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  routeDuration: {
-    color: palette.text,
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  routeTransfer: {
-    color: palette.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  routeModes: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 7,
-  },
-  walkBadge: {
-    height: 34,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 17,
-    backgroundColor: palette.accent,
-  },
-  walkBadgeText: {
-    color: palette.onAccent,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  walkDistanceBadge: {
-    height: 34,
-    justifyContent: 'center',
-    paddingHorizontal: 11,
-    borderRadius: 17,
-    backgroundColor: palette.accentSoft,
-    borderWidth: 1,
-    borderColor: palette.accent,
-  },
-  walkDistanceText: {
-    color: palette.accent,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  routeSteps: {
-    gap: 10,
-    marginTop: 2,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.borderStrong,
-  },
-  routeStepsLabel: {
-    color: palette.textMuted,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  steps: {
-    gap: 12,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  stepIndex: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.divider,
-  },
-  stepIndexText: {
-    color: palette.textMuted,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  stepTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  stepTitle: {
-    color: palette.text,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  stepMeta: {
-    color: palette.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
+  content: { paddingHorizontal: 20, paddingTop: 4, gap: 12 },
+  header: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { color: palette.text, fontSize: 21, fontWeight: '900' },
+  swapButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
+  pointsCard: { position: 'relative', borderRadius: 14, borderWidth: 1, borderColor: palette.borderStrong, backgroundColor: palette.surfaceTranslucent, overflow: 'hidden' },
+  pointRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center' },
+  pointRowActive: { backgroundColor: palette.accentSoft },
+  pointMainAction: { flex: 1, minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 12, paddingVertical: 8 },
+  pointBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceStrong, borderWidth: 2, borderColor: 'transparent' },
+  pointBadgeActive: { borderColor: palette.accent },
+  pointBadgeText: { color: palette.textInverse, fontSize: 12, fontWeight: '900' },
+  pointTextWrap: { flex: 1, minWidth: 0 },
+  pointLabel: { color: palette.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  pointValue: { color: palette.text, fontSize: 14, lineHeight: 19, fontWeight: '800', marginTop: 1 },
+  pointDivider: { height: StyleSheet.hairlineWidth, marginLeft: 52, backgroundColor: palette.border },
+  pointConnector: { position: 'absolute', left: 25, top: 45, width: 2, height: 34, backgroundColor: palette.borderStrong },
+  locationButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: 6, borderRadius: 22 },
+  unavailable: { opacity: 0.35 },
+  pointSetIndicator: { width: 5, height: 5, borderRadius: 3, backgroundColor: palette.accent, marginRight: 10 },
+  primaryButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: palette.accent },
+  primaryButtonDisabled: { backgroundColor: palette.divider },
+  primaryButtonText: { color: palette.onAccent, fontSize: 15, fontWeight: '900' },
+  primaryButtonTextDisabled: { color: palette.textMuted },
+  instructionText: { color: palette.textMuted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  statusBlock: { minHeight: 110, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 16 },
+  statusTitle: { color: palette.text, fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  statusText: { color: palette.textMuted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  retryButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 18, borderRadius: 22, backgroundColor: palette.accent },
+  retryButtonText: { color: palette.onAccent, fontSize: 14, fontWeight: '800' },
+  sectionLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
+  routeList: { gap: 10 },
+  routeRow: { position: 'relative', minHeight: 96, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: palette.surfaceTranslucent, borderWidth: 1, borderColor: palette.border, gap: 10, overflow: 'hidden' },
+  routeRowSelected: { backgroundColor: palette.surfaceElevated, borderColor: palette.borderStrong },
+  selectedRail: { position: 'absolute', top: 0, bottom: 0, left: 0, width: 4, backgroundColor: palette.accent },
+  routeHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  routeTimeBlock: { flexDirection: 'row', alignItems: 'baseline', gap: 9 },
+  routeDuration: { color: palette.text, fontSize: 21, fontWeight: '900' },
+  routeClock: { color: palette.textMuted, fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  routeTransfer: { color: palette.textMuted, fontSize: 13, fontWeight: '700', marginTop: 4 },
+  routeModes: { minHeight: 34, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 7 },
+  walkOnlyText: { color: palette.text, fontSize: 14, fontWeight: '800' },
+  walkMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 5 },
+  walkMetaText: { color: palette.textMuted, fontSize: 12, fontWeight: '700' },
+  routeSteps: { gap: 8, paddingTop: 4 },
+  routeStepsLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: 0.7, textTransform: 'uppercase' },
+  stepRow: { minHeight: 64, flexDirection: 'row', gap: 12, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 12 },
+  stepRowSelected: { backgroundColor: palette.accentSoft },
+  stepMarkerColumn: { width: 36, alignItems: 'center' },
+  timelineLine: { position: 'absolute', top: 34, bottom: -20, width: 2, backgroundColor: palette.borderStrong },
+  walkStepIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.divider },
+  stepTextWrap: { flex: 1, minWidth: 0, gap: 3, paddingTop: 2 },
+  stepTitle: { color: palette.text, fontSize: 15, lineHeight: 20, fontWeight: '800' },
+  stepMeta: { color: palette.textMuted, fontSize: 13, lineHeight: 18 },
 });

@@ -13,6 +13,7 @@ import { FamilyFilter } from '@/src/features/station/components/family-filter';
 import { SearchShell } from '@/src/features/station/components/search-shell';
 import { NearbyControl } from '@/src/features/nearby/components/nearby-control';
 import { RouteControl } from '@/src/features/planner/components/route-control';
+import type { RouteLandmark } from '@/src/features/planner/utils/route-presentation';
 import {
   useNearbyStopsQuery,
   type NearbyStop,
@@ -46,12 +47,20 @@ interface MapScreenProps {
   onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
   plannerEnabled?: boolean;
   plannerOrigin?: { lat: number; lon: number } | null;
+  plannerOriginLabel?: string | null;
   plannerDestination?: { lat: number; lon: number } | null;
+  plannerDestinationLabel?: string | null;
+  plannerActivePoint?: 'origin' | 'destination';
+  plannerEditing?: boolean;
+  plannerLandmarks?: RouteLandmark[];
   plannerRoutePolylines?: PlannerMapPolyline[];
   plannerFocusKey?: string | null;
+  plannerStepFocus?: { key: string; coordinate: { lat: number; lon: number } } | null;
+  selectedPlannerLegId?: string | null;
   placeToSave?: boolean;
   onPlannerToggle?: () => void;
   onPlannerMapPress?: (coordinate: { lat: number; lon: number }) => void;
+  onPlannerMarkerPress?: (legId: string | undefined) => void;
   onPlaceSaveMapPress?: (coordinate: { lat: number; lon: number }) => void;
 }
 
@@ -73,12 +82,20 @@ export function MapScreen({
   onUserLocationChange,
   plannerEnabled = false,
   plannerOrigin = null,
+  plannerOriginLabel = null,
   plannerDestination = null,
+  plannerDestinationLabel = null,
+  plannerActivePoint = 'destination',
+  plannerEditing = true,
+  plannerLandmarks = [],
   plannerRoutePolylines = [],
   plannerFocusKey = null,
+  plannerStepFocus = null,
+  selectedPlannerLegId = null,
   placeToSave = false,
   onPlannerToggle,
   onPlannerMapPress,
+  onPlannerMarkerPress,
   onPlaceSaveMapPress,
 }: MapScreenProps) {
   const styles = useThemedStyles(createStyles);
@@ -177,25 +194,60 @@ export function MapScreen({
     if (!plannerEnabled) {
       return [];
     }
-    const markers: PlannerMapMarker[] = [];
-    if (plannerOrigin) {
-      markers.push({
-        id: 'origin',
-        label: 'A',
-        coordinate: plannerOrigin,
-        kind: 'origin',
-      });
-    }
-    if (plannerDestination) {
-      markers.push({
-        id: 'destination',
-        label: 'B',
-        coordinate: plannerDestination,
-        kind: 'destination',
-      });
-    }
-    return markers;
-  }, [plannerDestination, plannerEnabled, plannerOrigin]);
+    const landmarks = plannerLandmarks.length > 0
+      ? plannerLandmarks
+      : [
+          ...(plannerOrigin
+            ? [{
+                id: 'origin',
+                kind: 'origin' as const,
+                name: plannerOriginLabel ?? t('planner_origin'),
+                coordinate: plannerOrigin,
+              }]
+            : []),
+          ...(plannerDestination
+            ? [{
+                id: 'destination',
+                kind: 'destination' as const,
+                name: plannerDestinationLabel ?? t('planner_destination'),
+                coordinate: plannerDestination,
+              }]
+            : []),
+        ];
+
+    return landmarks.map((landmark) => {
+      const label = landmark.kind === 'origin' ? 'A' : landmark.kind === 'destination' ? 'B' : '';
+      const accessibilityLabel = landmark.kind === 'origin'
+        ? `${t('planner_origin')}: ${landmark.name}`
+        : landmark.kind === 'destination'
+          ? `${t('planner_destination')}: ${landmark.name}`
+          : landmark.kind === 'boarding'
+            ? t('planner_marker_boarding', { name: landmark.name })
+            : landmark.kind === 'transfer'
+              ? t('planner_marker_transfer', { name: landmark.name })
+              : t('planner_marker_alighting', { name: landmark.name });
+      return {
+        ...landmark,
+        label,
+        accessibilityLabel,
+        selected:
+          landmark.kind === 'origin' || landmark.kind === 'destination'
+            ? plannerEditing && plannerActivePoint === landmark.kind
+            : landmark.legId === selectedPlannerLegId,
+      };
+    });
+  }, [
+    plannerActivePoint,
+    plannerDestination,
+    plannerDestinationLabel,
+    plannerEditing,
+    plannerEnabled,
+    plannerLandmarks,
+    plannerOrigin,
+    plannerOriginLabel,
+    selectedPlannerLegId,
+    t,
+  ]);
 
   const plannerPolylines = useMemo<PlannerMapPolyline[]>(() => {
     if (!plannerEnabled) {
@@ -274,6 +326,7 @@ export function MapScreen({
         plannerMarkers={plannerMarkers}
         plannerPolylines={plannerPolylines}
         plannerFocusKey={plannerFocusKey}
+        plannerStepFocus={plannerStepFocus}
         explorationVisible={explorationVisible}
         bottomActions={
           showBackButton ? null : (
@@ -294,6 +347,7 @@ export function MapScreen({
         onUserLocationChange={handleUserLocationChange}
         onNearbyStopPress={handleNearbyStopPress}
         onMapPress={handleMapPress}
+        onPlannerMarkerPress={onPlannerMarkerPress}
       />
 
       {showBackButton || explorationVisible ? (

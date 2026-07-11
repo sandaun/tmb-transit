@@ -25,6 +25,8 @@ const MAPPING = {
   'location.fill': 'my-location',
   'location.magnifyingglass': 'travel-explore',
   'arrow.triangle.turn.up.right.diamond.fill': 'directions',
+  'arrow.up.arrow.down': 'swap-vert',
+  'figure.walk': 'directions-walk',
   'tram.fill': 'tram',
   'star.fill': 'star',
   'person.fill': 'person',

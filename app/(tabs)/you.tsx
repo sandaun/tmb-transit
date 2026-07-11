@@ -285,6 +285,7 @@ export default function YouTabScreen() {
               ))}
             </View>
             <Pressable accessibilityRole="button" style={styles.clearButton} onPress={confirmClear}>
+              <MaterialIcons name="delete-outline" size={20} color={palette.danger} />
               <Text style={styles.clearButtonText}>{t('saved_clear_data')}</Text>
             </Pressable>
           </View>
@@ -332,7 +333,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   languageButtonActive: { borderColor: palette.accent, backgroundColor: palette.accent },
   languageText: { color: palette.text, fontSize: 13, fontWeight: '700' },
   languageTextActive: { color: palette.onAccent },
-  clearButton: { alignSelf: 'flex-start', paddingVertical: 4 },
+  clearButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 10, borderWidth: 1, borderColor: palette.danger, backgroundColor: palette.dangerSoft, paddingHorizontal: 14, paddingVertical: 10 },
   clearButtonText: { color: palette.danger, fontSize: 14, fontWeight: '800' },
   modalSafeArea: { flex: 1, backgroundColor: palette.background, padding: 16 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },

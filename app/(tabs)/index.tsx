@@ -273,7 +273,9 @@ export default function MapTabScreen() {
   }, [detentIndex, insets.top, windowHeight]);
 
   useEffect(() => {
-    if (!preferencesHydrated || !lastMapSelection || selectedLineCode) {
+    // Restore only the initial null selection. An empty line code is used while
+    // a user-requested mode change loads its default line and must not be reset.
+    if (!preferencesHydrated || !lastMapSelection || selectedLineCode !== null) {
       return;
     }
     setSelection(

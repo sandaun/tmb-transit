@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { getNearbyStops } from '../tmb/nearby-stops';
 import type { TransportMode } from '../types/api';
+import { toSafeErrorDetails } from '../utils/safe-logging';
 
 const querySchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
@@ -46,7 +47,7 @@ export const nearbyRoutes: FastifyPluginAsync = async (fastify) => {
         meta: { source: 'tmb-transit', modes, radius: query.radius },
       };
     } catch (error) {
-      fastify.log.error(error);
+      fastify.log.error({ error: toSafeErrorDetails(error) }, 'Nearby stops upstream failed');
       return reply.status(502).send({ error: 'Upstream unavailable' });
     }
   });

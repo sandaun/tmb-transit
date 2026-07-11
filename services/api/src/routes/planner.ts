@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
 
 import { getPlannedRoutes } from '../tmb/planner-client';
+import { toSafeErrorDetails } from '../utils/safe-logging';
 
 const querySchema = z.object({
   fromLat: z.coerce.number().min(-90).max(90),
@@ -25,7 +26,7 @@ export const plannerRoutes: FastifyPluginAsync = async (fastify) => {
         meta: { source: 'tmb-planner' },
       };
     } catch (error) {
-      fastify.log.error(error);
+      fastify.log.error({ error: toSafeErrorDetails(error) }, 'Planner upstream failed');
       return reply.status(502).send({ error: 'Planner unavailable' });
     }
   });

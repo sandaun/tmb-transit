@@ -10,10 +10,11 @@ import { nearbyRoutes } from './routes/nearby';
 import { plannerRoutes } from './routes/planner';
 import { realtimeRoutes } from './routes/realtime';
 import { serviceAlertsRoutes } from './routes/service-alerts';
+import { createLoggerOptions, toSafeErrorDetails } from './utils/safe-logging';
 
 export function createApp() {
   const app = Fastify({
-    logger: true,
+    logger: createLoggerOptions(),
   });
 
   app.register(cors, { origin: true });
@@ -41,7 +42,7 @@ export function createApp() {
       return;
     }
 
-    app.log.error(error);
+    app.log.error({ error: toSafeErrorDetails(error) }, 'Unhandled request error');
     void reply.status(500).send({
       error: 'Internal Server Error',
     });
@@ -60,7 +61,7 @@ const start = async () => {
       port: env.port,
     });
   } catch (error) {
-    app.log.error(error);
+    app.log.error({ error: toSafeErrorDetails(error) }, 'API startup failed');
     process.exit(1);
   }
 };

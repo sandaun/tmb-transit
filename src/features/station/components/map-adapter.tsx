@@ -21,6 +21,10 @@ import { useAppLanguage } from '@/src/i18n';
 import type { Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
+import {
+  getPlannerRouteMode,
+  type RouteLandmarkKind,
+} from '@/src/features/planner/utils/route-presentation';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -38,8 +42,14 @@ interface NearbyStopMarker {
 export interface PlannerMapMarker {
   id: string;
   label: string;
+  name: string;
   coordinate: { lat: number; lon: number };
-  kind: 'origin' | 'destination';
+  kind: RouteLandmarkKind;
+  legId?: string;
+  incomingRoute?: string;
+  outgoingRoute?: string;
+  selected?: boolean;
+  accessibilityLabel: string;
 }
 
 export interface PlannerMapPolyline {
@@ -62,12 +72,14 @@ interface MapAdapterProps {
   plannerMarkers?: PlannerMapMarker[];
   plannerPolylines?: PlannerMapPolyline[];
   plannerFocusKey?: string | null;
+  plannerStepFocus?: { key: string; coordinate: { lat: number; lon: number } } | null;
   explorationVisible?: boolean;
   bottomActions?: React.ReactNode;
   onStationPress: (stationCode: string) => void;
   onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
   onNearbyStopPress?: (stop: NearbyStopMarker) => void;
   onMapPress?: (coordinate: { lat: number; lon: number }) => void;
+  onPlannerMarkerPress?: (legId: string | undefined) => void;
 }
 
 interface RoutePolyline {
@@ -162,12 +174,14 @@ export function MapAdapter({
   plannerMarkers = [],
   plannerPolylines = [],
   plannerFocusKey = null,
+  plannerStepFocus = null,
   explorationVisible = true,
   bottomActions,
   onStationPress,
   onUserLocationChange,
   onNearbyStopPress,
   onMapPress,
+  onPlannerMarkerPress,
 }: MapAdapterProps) {
   const colorScheme = useColorScheme();
   const palette = usePalette();
@@ -199,6 +213,7 @@ export function MapAdapter({
 
   const shouldCenterOnNextUserLocationRef = useRef(false);
   const lastPlannerFocusKeyRef = useRef<string | null>(null);
+  const lastPlannerStepFocusKeyRef = useRef<string | null>(null);
   const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userCoordinate, setUserCoordinate] = useState<LatLng | null>(null);
   const [latitudeDelta, setLatitudeDelta] = useState(0.05);
@@ -408,51 +423,44 @@ export function MapAdapter({
       return;
     }
 
-    const points = plannerPolylines
+    const points = [
+      ...plannerPolylines
       .flatMap((polyline) => polyline.points)
       .filter(
         (point) => Number.isFinite(point.lat) && Number.isFinite(point.lon),
-      );
+      ),
+      ...plannerMarkers.map((marker) => marker.coordinate),
+    ];
     if (points.length < 2) {
       return;
     }
 
-    let minLat = points[0].lat;
-    let maxLat = points[0].lat;
-    let minLon = points[0].lon;
-    let maxLon = points[0].lon;
-
-    for (const point of points.slice(1)) {
-      minLat = Math.min(minLat, point.lat);
-      maxLat = Math.max(maxLat, point.lat);
-      minLon = Math.min(minLon, point.lon);
-      maxLon = Math.max(maxLon, point.lon);
-    }
-
-    const latSpan = maxLat - minLat;
-    const lonSpan = maxLon - minLon;
-    const nextLatitudeDelta = Math.min(
-      0.05,
-      Math.max(0.012, latSpan * 1.5, lonSpan * 1.1),
-    );
-    const nextLongitudeDelta = Math.min(
-      0.065,
-      Math.max(0.012, lonSpan * 1.45, nextLatitudeDelta * 0.8),
-    );
-    const routeCenterLat = (minLat + maxLat) / 2;
-    const routeCenterLon = (minLon + maxLon) / 2;
-
     lastPlannerFocusKeyRef.current = plannerFocusKey;
-    mapRef.current?.animateToRegion(
-      {
-        latitude: routeCenterLat - nextLatitudeDelta * 0.22,
-        longitude: routeCenterLon,
-        latitudeDelta: nextLatitudeDelta,
-        longitudeDelta: nextLongitudeDelta,
+    mapRef.current?.fitToCoordinates(points.map(toMapCoordinate), {
+      animated: true,
+      edgePadding: {
+        top: 80,
+        right: 56,
+        bottom: Math.max(140, bottomInset + 32),
+        left: 56,
       },
-      MAP_CENTER_ANIMATION_MS,
-    );
-  }, [isMapReady, plannerFocusKey, plannerPolylines]);
+    });
+  }, [bottomInset, isMapReady, plannerFocusKey, plannerMarkers, plannerPolylines]);
+
+  useEffect(() => {
+    if (!plannerStepFocus) {
+      lastPlannerStepFocusKeyRef.current = null;
+      return;
+    }
+    if (
+      !isMapReady ||
+      plannerStepFocus.key === lastPlannerStepFocusKeyRef.current
+    ) {
+      return;
+    }
+    lastPlannerStepFocusKeyRef.current = plannerStepFocus.key;
+    centerMap(toMapCoordinate(plannerStepFocus.coordinate), 0.018);
+  }, [centerMap, isMapReady, plannerStepFocus]);
 
   const handleStationPress = useCallback(
     (stationCode: string) => {
@@ -712,7 +720,8 @@ export function MapAdapter({
 
         {plannerMarkers.map((marker) => (
           <Marker
-            key={`planner-marker:${marker.id}`}
+            key={`planner-marker:${marker.id}:${marker.selected ? 'selected' : 'idle'}`}
+            accessibilityLabel={marker.accessibilityLabel}
             anchor={STATION_MARKER_ANCHOR}
             centerOffset={STATION_MARKER_CENTER_OFFSET}
             coordinate={{
@@ -721,8 +730,9 @@ export function MapAdapter({
             }}
             tracksViewChanges={false}
             zIndex={60}
+            onPress={() => onPlannerMarkerPress?.(marker.legId)}
           >
-            <PlannerMarkerPill label={marker.label} kind={marker.kind} />
+            <PlannerMarker marker={marker} />
           </Marker>
         ))}
 
@@ -878,22 +888,57 @@ function StationNameLabel({
   );
 }
 
-function PlannerMarkerPill({
-  label,
-  kind,
-}: {
-  label: string;
-  kind: 'origin' | 'destination';
-}) {
+function PlannerMarker({ marker }: { marker: PlannerMapMarker }) {
+  const palette = usePalette();
   const styles = useThemedStyles(createStyles);
+  const isEndpoint = marker.kind === 'origin' || marker.kind === 'destination';
+  const route = marker.outgoingRoute ?? marker.incomingRoute;
+  const routeBrand = route
+    ? getLineBrand(getPlannerRouteMode(route), route)
+    : null;
+
+  if (!isEndpoint) {
+    return (
+      <View style={styles.plannerStopWrap}>
+        <View
+          style={[
+            styles.plannerStopMarker,
+            marker.kind === 'transfer' ? styles.plannerTransferMarker : null,
+            marker.selected ? styles.plannerMarkerSelected : null,
+          ]}
+        >
+          {marker.kind === 'transfer' ? (
+            <View style={styles.transferRoutes}>
+              {[marker.incomingRoute, marker.outgoingRoute]
+                .filter((routeCode): routeCode is string => Boolean(routeCode))
+                .map((routeCode) => {
+                  const brand = getLineBrand(getPlannerRouteMode(routeCode), routeCode);
+                  return (
+                    <View key={routeCode} style={[styles.transferRoute, { backgroundColor: brand.backgroundColor }]}>
+                      <Text style={[styles.transferRouteText, { color: brand.textColor }]}>{brand.label}</Text>
+                    </View>
+                  );
+                })}
+            </View>
+          ) : (
+            <View style={[styles.stopDot, { backgroundColor: routeBrand?.backgroundColor ?? palette.surfaceStrong }]} />
+          )}
+        </View>
+        {marker.kind === 'transfer' ? (
+          <View style={styles.plannerStopLabel}>
+            <Text numberOfLines={1} style={styles.plannerStopLabelText}>{marker.name}</Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
-    <View
-      style={[
-        styles.plannerMarker,
-        kind === 'origin' ? styles.plannerMarkerOrigin : styles.plannerMarkerDestination,
-      ]}
-    >
-      <Text style={styles.plannerMarkerText}>{label}</Text>
+    <View style={styles.plannerEndpointWrap}>
+      <View style={[styles.plannerMarker, marker.selected ? styles.plannerMarkerSelected : null]}>
+        <Text style={styles.plannerMarkerText}>{marker.label}</Text>
+      </View>
+      {marker.kind === 'destination' ? <View style={styles.destinationTail} /> : null}
     </View>
   );
 }
@@ -1043,6 +1088,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
+    backgroundColor: palette.surfaceStrong,
     borderWidth: 2,
     borderColor: palette.surface,
     shadowColor: palette.shadow,
@@ -1051,15 +1097,84 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
-  plannerMarkerOrigin: {
-    backgroundColor: palette.statusOk,
+  plannerEndpointWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  plannerMarkerDestination: {
-    backgroundColor: palette.danger,
+  plannerMarkerSelected: {
+    borderColor: palette.accent,
+    borderWidth: 4,
+  },
+  destinationTail: {
+    width: 10,
+    height: 10,
+    marginTop: -7,
+    transform: [{ rotate: '45deg' }],
+    backgroundColor: palette.surfaceStrong,
+    borderRightWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: palette.surface,
   },
   plannerMarkerText: {
     color: palette.textInverse,
     fontSize: 13,
+    fontWeight: '800',
+  },
+  plannerStopWrap: {
+    alignItems: 'center',
+  },
+  plannerStopMarker: {
+    minWidth: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    borderWidth: 3,
+    borderColor: palette.surface,
+    backgroundColor: palette.surface,
+    shadowColor: palette.shadow,
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  plannerTransferMarker: {
+    minWidth: 56,
+    paddingHorizontal: 3,
+  },
+  stopDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  transferRoutes: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  transferRoute: {
+    minWidth: 23,
+    height: 20,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 7,
+  },
+  transferRouteText: {
+    fontSize: 8,
+    fontWeight: '900',
+  },
+  plannerStopLabel: {
+    maxWidth: 132,
+    marginTop: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: palette.surfaceTranslucent,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+  },
+  plannerStopLabelText: {
+    color: palette.text,
+    fontSize: 10,
     fontWeight: '800',
   },
   stationNameLabel: {

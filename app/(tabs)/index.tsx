@@ -23,18 +23,21 @@ import {
   fetchAndCacheLines,
   useLinesQuery,
 } from '@/src/features/catalog/hooks/use-lines-query';
-import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { PlannerSheet } from '@/src/features/planner/components/planner-sheet';
 import { usePlannedRoutesQuery } from '@/src/features/planner/hooks/use-planned-routes-query';
 import { sortPlannedRoutes } from '@/src/features/planner/utils/route-summary';
+import {
+  buildRouteLandmarks,
+  buildRoutePolylines,
+  coordinatesAreNear,
+  type RouteLandmark,
+} from '@/src/features/planner/utils/route-presentation';
 import {
   LocalBottomSheet,
   type LocalBottomSheetHandle,
 } from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
 import { MapScreen } from '@/src/features/station/components/map-screen';
-import type { PlannerMapPolyline } from '@/src/features/station/components/map-adapter';
 import type { NearbyStop } from '@/src/features/nearby/hooks/use-nearby-stops-query';
-import type { PlannedLeg, PlannedRoute } from '@/src/domain/planner/models';
 import { StationContent } from '@/src/features/station/components/station-content';
 import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
 import type { SavedPlaceId } from '@/src/features/preferences/models';
@@ -93,86 +96,6 @@ async function resolvePlannerPointLabel(coordinate: { lat: number; lon: number }
   } catch {
     return formatCoordinateLabel(coordinate);
   }
-}
-
-function getLegPoints(leg: PlannedLeg): { lat: number; lon: number }[] {
-  if (leg.points.length > 1) {
-    return leg.points;
-  }
-  if (
-    leg.from.lat !== undefined &&
-    leg.from.lon !== undefined &&
-    leg.to.lat !== undefined &&
-    leg.to.lon !== undefined
-  ) {
-    return [
-      { lat: leg.from.lat, lon: leg.from.lon },
-      { lat: leg.to.lat, lon: leg.to.lon },
-    ];
-  }
-  return [];
-}
-
-function getPlannedLegTransportMode(leg: PlannedLeg): TransportMode {
-  const route = leg.route?.trim().toUpperCase() ?? '';
-  return /^L\d|^FM$/.test(route) ? 'metro' : 'bus';
-}
-
-function normalizePlannerPointName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-function isInternalTransferWalk(
-  leg: PlannedLeg,
-  previousLeg: PlannedLeg | undefined,
-  nextLeg: PlannedLeg | undefined,
-): boolean {
-  if (leg.mode !== 'walk' || previousLeg?.mode !== 'transit' || nextLeg?.mode !== 'transit') {
-    return false;
-  }
-
-  const fromName = normalizePlannerPointName(leg.from.name);
-  const toName = normalizePlannerPointName(leg.to.name);
-  if (fromName && toName && fromName === toName) {
-    return true;
-  }
-
-  return (leg.distanceMeters ?? Number.POSITIVE_INFINITY) <= 80;
-}
-
-function getRoutePolylines(route: PlannedRoute | null, walkColor: string): PlannerMapPolyline[] {
-  if (!route) {
-    return [];
-  }
-
-  return route.legs
-    .map((leg, index) => {
-      if (isInternalTransferWalk(leg, route.legs[index - 1], route.legs[index + 1])) {
-        return null;
-      }
-
-      const points = getLegPoints(leg);
-      if (points.length < 2) {
-        return null;
-      }
-
-      const color =
-        leg.mode === 'walk'
-          ? walkColor
-          : getLineBrand(getPlannedLegTransportMode(leg), leg.route ?? '').backgroundColor;
-
-      return {
-        id: leg.id,
-        points,
-        color,
-      };
-    })
-    .filter((polyline): polyline is PlannerMapPolyline => polyline !== null);
 }
 
 export default function MapTabScreen() {
@@ -236,7 +159,7 @@ export default function MapTabScreen() {
   const [pendingMode, setPendingMode] = useState<TransportMode | null>(null);
   const [plannerEnabled, setPlannerEnabled] = useState(false);
   const [plannerActivePoint, setPlannerActivePoint] = useState<'origin' | 'destination'>(
-    'destination',
+    'origin',
   );
   const [plannerOrigin, setPlannerOrigin] = useState<{ lat: number; lon: number } | null>(null);
   const [plannerOriginLabel, setPlannerOriginLabel] = useState<string | null>(null);
@@ -249,6 +172,8 @@ export default function MapTabScreen() {
   );
   const [plannerRequested, setPlannerRequested] = useState(false);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [selectedLegId, setSelectedLegId] = useState<string | null>(null);
+  const [plannerStepFocusKey, setPlannerStepFocusKey] = useState(0);
   const [placeToSave, setPlaceToSave] = useState<SavedPlaceId | null>(null);
   const originLabelRequestRef = useRef(0);
   const destinationLabelRequestRef = useRef(0);
@@ -266,9 +191,51 @@ export default function MapTabScreen() {
     ? plannedRoutes.find((route) => route.id === selectedRouteId) ?? plannedRoutes[0] ?? null
     : null;
   const selectedRoutePolylines = useMemo(
-    () => getRoutePolylines(selectedRoute, palette.accent),
+    () => buildRoutePolylines(selectedRoute, palette.accent),
     [palette.accent, selectedRoute],
   );
+  const selectedRouteLandmarks = useMemo<RouteLandmark[]>(() => {
+    const routeLandmarks = buildRouteLandmarks(selectedRoute).filter((landmark) => {
+      if (landmark.kind === 'origin' || landmark.kind === 'destination') return false;
+      if (landmark.kind === 'boarding' && plannerOrigin) {
+        return !coordinatesAreNear(landmark.coordinate, plannerOrigin);
+      }
+      if (landmark.kind === 'alighting' && plannerDestination) {
+        return !coordinatesAreNear(landmark.coordinate, plannerDestination);
+      }
+      return true;
+    });
+    const endpoints: RouteLandmark[] = [];
+    if (plannerOrigin) {
+      endpoints.push({
+        id: 'origin',
+        kind: 'origin',
+        name: plannerOriginLabel ?? t('planner_origin'),
+        coordinate: plannerOrigin,
+        legId: selectedRoute?.legs[0]?.id,
+      });
+    }
+    if (plannerDestination) {
+      endpoints.push({
+        id: 'destination',
+        kind: 'destination',
+        name: plannerDestinationLabel ?? t('planner_destination'),
+        coordinate: plannerDestination,
+        legId: selectedRoute?.legs[selectedRoute.legs.length - 1]?.id,
+      });
+    }
+    return [...endpoints, ...routeLandmarks];
+  }, [plannerDestination, plannerDestinationLabel, plannerOrigin, plannerOriginLabel, selectedRoute, t]);
+  const focusedStepCoordinate = useMemo(() => {
+    if (!selectedLegId || !selectedRoute) return null;
+    const landmark = selectedRouteLandmarks.find((item) => item.legId === selectedLegId);
+    if (landmark) return landmark.coordinate;
+    const leg = selectedRoute.legs.find((item) => item.id === selectedLegId);
+    if (leg?.to.lat !== undefined && leg.to.lon !== undefined) {
+      return { lat: leg.to.lat, lon: leg.to.lon };
+    }
+    return null;
+  }, [selectedLegId, selectedRoute, selectedRouteLandmarks]);
 
   const sheetHeight = useMemo(() => {
     const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
@@ -330,10 +297,7 @@ export default function MapTabScreen() {
     if (!selectedRouteId || !plannedRoutes.some((route) => route.id === selectedRouteId)) {
       setSelectedRouteId(plannedRoutes[0].id);
     }
-    if (plannerEnabled && plannerRequested) {
-      sheetRef.current?.resize(1);
-    }
-  }, [plannedRoutes, plannerEnabled, plannerRequested, selectedRouteId]);
+  }, [plannedRoutes, selectedRouteId]);
 
   const handleDetentChange = useCallback((nextDetentIndex: number) => {
     setDetentIndex(nextDetentIndex);
@@ -479,6 +443,7 @@ export default function MapTabScreen() {
   const resetPlannerRequest = useCallback(() => {
     setPlannerRequested(false);
     setSelectedRouteId(null);
+    setSelectedLegId(null);
   }, []);
 
   const setPlannerPoint = useCallback(
@@ -515,6 +480,7 @@ export default function MapTabScreen() {
     setPlannerEnabled((current) => {
       const next = !current;
       if (next) {
+        setPlannerActivePoint(plannerOrigin ? 'destination' : 'origin');
         sheetRef.current?.resize(1);
       } else {
         resetPlannerRequest();
@@ -522,7 +488,7 @@ export default function MapTabScreen() {
       }
       return next;
     });
-  }, [resetPlannerRequest]);
+  }, [plannerOrigin, resetPlannerRequest]);
 
   const handlePlannerMapPress = useCallback(
     (coordinate: { lat: number; lon: number }) => {
@@ -552,6 +518,24 @@ export default function MapTabScreen() {
     },
     [plannerRequested, resetPlannerRequest],
   );
+
+  const handlePlannerSwap = useCallback(() => {
+    originLabelRequestRef.current += 1;
+    destinationLabelRequestRef.current += 1;
+    setPlannerOrigin(plannerDestination);
+    setPlannerOriginLabel(plannerDestinationLabel);
+    setPlannerDestination(plannerOrigin);
+    setPlannerDestinationLabel(plannerOriginLabel);
+    setPlannerActivePoint(plannerDestination ? 'destination' : 'origin');
+    resetPlannerRequest();
+    sheetRef.current?.resize(1);
+  }, [
+    plannerDestination,
+    plannerDestinationLabel,
+    plannerOrigin,
+    plannerOriginLabel,
+    resetPlannerRequest,
+  ]);
 
   const handlePlannerUseCurrentLocation = useCallback(
     (coordinate: { lat: number; lon: number } | null) => {
@@ -587,6 +571,24 @@ export default function MapTabScreen() {
     setPlannerRequested(true);
     sheetRef.current?.resize(1);
   }, [addRecentItem, plannerDestination, plannerDestinationLabel, plannerOrigin, plannerOriginLabel]);
+
+  const handlePlannerRouteSelect = useCallback((routeId: string) => {
+    setSelectedRouteId(routeId);
+    setSelectedLegId(null);
+    sheetRef.current?.resize(2);
+  }, []);
+
+  const handlePlannerStepSelect = useCallback((legId: string) => {
+    setSelectedLegId(legId);
+    setPlannerStepFocusKey((current) => current + 1);
+    sheetRef.current?.resize(1);
+  }, []);
+
+  const handlePlannerMarkerPress = useCallback((legId: string | undefined) => {
+    if (!legId) return;
+    setSelectedLegId(legId);
+    sheetRef.current?.resize(2);
+  }, []);
 
   const handlePlaceSaveMapPress = useCallback(
     (coordinate: { lat: number; lon: number }) => {
@@ -695,12 +697,27 @@ export default function MapTabScreen() {
         onUserLocationChange={setPlannerUserLocation}
         plannerEnabled={plannerEnabled}
         plannerOrigin={plannerOrigin}
+        plannerOriginLabel={plannerOriginLabel}
         plannerDestination={plannerDestination}
+        plannerDestinationLabel={plannerDestinationLabel}
+        plannerActivePoint={plannerActivePoint}
+        plannerEditing={!plannerRequested}
+        plannerLandmarks={selectedRouteLandmarks}
         plannerRoutePolylines={selectedRoutePolylines}
         plannerFocusKey={selectedRoute?.id ?? null}
+        plannerStepFocus={
+          focusedStepCoordinate
+            ? {
+                key: `${selectedLegId ?? 'step'}:${plannerStepFocusKey}`,
+                coordinate: focusedStepCoordinate,
+              }
+            : null
+        }
+        selectedPlannerLegId={selectedLegId}
         placeToSave={Boolean(placeToSave)}
         onPlannerToggle={handlePlannerToggle}
         onPlannerMapPress={handlePlannerMapPress}
+        onPlannerMarkerPress={handlePlannerMarkerPress}
         onPlaceSaveMapPress={handlePlaceSaveMapPress}
       />
 
@@ -732,16 +749,17 @@ export default function MapTabScreen() {
               requested={plannerRequested}
               routes={plannedRoutes}
               selectedRouteId={selectedRoute?.id ?? null}
-              isLoading={plannedRoutesQuery.isLoading}
+              selectedLegId={selectedLegId}
+              isExpanded={detentIndex === 2}
+              isLoading={plannedRoutesQuery.isFetching}
               isError={plannedRoutesQuery.isError}
               onActivePointChange={handlePlannerActivePointChange}
-              onEdit={() => handlePlannerActivePointChange('destination')}
+              onSwap={handlePlannerSwap}
               onUseCurrentLocation={() => handlePlannerUseCurrentLocation(plannerUserLocation)}
               onPlan={handlePlannerPlan}
-              onRouteSelect={(routeId) => {
-                setSelectedRouteId(routeId);
-                sheetRef.current?.resize(1);
-              }}
+              onRetry={() => void plannedRoutesQuery.refetch()}
+              onRouteSelect={handlePlannerRouteSelect}
+              onStepSelect={handlePlannerStepSelect}
             />
           ) : (
             <StationContent

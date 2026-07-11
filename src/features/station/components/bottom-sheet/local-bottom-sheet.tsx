@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {
   Animated,
+  AccessibilityInfo,
   Easing,
   PanResponder,
   StyleSheet,
@@ -55,6 +56,7 @@ export const LocalBottomSheet = forwardRef<
   const insets = useSafeAreaInsets();
   const [containerHeight, setContainerHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState(initialDetentIndex);
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const animatedHeight = useRef(new Animated.Value(MIN_SHEET_HEIGHT)).current;
   const activeIndexRef = useRef(initialDetentIndex);
   const currentHeightRef = useRef(MIN_SHEET_HEIGHT);
@@ -87,6 +89,12 @@ export const LocalBottomSheet = forwardRef<
       setActiveIndex(boundedIndex);
       onDetentChange?.(boundedIndex);
 
+      if (reduceMotionEnabled) {
+        animatedHeight.setValue(nextHeight);
+        currentHeightRef.current = nextHeight;
+        return;
+      }
+
       Animated.timing(animatedHeight, {
         toValue: nextHeight,
         duration: 220,
@@ -94,7 +102,7 @@ export const LocalBottomSheet = forwardRef<
         useNativeDriver: false,
       }).start();
     },
-    [animatedHeight, detents.length, onDetentChange, snapHeights],
+    [animatedHeight, detents.length, onDetentChange, reduceMotionEnabled, snapHeights],
   );
 
   const panResponder = useMemo(
@@ -185,6 +193,15 @@ export const LocalBottomSheet = forwardRef<
   );
 
   useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotionEnabled,
+    );
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     animateToIndex(activeIndex);
   }, [activeIndex, animateToIndex, snapHeights]);
 
@@ -222,6 +239,23 @@ export const LocalBottomSheet = forwardRef<
           style={styles.handleButton}
           accessibilityRole="button"
           accessibilityLabel={t('sheet_resize')}
+          accessibilityActions={[
+            { name: 'increment', label: t('sheet_expand') },
+            { name: 'decrement', label: t('sheet_collapse') },
+          ]}
+          onAccessibilityTap={() => {
+            const nextIndex = activeIndexRef.current >= detents.length - 1
+              ? 0
+              : activeIndexRef.current + 1;
+            animateToIndex(nextIndex);
+          }}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'increment') {
+              animateToIndex(activeIndexRef.current + 1);
+            } else if (event.nativeEvent.actionName === 'decrement') {
+              animateToIndex(activeIndexRef.current - 1);
+            }
+          }}
         >
           <View style={styles.handle} />
         </View>

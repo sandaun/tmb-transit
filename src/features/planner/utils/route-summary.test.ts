@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  formatDistance,
+  formatDuration,
+  formatRouteTime,
   getRouteSummary,
   sortPlannedRoutes,
 } from '@/src/features/planner/utils/route-summary';
@@ -37,6 +40,20 @@ describe('getRouteSummary', () => {
     };
 
     assert.equal(getRouteSummary(route), '23 min · L3 + H10 · 1 transfer');
+  });
+});
+
+describe('route formatting', () => {
+  it('formats durations and metric distances', () => {
+    assert.equal(formatDuration(89), '1 min');
+    assert.equal(formatDistance(569), '569 m');
+    assert.equal(formatDistance(1_250), '1.3 km');
+    assert.equal(formatDistance(0), '');
+  });
+
+  it('formats route times with Intl', () => {
+    const value = Date.UTC(2026, 6, 11, 9, 5);
+    assert.match(formatRouteTime(value, 'en-GB'), /\d{2}:\d{2}/);
   });
 });
 

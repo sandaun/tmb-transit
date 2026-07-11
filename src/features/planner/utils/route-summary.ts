@@ -5,6 +5,26 @@ export function formatDuration(totalSec: number): string {
   return `${minutes} min`;
 }
 
+export function formatDistance(meters: number | undefined): string {
+  if (!meters || meters < 0) {
+    return '';
+  }
+  if (meters >= 1_000) {
+    return `${(meters / 1_000).toFixed(1)} km`;
+  }
+  return `${Math.round(meters)} m`;
+}
+
+export function formatRouteTime(value: number | undefined, language: string): string {
+  if (value === undefined) {
+    return '';
+  }
+  return new Intl.DateTimeFormat(language, {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(value);
+}
+
 export function getTransitRoutes(route: PlannedRoute): string[] {
   const seen = new Set<string>();
   const routes: string[] = [];

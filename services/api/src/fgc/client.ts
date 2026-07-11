@@ -6,6 +6,7 @@ import { fetchWithTimeout } from '../tmb/http';
 import type {
   ArrivalDto,
   LineDto,
+  LineServiceStatus,
   SegmentDto,
   ServiceAlertDto,
   StationDto,
@@ -38,6 +39,7 @@ const ALLOWED_LINES = new Set([
 
 interface CatalogSnapshot {
   fetchedAtMs: number;
+  catalogDate: string;
   serviceDate: string;
   lines: LineDto[];
   stationsByLine: Map<string, StationDto[]>;
@@ -69,6 +71,30 @@ interface TripRow {
   tripId: string;
   lineCode: string;
   destination: string;
+  shapeId: string;
+  serviceId: string;
+}
+
+interface StaticStop {
+  stopId: string;
+  name: string;
+  lat: number;
+  lon: number;
+  parentStation?: string;
+  wheelchairBoarding?: number;
+}
+
+interface StaticStopTime {
+  tripId: string;
+  stopId: string;
+  stopSequence: number;
+}
+
+interface StaticGtfsRows {
+  calendarDates: Record<string, unknown>[];
+  stops: Record<string, unknown>[];
+  stopTimes: Record<string, unknown>[];
+  trips: Record<string, unknown>[];
 }
 
 let catalogSnapshot: CatalogSnapshot | null = null;
@@ -139,15 +165,59 @@ async function getDatasetCsv(datasetId: string): Promise<Record<string, unknown>
   return Array.isArray(rows) ? rows.filter(isRecord) : [];
 }
 
-async function getDatasetFileUrl(datasetId: string, filename?: string): Promise<string> {
-  const records = await getDatasetRecords(datasetId, 20);
+function findDatasetFileUrl(records: unknown[], filename?: string): string | undefined {
   for (const record of records) {
     if (!isRecord(record) || !isRecord(record.file)) continue;
     const currentFilename = asString(record.file.filename);
     const url = asString(record.file.url);
     if (url && (!filename || currentFilename === filename)) return url;
   }
+  return undefined;
+}
+
+async function getDatasetFileUrl(datasetId: string, filename?: string): Promise<string> {
+  const records = await getDatasetRecords(datasetId, 20);
+  const url = findDatasetFileUrl(records, filename);
+  if (url) return url;
   throw new Error(`FGC dataset file not found: ${datasetId}${filename ? `/${filename}` : ''}`);
+}
+
+async function getCsvFileRows(url: string, filename: string): Promise<Record<string, unknown>[]> {
+  const response = await fetchWithTimeout(url);
+  if (!response.ok) {
+    throw new Error(`FGC ${filename} failed with status ${response.status}`);
+  }
+  const rows = parse(await response.text(), {
+    bom: true,
+    columns: true,
+    skip_empty_lines: true,
+  }) as unknown;
+  return Array.isArray(rows) ? rows.filter(isRecord) : [];
+}
+
+async function loadStaticGtfsRows(): Promise<StaticGtfsRows> {
+  const records = await getDatasetRecords('gtfs_zip', 20);
+  const filenames = ['stops.txt', 'stop_times.txt', 'trips.txt', 'calendar_dates.txt'] as const;
+  const urls = filenames.map((filename) => {
+    const url = findDatasetFileUrl(records, filename);
+    if (!url) throw new Error(`FGC dataset file not found: gtfs_zip/${filename}`);
+    return url;
+  });
+  const [stops, stopTimes, trips, calendarDates] = await Promise.all([
+    getCsvFileRows(urls[0], filenames[0]),
+    getCsvFileRows(urls[1], filenames[1]),
+    getCsvFileRows(urls[2], filenames[2]),
+    getCsvFileRows(urls[3], filenames[3]).catch(() => []),
+  ]);
+  return { calendarDates, stops, stopTimes, trips };
+}
+
+async function loadDailySchedule(): Promise<ScheduleRow[]> {
+  try {
+    return parseScheduleRows(await getDatasetCsv('viajes-de-hoy'));
+  } catch {
+    return [];
+  }
 }
 
 export function parseScheduleRows(rows: Record<string, unknown>[]): ScheduleRow[] {
@@ -203,61 +273,113 @@ function parseTripRows(rows: Record<string, unknown>[]): Map<string, TripRow> {
       tripId,
       lineCode,
       destination: asString(row.trip_headsign) ?? lineCode,
+      shapeId: asString(row.shape_id) ?? tripId,
+      serviceId: asString(row.service_id) ?? '',
     });
   }
   return result;
 }
 
-async function loadTrips(): Promise<Map<string, TripRow>> {
-  const fileUrl = await getDatasetFileUrl('gtfs_zip', 'trips.txt');
-  const response = await fetchWithTimeout(fileUrl);
-  if (!response.ok) throw new Error(`FGC trips file failed with status ${response.status}`);
-  const rows = parse(await response.text(), {
-    bom: true,
-    columns: true,
-    skip_empty_lines: true,
-  }) as unknown;
-  return parseTripRows(Array.isArray(rows) ? rows.filter(isRecord) : []);
+function parseStaticStops(rows: Record<string, unknown>[]): Map<string, StaticStop> {
+  const result = new Map<string, StaticStop>();
+  for (const row of rows) {
+    const stopId = asString(row.stop_id);
+    const name = asString(row.stop_name);
+    const lat = asNumber(row.stop_lat);
+    const lon = asNumber(row.stop_lon);
+    if (!stopId || !name || lat === undefined || lon === undefined) continue;
+    result.set(stopId, {
+      stopId,
+      name,
+      lat,
+      lon,
+      parentStation: asString(row.parent_station),
+      wheelchairBoarding: asNumber(row.wheelchair_boarding),
+    });
+  }
+  return result;
 }
 
-function buildStationsByLine(scheduleRows: ScheduleRow[]): Map<string, StationDto[]> {
+function parseStaticStopTimes(rows: Record<string, unknown>[]): StaticStopTime[] {
+  return rows.flatMap((row) => {
+    const tripId = asString(row.trip_id);
+    const stopId = asString(row.stop_id);
+    const stopSequence = asNumber(row.stop_sequence);
+    if (!tripId || !stopId || stopSequence === undefined) return [];
+    return [{ tripId, stopId, stopSequence }];
+  });
+}
+
+export function buildStaticStationsByLine(
+  stopRows: Record<string, unknown>[],
+  stopTimeRows: Record<string, unknown>[],
+  tripRows: Record<string, unknown>[],
+  lines: LineDto[],
+): Map<string, StationDto[]> {
+  const stopsById = parseStaticStops(stopRows);
+  const tripsById = parseTripRows(tripRows);
+  const stopTimesByTrip = new Map<string, StaticStopTime[]>();
+  for (const stopTime of parseStaticStopTimes(stopTimeRows)) {
+    if (!tripsById.has(stopTime.tripId)) continue;
+    const tripStopTimes = stopTimesByTrip.get(stopTime.tripId) ?? [];
+    tripStopTimes.push(stopTime);
+    stopTimesByTrip.set(stopTime.tripId, tripStopTimes);
+  }
+  const lineByCode = new Map(lines.map((line) => [line.code, line]));
   const result = new Map<string, StationDto[]>();
+
   for (const lineCode of ALLOWED_LINES) {
-    const lineRows = scheduleRows.filter((row) => row.lineCode === lineCode);
-    const rowsByShape = new Map<string, ScheduleRow[]>();
-    for (const row of lineRows) {
-      const shapeRows = rowsByShape.get(row.shapeId) ?? [];
-      shapeRows.push(row);
-      rowsByShape.set(row.shapeId, shapeRows);
+    const candidates: StaticStopTime[][] = [];
+    for (const [tripId, stopTimes] of stopTimesByTrip) {
+      if (tripsById.get(tripId)?.lineCode === lineCode) {
+        candidates.push(stopTimes);
+      }
     }
-    const representative = [...rowsByShape.values()].sort((left, right) => {
-      const leftStops = new Set(left.map((row) => row.parentStation)).size;
-      const rightStops = new Set(right.map((row) => row.parentStation)).size;
+    const representative = candidates.sort((left, right) => {
+      const leftStops = new Set(left.map((row) => stopsById.get(row.stopId)?.parentStation ?? row.stopId)).size;
+      const rightStops = new Set(right.map((row) => stopsById.get(row.stopId)?.parentStation ?? row.stopId)).size;
       return rightStops - leftStops;
     })[0] ?? [];
     const stationByCode = new Map<string, StationDto>();
-    for (const row of [...representative].sort((a, b) => a.stopSequence - b.stopSequence)) {
-      if (stationByCode.has(row.parentStation)) continue;
-      stationByCode.set(row.parentStation, {
-        code: row.parentStation,
+    const line = lineByCode.get(lineCode);
+
+    for (const stopTime of [...representative].sort((a, b) => a.stopSequence - b.stopSequence)) {
+      const platform = stopsById.get(stopTime.stopId);
+      if (!platform) continue;
+      const stationCode = platform.parentStation ?? platform.stopId;
+      if (stationByCode.has(stationCode)) continue;
+      const station = stopsById.get(stationCode) ?? platform;
+      stationByCode.set(stationCode, {
+        code: stationCode,
         lineCode,
-        lineColor: row.color,
+        lineColor: line?.color,
         mode: FGC_MODE,
         operator: FGC_OPERATOR,
         vehicleMode: vehicleModeForLine(lineCode),
         network: networkForLine(lineCode),
-        name: row.stationName,
-        lat: row.lat,
-        lon: row.lon,
+        name: station.name,
+        lat: station.lat,
+        lon: station.lon,
         order: stationByCode.size + 1,
-        accessibilityTypeId: row.wheelchairBoarding,
+        accessibilityTypeId: station.wheelchairBoarding,
         accessibilityLabel:
-          row.wheelchairBoarding === 1 ? 'Accessible' : row.wheelchairBoarding === 2 ? 'Not accessible' : undefined,
+          station.wheelchairBoarding === 1
+            ? 'Accessible'
+            : station.wheelchairBoarding === 2
+              ? 'Not accessible'
+              : undefined,
       });
     }
     result.set(lineCode, [...stationByCode.values()]);
   }
   return result;
+}
+
+function buildPlatformToParent(stopRows: Record<string, unknown>[]): Map<string, string> {
+  const stopsById = parseStaticStops(stopRows);
+  return new Map(
+    [...stopsById.values()].map((stop) => [stop.stopId, stop.parentStation ?? stop.stopId]),
+  );
 }
 
 export function parseLineRecords(records: unknown[]): LineDto[] {
@@ -283,6 +405,51 @@ export function parseLineRecords(records: unknown[]): LineDto[] {
     const networkComparison = (left.network ?? '').localeCompare(right.network ?? '');
     return networkComparison || left.code.localeCompare(right.code, undefined, { numeric: true });
   });
+}
+
+export function applyLineServiceStatus(
+  lines: LineDto[],
+  activeLineCodes: ReadonlySet<string> | null,
+): LineDto[] {
+  return lines.map((line) => {
+    const serviceStatus: LineServiceStatus = activeLineCodes === null
+      ? 'unknown'
+      : activeLineCodes.has(line.code)
+        ? 'active'
+        : 'no-service';
+    return { ...line, serviceStatus };
+  });
+}
+
+export function getActiveLineCodesForDate(
+  tripRows: Record<string, unknown>[],
+  calendarDateRows: Record<string, unknown>[],
+  date: string,
+): Set<string> | null {
+  const compactDate = date.replaceAll('-', '');
+  const matchingRows = calendarDateRows.filter(
+    (row) => asString(row.date) === compactDate,
+  );
+  if (matchingRows.length === 0) return null;
+
+  const activeServiceIds = new Set<string>();
+  for (const row of matchingRows) {
+    const serviceId = asString(row.service_id);
+    if (!serviceId) continue;
+    if (asNumber(row.exception_type) === 1) {
+      activeServiceIds.add(serviceId);
+    } else if (asNumber(row.exception_type) === 2) {
+      activeServiceIds.delete(serviceId);
+    }
+  }
+
+  const activeLineCodes = new Set<string>();
+  for (const trip of parseTripRows(tripRows).values()) {
+    if (activeServiceIds.has(trip.serviceId)) {
+      activeLineCodes.add(trip.lineCode);
+    }
+  }
+  return activeLineCodes;
 }
 
 function parseSegments(records: unknown[]): Map<string, SegmentDto[]> {
@@ -319,23 +486,35 @@ function parseSegments(records: unknown[]): Map<string, SegmentDto[]> {
 }
 
 async function loadCatalog(): Promise<CatalogSnapshot> {
-  const [lineRecords, routeRecords, scheduleCsv, tripsById] = await Promise.all([
+  const [lineRecords, routeRecords, staticGtfs, dailySchedule] = await Promise.all([
     getDatasetRecords('lineas-red-fgc', 100),
     getDatasetRecords('gtfs_routes', 100),
-    getDatasetCsv('viajes-de-hoy'),
-    loadTrips(),
+    loadStaticGtfsRows(),
+    loadDailySchedule(),
   ]);
-  const scheduleRows = parseScheduleRows(scheduleCsv);
-  const platformToParent = new Map(scheduleRows.map((row) => [row.stopId, row.parentStation]));
+  const catalogDate = currentBarcelonaDate();
+  const staticLines = parseLineRecords(lineRecords);
+  const tripsById = parseTripRows(staticGtfs.trips);
+  const activeLineCodes = getActiveLineCodesForDate(
+    staticGtfs.trips,
+    staticGtfs.calendarDates,
+    catalogDate,
+  );
   return {
     fetchedAtMs: Date.now(),
-    serviceDate: scheduleRows[0]?.date ?? currentBarcelonaDate(),
-    lines: parseLineRecords(lineRecords),
-    stationsByLine: buildStationsByLine(scheduleRows),
+    catalogDate,
+    serviceDate: dailySchedule[0]?.date ?? catalogDate,
+    lines: applyLineServiceStatus(staticLines, activeLineCodes),
+    stationsByLine: buildStaticStationsByLine(
+      staticGtfs.stops,
+      staticGtfs.stopTimes,
+      staticGtfs.trips,
+      staticLines,
+    ),
     segmentsByLine: parseSegments(routeRecords),
-    scheduleRows,
+    scheduleRows: dailySchedule,
     tripsById,
-    platformToParent,
+    platformToParent: buildPlatformToParent(staticGtfs.stops),
   };
 }
 
@@ -355,7 +534,7 @@ function currentBarcelonaDate(): string {
 async function getCatalog(): Promise<CatalogSnapshot> {
   if (
     catalogSnapshot &&
-    catalogSnapshot.serviceDate === currentBarcelonaDate() &&
+    catalogSnapshot.catalogDate === currentBarcelonaDate() &&
     Date.now() - catalogSnapshot.fetchedAtMs < CATALOG_TTL_MS
   ) {
     return catalogSnapshot;

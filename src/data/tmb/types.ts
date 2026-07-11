@@ -1,5 +1,6 @@
 import type {
   TransitOperator,
+  LineServiceStatus,
   TransportMode,
   VehicleMode,
 } from '@/src/domain/catalog/models';
@@ -20,6 +21,7 @@ export interface LineDto {
   textColor?: string;
   originStation?: string;
   destinationStation?: string;
+  serviceStatus?: LineServiceStatus;
 }
 
 export interface StationDto {

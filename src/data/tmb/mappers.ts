@@ -24,6 +24,7 @@ export function mapLineDto(dto: LineDto): Line {
     network: dto.network,
     originStation: dto.originStation,
     destinationStation: dto.destinationStation,
+    serviceStatus: dto.serviceStatus,
   };
 }
 

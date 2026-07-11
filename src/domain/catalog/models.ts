@@ -3,6 +3,7 @@ import type { LatLng } from '@/src/domain/geo/models';
 export type TransitOperator = 'tmb' | 'fgc';
 export type TransportMode = 'metro' | 'bus' | 'fgc';
 export type VehicleMode = 'metro' | 'bus' | 'rail' | 'funicular';
+export type LineServiceStatus = 'active' | 'no-service' | 'unknown';
 
 export interface Line {
   code: string;
@@ -15,6 +16,7 @@ export interface Line {
   textColor?: string;
   originStation?: string;
   destinationStation?: string;
+  serviceStatus?: LineServiceStatus;
 }
 
 export interface Station extends LatLng {

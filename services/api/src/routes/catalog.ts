@@ -75,10 +75,22 @@ function sourceForMode(mode: 'metro' | 'bus' | 'fgc'): string {
   return mode === 'fgc' ? 'fgc-open-data' : 'tmb-transit';
 }
 
+function currentBarcelonaDate(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
 export const catalogRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/v1/catalog/:mode/lines', async (request) => {
     const { mode } = modeParams.parse(request.params);
-    const lines = await loadCached(`lines:${mode}`, () => listLines(mode));
+    const cacheKey = mode === 'fgc'
+      ? `lines:${mode}:${currentBarcelonaDate()}`
+      : `lines:${mode}`;
+    const lines = await loadCached(cacheKey, () => listLines(mode));
     return { data: lines, meta: { source: sourceForMode(mode), mode } };
   });
 

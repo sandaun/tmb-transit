@@ -66,7 +66,12 @@ function useInterchangeArrivals(members: StationInterchangeMember[], active: boo
       ] as const,
       queryFn: () =>
         fetchStationArrivals(member.line.mode, member.line.code, member.station.code),
-      enabled: Boolean(member.line.code && member.station.code && active),
+      enabled: Boolean(
+        member.line.code &&
+        member.station.code &&
+        active &&
+        member.line.serviceStatus !== 'no-service'
+      ),
       staleTime: 5_000,
       refetchInterval: active ? APP_CONFIG.arrivalsPollIntervalMs : false,
     })),
@@ -98,8 +103,17 @@ export function StationContent({
 
   const stationsQuery = useLineStationsQuery(mode, lineCode);
   const station = stationsQuery.data?.find((s) => s.code === stationCode);
+  const activeLine = lines.find(
+    (candidate) => candidate.mode === mode && candidate.code === lineCode,
+  );
+  const hasNoService = activeLine?.serviceStatus === 'no-service';
 
-  const arrivalsQuery = useSheetArrivals(mode, lineCode, stationCode, active);
+  const arrivalsQuery = useSheetArrivals(
+    mode,
+    lineCode,
+    stationCode,
+    active && !hasNoService,
+  );
   const selectedInterchange = useMemo(
     () => findStationInterchange(stationInterchanges, lineCode, stationCode),
     [lineCode, stationCode, stationInterchanges],
@@ -142,7 +156,6 @@ export function StationContent({
     return <View />;
   }
 
-  const activeLine = lines.find((candidate) => candidate.code === lineCode);
   const nextArrival = orderedArrivals[0];
   const followingArrivals = orderedArrivals.slice(1, 6);
   const stationName = selectedInterchange?.name ?? station?.name ?? stationCode;
@@ -263,14 +276,21 @@ export function StationContent({
         <Text style={styles.serviceText}>{station.serviceDescription}</Text>
       ) : null}
 
-      {!hasMultipleLines && arrivalsQuery.isLoading ? (
+      {hasNoService ? (
+        <View style={styles.noServiceNotice}>
+          <MaterialIcons name="schedule" size={18} color={palette.warning} />
+          <Text style={styles.noServiceText}>{t('station_no_service_today')}</Text>
+        </View>
+      ) : null}
+
+      {!hasNoService && !hasMultipleLines && arrivalsQuery.isLoading ? (
         <View style={styles.feedbackRow}>
           <ActivityIndicator color={palette.accent} />
           <Text style={styles.feedbackText}>{t('station_loading_arrivals')}</Text>
         </View>
       ) : null}
 
-      {!hasMultipleLines && arrivalsQuery.isError ? (
+      {!hasNoService && !hasMultipleLines && arrivalsQuery.isError ? (
         <Text style={styles.errorText}>
           {t('station_realtime_unavailable')}
         </Text>
@@ -291,7 +311,7 @@ export function StationContent({
             />
           ))}
         </View>
-      ) : nextArrival ? (
+      ) : !hasNoService && nextArrival ? (
         <View style={styles.card}>
           <View style={styles.heroRow}>
             <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="large" />
@@ -341,6 +361,7 @@ export function StationContent({
       ) : null}
 
       {!hasMultipleLines &&
+      !hasNoService &&
       !arrivalsQuery.isLoading &&
       !arrivalsQuery.isError &&
       orderedArrivals.length === 0 ? (
@@ -374,6 +395,7 @@ function InterchangeArrivalSection({
   );
   const firstArrival = arrivals[0];
   const followingArrivals = arrivals.slice(1, 4);
+  const hasNoService = member.line.serviceStatus === 'no-service';
 
   return (
     <Pressable
@@ -401,18 +423,22 @@ function InterchangeArrivalSection({
         ) : null}
       </View>
 
-      {query?.isLoading ? (
+      {hasNoService ? (
+        <Text style={styles.noServiceText}>{t('station_no_service_today')}</Text>
+      ) : null}
+
+      {!hasNoService && query?.isLoading ? (
         <View style={styles.feedbackRow}>
           <ActivityIndicator color={palette.accent} />
           <Text style={styles.feedbackText}>{t('station_loading_arrivals')}</Text>
         </View>
       ) : null}
 
-      {query?.isError ? (
+      {!hasNoService && query?.isError ? (
         <Text style={styles.errorText}>{t('station_realtime_unavailable')}</Text>
       ) : null}
 
-      {!query?.isLoading && !query?.isError && arrivals.length === 0 ? (
+      {!hasNoService && !query?.isLoading && !query?.isError && arrivals.length === 0 ? (
         <Text style={styles.feedbackText}>{t('station_no_arrivals')}</Text>
       ) : null}
 
@@ -547,6 +573,23 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     color: palette.textMuted,
     fontSize: 14,
     lineHeight: 20,
+  },
+  noServiceNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: palette.warning,
+    backgroundColor: palette.surfaceElevated,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  noServiceText: {
+    flex: 1,
+    color: palette.warning,
+    fontSize: 14,
+    fontWeight: '700',
   },
   feedbackRow: {
     flexDirection: 'row',

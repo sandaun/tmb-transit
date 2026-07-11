@@ -2,6 +2,7 @@ export type TransitOperator = 'tmb' | 'fgc';
 export type TransportMode = 'metro' | 'bus' | 'fgc';
 export type TmbMode = Exclude<TransportMode, 'fgc'>;
 export type VehicleMode = 'metro' | 'bus' | 'rail' | 'funicular';
+export type LineServiceStatus = 'active' | 'no-service' | 'unknown';
 export type ServiceAlertMode = TransportMode | 'mixed';
 export type ServiceAlertSeverity = 'info' | 'warning' | 'disruption';
 export type ServiceAlertKind = 'current' | 'planned';
@@ -27,6 +28,7 @@ export interface LineDto {
   textColor?: string;
   originStation?: string;
   destinationStation?: string;
+  serviceStatus?: LineServiceStatus;
 }
 
 export interface StationDto {

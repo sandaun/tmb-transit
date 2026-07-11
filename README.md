@@ -41,6 +41,7 @@ If you run on a physical device, use your LAN IP instead of `localhost`.
 The app reads frontend flags from env via `/Users/oriolcarbo/code/Projectes/tmb-transit/src/config/app-config.ts`.
 
 Current flags:
+- `EXPO_PUBLIC_APP_ENV` (`development`, `preview`, or `production`)
 - `EXPO_PUBLIC_API_BASE_URL`
 - `EXPO_PUBLIC_USE_MOCK`
 
@@ -55,8 +56,11 @@ cp .env.local.example .env.local
 ```
 
 Set:
+- `EXPO_PUBLIC_APP_ENV=development` for local development
 - `EXPO_PUBLIC_USE_MOCK=true` for mock mode
 - `EXPO_PUBLIC_USE_MOCK=false` for real backend mode
+
+Preview and production builds require an explicit non-local HTTPS API URL and reject mock mode.
 
 Then start with:
 

@@ -6,6 +6,7 @@ import { runtimeConfig } from '../config/env';
 import { fetchBusArrivalsByStation } from '../tmb/ibus-client';
 import { fetchArrivalsByStation } from '../tmb/imetro-client';
 import type { ArrivalDto, TransportMode } from '../types/api';
+import { toSafeErrorDetails } from '../utils/safe-logging';
 
 const modeParams = z.object({ mode: z.enum(['metro', 'bus']) });
 const querySchema = z.object({
@@ -97,7 +98,7 @@ export const realtimeRoutes: FastifyPluginAsync = async (fastify) => {
         };
       }
 
-      fastify.log.error(error);
+      fastify.log.error({ error: toSafeErrorDetails(error) }, 'Realtime upstream failed');
       return reply.status(502).send({
         error: 'Upstream unavailable',
       });

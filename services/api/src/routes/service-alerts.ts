@@ -5,6 +5,7 @@ import { runtimeConfig } from '../config/env';
 import { fetchOperationalServiceAlertsFromTmb } from '../tmb/alerts-client';
 import { fetchServiceAlertsFromTmb } from '../tmb/service-notices-client';
 import type { ServiceAlertDto } from '../types/api';
+import { toSafeErrorDetails } from '../utils/safe-logging';
 
 const CACHE_KEY = 'service-alerts';
 
@@ -101,7 +102,7 @@ export const serviceAlertsRoutes: FastifyPluginAsync = async (fastify) => {
         };
       }
 
-      fastify.log.error(error);
+      fastify.log.error({ error: toSafeErrorDetails(error) }, 'Service alerts upstream failed');
       return reply.status(502).send({
         error: 'Upstream unavailable',
       });

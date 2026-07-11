@@ -23,6 +23,7 @@ import {
 } from '@/src/features/station/utils/arrival-helpers';
 import {
   findStationInterchange,
+  prioritizeSelectedInterchangeMember,
   type StationInterchange,
   type StationInterchangeMember,
 } from '@/src/features/station/utils/station-interchanges';
@@ -116,7 +117,11 @@ export function StationContent({
 
     return [{ line, station }];
   }, [lineCode, lines, selectedInterchange, station]);
-  const interchangeArrivalQueries = useInterchangeArrivals(interchangeMembers, active);
+  const orderedInterchangeMembers = useMemo(
+    () => prioritizeSelectedInterchangeMember(interchangeMembers, lineCode),
+    [interchangeMembers, lineCode],
+  );
+  const interchangeArrivalQueries = useInterchangeArrivals(orderedInterchangeMembers, active);
 
   const orderedArrivals = useMemo(
     () => sortArrivalsByEta(arrivalsQuery.data ?? []),
@@ -273,7 +278,7 @@ export function StationContent({
 
       {hasMultipleLines ? (
         <View style={styles.lineSections}>
-          {interchangeMembers.map((member, index) => (
+          {orderedInterchangeMembers.map((member, index) => (
             <InterchangeArrivalSection
               key={`${member.line.code}:${member.station.code}`}
               isActive={member.line.code === lineCode}

@@ -5,6 +5,8 @@ import type { Line, Station } from '@/src/domain/catalog/models';
 import {
   buildStationInterchanges,
   findStationInterchange,
+  prioritizeSelectedInterchangeMember,
+  type StationInterchangeMember,
 } from '@/src/features/station/utils/station-interchanges';
 
 const lines: Line[] = [
@@ -95,5 +97,33 @@ describe('station interchanges', () => {
     const sants = findStationInterchange(interchanges, 'L3', 'sants-l3');
 
     assert.equal(sants?.members.length, 2);
+  });
+
+  it('places the selected line first without changing the remaining order', () => {
+    const members: StationInterchangeMember[] = [
+      {
+        line: lines[0],
+        station: makeStation('L3', 'sants-l3', 'Sants Estació', 41.379, 2.14),
+      },
+      {
+        line: lines[1],
+        station: makeStation('L5', 'sants-l5', 'Sants Estació', 41.3795, 2.1404),
+      },
+      {
+        line: { code: 'L9S', name: 'L9 Sud', mode: 'metro' },
+        station: makeStation('L9S', 'sants-l9s', 'Sants Estació', 41.3794, 2.1403),
+      },
+    ];
+
+    const orderedMembers = prioritizeSelectedInterchangeMember(members, 'L5');
+
+    assert.deepEqual(
+      orderedMembers.map((member) => member.line.code),
+      ['L5', 'L3', 'L9S'],
+    );
+    assert.deepEqual(
+      members.map((member) => member.line.code),
+      ['L3', 'L5', 'L9S'],
+    );
   });
 });

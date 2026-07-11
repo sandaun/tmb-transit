@@ -118,3 +118,20 @@ export function findStationInterchange(
     ) ?? null
   );
 }
+
+export function prioritizeSelectedInterchangeMember(
+  members: StationInterchangeMember[],
+  lineCode: string | null,
+): StationInterchangeMember[] {
+  const selectedIndex = members.findIndex((member) => member.line.code === lineCode);
+
+  if (selectedIndex <= 0) {
+    return members;
+  }
+
+  return [
+    members[selectedIndex],
+    ...members.slice(0, selectedIndex),
+    ...members.slice(selectedIndex + 1),
+  ];
+}

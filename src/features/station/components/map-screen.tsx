@@ -34,6 +34,7 @@ interface MapScreenProps {
   lineCode: string;
   lines?: Line[];
   mode: TransportMode;
+  pendingMode?: TransportMode | null;
   stationCode: string;
   showBackButton?: boolean;
   stationInterchanges?: StationInterchange[];
@@ -60,6 +61,7 @@ export function MapScreen({
   lineCode,
   lines,
   mode,
+  pendingMode = null,
   stationCode,
   showBackButton = true,
   stationInterchanges,
@@ -308,21 +310,26 @@ export function MapScreen({
           ) : (
             <View style={styles.controls}>
               {onModeChange ? (
-                <ModeToggle mode={mode} onChange={onModeChange} />
+                <ModeToggle mode={mode} pendingMode={pendingMode} onChange={onModeChange} />
               ) : null}
-              {showFamilyFilter ? (
-                <FamilyFilter
-                  available={availableFamilies}
-                  selected={busFamily}
-                  onChange={setBusFamily}
+              <View
+                pointerEvents={pendingMode ? 'none' : 'auto'}
+                style={[styles.modeControls, pendingMode ? styles.modeControlsPending : null]}
+              >
+                {showFamilyFilter ? (
+                  <FamilyFilter
+                    available={availableFamilies}
+                    selected={busFamily}
+                    onChange={setBusFamily}
+                  />
+                ) : null}
+                <SearchShell
+                  lineCode={lineCode}
+                  lines={visibleLines}
+                  mode={mode}
+                  onLineChange={onLineChange}
                 />
-              ) : null}
-              <SearchShell
-                lineCode={lineCode}
-                lines={visibleLines}
-                mode={mode}
-                onLineChange={onLineChange}
-              />
+              </View>
             </View>
           )}
         </View>
@@ -345,6 +352,12 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   },
   controls: {
     gap: 8,
+  },
+  modeControls: {
+    gap: 8,
+  },
+  modeControlsPending: {
+    opacity: 0.55,
   },
   backButton: {
     width: 48,

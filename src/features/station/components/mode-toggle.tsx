@@ -7,6 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface ModeToggleProps {
   mode: TransportMode;
+  pendingMode?: TransportMode | null;
   onChange: (mode: TransportMode) => void;
 }
 
@@ -15,7 +16,7 @@ const MODES: { value: TransportMode; label: string }[] = [
   { value: 'bus', label: 'Bus' },
 ];
 
-export function ModeToggle({ mode, onChange }: ModeToggleProps) {
+export function ModeToggle({ mode, pendingMode = null, onChange }: ModeToggleProps) {
   const colorScheme = useColorScheme();
   const styles = useThemedStyles(createStyles);
   return (
@@ -23,12 +24,17 @@ export function ModeToggle({ mode, onChange }: ModeToggleProps) {
       <BlurView intensity={40} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
       <View style={styles.row}>
         {MODES.map((entry) => {
-          const active = entry.value === mode;
+          const active = entry.value === (pendingMode ?? mode);
           return (
             <Pressable
               key={entry.value}
               accessibilityRole="button"
-              accessibilityState={{ selected: active }}
+              accessibilityState={{
+                busy: entry.value === pendingMode,
+                disabled: pendingMode !== null,
+                selected: active,
+              }}
+              disabled={pendingMode !== null}
               style={[styles.chip, active ? styles.chipActive : null]}
               onPress={() => onChange(entry.value)}
             >

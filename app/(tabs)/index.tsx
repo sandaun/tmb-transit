@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   StyleSheet,
   View,
@@ -11,13 +12,17 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { APP_CONFIG } from '@/src/config/app-config';
 import type { Line, TransportMode } from '@/src/domain/catalog/models';
 import { useAllLineStationsQuery } from '@/src/features/catalog/hooks/use-all-line-stations-query';
 import {
   fetchAndCacheLineStations,
   useLineStationsQuery,
 } from '@/src/features/catalog/hooks/use-line-stations-query';
-import { useLinesQuery } from '@/src/features/catalog/hooks/use-lines-query';
+import {
+  fetchAndCacheLines,
+  useLinesQuery,
+} from '@/src/features/catalog/hooks/use-lines-query';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import { PlannerSheet } from '@/src/features/planner/components/planner-sheet';
 import { usePlannedRoutesQuery } from '@/src/features/planner/hooks/use-planned-routes-query';
@@ -228,6 +233,7 @@ export default function MapTabScreen() {
 
   const sheetRef = useRef<LocalBottomSheetHandle>(null);
   const [detentIndex, setDetentIndex] = useState(0);
+  const [pendingMode, setPendingMode] = useState<TransportMode | null>(null);
   const [plannerEnabled, setPlannerEnabled] = useState(false);
   const [plannerActivePoint, setPlannerActivePoint] = useState<'origin' | 'destination'>(
     'destination',
@@ -335,16 +341,57 @@ export default function MapTabScreen() {
 
   const cancelPendingLineChange = useCallback(() => {
     lineChangeRequestRef.current += 1;
+    setPendingMode(null);
   }, []);
 
   const handleModeChange = useCallback(
     (nextMode: TransportMode) => {
-      if (nextMode === mode) return;
-      cancelPendingLineChange();
-      setSelection(nextMode, '', '');
+      if (nextMode === mode || pendingMode) return;
+
+      const requestId = lineChangeRequestRef.current + 1;
+      lineChangeRequestRef.current = requestId;
+      setPendingMode(nextMode);
       sheetRef.current?.resize(0);
+
+      void (async () => {
+        try {
+          const nextLines = await queryClient.fetchQuery({
+            queryKey: ['catalog', nextMode, 'lines'] as const,
+            queryFn: () => fetchAndCacheLines(nextMode),
+            staleTime: APP_CONFIG.catalogTtlMs,
+          });
+          const nextLineCode = pickDefaultLineCode(nextMode, nextLines);
+
+          if (!nextLineCode) {
+            throw new Error(`No ${nextMode} lines available`);
+          }
+
+          const nextStations = await queryClient.fetchQuery({
+            queryKey: ['catalog', nextMode, 'stations', nextLineCode] as const,
+            queryFn: () => fetchAndCacheLineStations(nextMode, nextLineCode),
+            staleTime: APP_CONFIG.catalogTtlMs,
+          });
+          const nextStationCode = nextStations[0]?.code;
+
+          if (!nextStationCode) {
+            throw new Error(`No stations available for ${nextLineCode}`);
+          }
+
+          if (lineChangeRequestRef.current === requestId) {
+            setSelection(nextMode, nextLineCode, nextStationCode);
+          }
+        } catch {
+          if (lineChangeRequestRef.current === requestId) {
+            Alert.alert(t('map_error_title'), t('map_error_body'));
+          }
+        } finally {
+          if (lineChangeRequestRef.current === requestId) {
+            setPendingMode(null);
+          }
+        }
+      })();
     },
-    [cancelPendingLineChange, mode, setSelection],
+    [mode, pendingMode, queryClient, setSelection, t],
   );
 
   const handleLineChange = useCallback(
@@ -636,6 +683,7 @@ export default function MapTabScreen() {
         lineCode={lineCode}
         lines={lines}
         mode={mode}
+        pendingMode={pendingMode}
         stationCode={stationCode}
         showBackButton={false}
         stationInterchanges={stationInterchanges}

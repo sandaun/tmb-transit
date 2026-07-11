@@ -36,33 +36,18 @@ Pull requests to `main` run these required checks:
 
 - `App`: Expo dependency validation, lint, TypeScript, unit tests, and an iOS bundle.
 - `API`: lint, TypeScript, unit tests, and a production TypeScript build.
-- `PR title`: Conventional Commit title validation.
 - `Dependency review`: rejects newly introduced high or critical vulnerabilities.
 - `Analyze JavaScript and TypeScript`: CodeQL static analysis.
 
 Workflow permissions default to read-only. Pull request workflows do not receive application or API
 secrets. Third-party Actions are pinned to immutable commit SHAs.
 
-## Pull request titles
-
-Use Conventional Commits because squash merge turns the pull request title into the final commit:
-
-```text
-feat(scope): add a capability
-fix(scope): correct a defect
-ci: update a workflow
-```
-
-Allowed types are `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`,
-`build`, and `revert`.
-
 ## Main branch settings
 
 After the workflows have run on `main` at least once, configure a GitHub ruleset with:
 
 - Pull requests required before merging.
-- Required checks: `App`, `API`, `PR title`, `Dependency review`, and
-  `Analyze JavaScript and TypeScript`.
+- Required checks: `App`, `API`, `Dependency review`, and `Analyze JavaScript and TypeScript`.
 - Squash merge enabled.
 - Force pushes and branch deletion disabled.
 - Branches required to be up to date before merging.

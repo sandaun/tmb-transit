@@ -317,15 +317,20 @@ export function PlannerSheet({
                     {transitRoutes.length === 0 ? (
                       <Text style={styles.walkOnlyText}>{t('planner_walk')}</Text>
                     ) : (
-                      transitRoutes.map((routeCode) => (
-                        <LineBadge
-                          key={routeCode}
-                          lineCode={routeCode}
-                          mode={getPlannerRouteMode(routeCode)}
-                          shape="pill"
-                          size="small"
-                        />
-                      ))
+                      transitRoutes.map((routeCode) => {
+                        const leg = route.legs.find(
+                          (candidate) => candidate.mode === 'transit' && candidate.route === routeCode,
+                        );
+                        return (
+                          <LineBadge
+                            key={routeCode}
+                            lineCode={routeCode}
+                            mode={leg?.transportMode ?? getPlannerRouteMode(routeCode, leg?.agencyName)}
+                            shape="pill"
+                            size="small"
+                          />
+                        );
+                      })
                     )}
                     <View style={styles.walkMeta}>
                       <IconSymbol name="figure.walk" size={16} color={palette.textMuted} />
@@ -369,7 +374,7 @@ export function PlannerSheet({
                       {leg.mode === 'transit' && leg.route ? (
                         <LineBadge
                           lineCode={leg.route}
-                          mode={getPlannerRouteMode(leg.route)}
+                          mode={leg.transportMode ?? getPlannerRouteMode(leg.route, leg.agencyName)}
                           size="small"
                         />
                       ) : (

@@ -38,6 +38,7 @@ import {
 import { MapScreen } from '@/src/features/station/components/map-screen';
 import type { NearbyStop } from '@/src/features/nearby/hooks/use-nearby-stops-query';
 import { StationContent } from '@/src/features/station/components/station-content';
+import { fetchAndCacheLineSegments } from '@/src/features/station/hooks/use-line-segments-query';
 import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
 import type { SavedPlaceId } from '@/src/features/preferences/models';
 import { useUserPreferencesStore } from '@/src/features/preferences/store';
@@ -57,7 +58,17 @@ function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null 
     return (l3 ?? lines[0]).code;
   }
 
+  if (mode === 'fgc') {
+    return (lines.find((line) => line.code === 'L6') ?? lines[0]).code;
+  }
+
   return lines[0].code;
+}
+
+function reportMapDataError(operation: string, error: unknown): void {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.error(`[Map] ${operation} failed`, error);
+  }
 }
 
 const SHEET_DETENTS = [0.1, 0.5, 1] as const;
@@ -129,6 +140,11 @@ export default function MapTabScreen() {
     error: linesError,
     refetch: refetchLines,
   } = useLinesQuery(mode);
+  const interchangeMode: TransportMode = mode === 'fgc' ? 'metro' : 'fgc';
+  const { data: interchangeOperatorLines = [] } = useLinesQuery(
+    interchangeMode,
+    mode !== 'bus',
+  );
 
   const lineCode =
     (selectedLineCode && lines.some((line) => line.code === selectedLineCode) && selectedLineCode) ||
@@ -140,7 +156,10 @@ export default function MapTabScreen() {
     error: stationsError,
     refetch: refetchStations,
   } = useLineStationsQuery(mode, lineCode);
-  const interchangeLines = useMemo(() => (mode === 'metro' ? lines : []), [lines, mode]);
+  const interchangeLines = useMemo(
+    () => (mode === 'bus' ? [] : [...lines, ...interchangeOperatorLines]),
+    [interchangeOperatorLines, lines, mode],
+  );
   const allStationsQuery = useAllLineStationsQuery(interchangeLines);
   const stationInterchanges = useMemo(
     () => buildStationInterchanges(interchangeLines, allStationsQuery.stationsByLine),
@@ -323,6 +342,15 @@ export default function MapTabScreen() {
             throw new Error(`No ${nextMode} lines available`);
           }
 
+          void queryClient
+            .fetchQuery({
+              queryKey: ['catalog', nextMode, 'segments', nextLineCode] as const,
+              queryFn: () => fetchAndCacheLineSegments(nextMode, nextLineCode),
+              staleTime: APP_CONFIG.catalogTtlMs,
+            })
+            .catch((error: unknown) => {
+              reportMapDataError(`loading ${nextMode} ${nextLineCode} geometry`, error);
+            });
           const nextStations = await queryClient.fetchQuery({
             queryKey: ['catalog', nextMode, 'stations', nextLineCode] as const,
             queryFn: () => fetchAndCacheLineStations(nextMode, nextLineCode),
@@ -337,8 +365,9 @@ export default function MapTabScreen() {
           if (lineChangeRequestRef.current === requestId) {
             setSelection(nextMode, nextLineCode, nextStationCode);
           }
-        } catch {
+        } catch (error: unknown) {
           if (lineChangeRequestRef.current === requestId) {
+            reportMapDataError(`switching to ${nextMode}`, error);
             Alert.alert(t('map_error_title'), t('map_error_body'));
           }
         } finally {
@@ -364,8 +393,18 @@ export default function MapTabScreen() {
 
       void queryClient
         .fetchQuery({
+          queryKey: ['catalog', nextMode, 'segments', nextLineCode] as const,
+          queryFn: () => fetchAndCacheLineSegments(nextMode, nextLineCode),
+          staleTime: APP_CONFIG.catalogTtlMs,
+        })
+        .catch((error: unknown) => {
+          reportMapDataError(`loading ${nextMode} ${nextLineCode} geometry`, error);
+        });
+      void queryClient
+        .fetchQuery({
           queryKey: ['catalog', nextMode, 'stations', nextLineCode] as const,
           queryFn: () => fetchAndCacheLineStations(nextMode, nextLineCode),
+          staleTime: APP_CONFIG.catalogTtlMs,
         })
         .then((nextStations) => {
           if (lineChangeRequestRef.current !== requestId) {
@@ -374,11 +413,12 @@ export default function MapTabScreen() {
 
           setSelection(nextMode, nextLineCode, nextStations[0]?.code ?? '');
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (lineChangeRequestRef.current !== requestId) {
             return;
           }
 
+          reportMapDataError(`loading ${nextMode} ${nextLineCode} stations`, error);
           setSelection(nextMode, nextLineCode, '');
         });
     },

@@ -8,6 +8,7 @@ import {
   type ImageRequireSource,
 } from 'react-native';
 import MapView, {
+  Callout,
   Marker,
   Polyline,
   type LatLng,
@@ -18,14 +19,20 @@ import MapView, {
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAppLanguage } from '@/src/i18n';
-import type { Station, TransportMode } from '@/src/domain/catalog/models';
+import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
+import type { TransitVehicle } from '@/src/domain/realtime/models';
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 import {
   getPlannerRouteMode,
   type RouteLandmarkKind,
 } from '@/src/features/planner/utils/route-presentation';
-import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
+import {
+  getUniqueInterchangeLines,
+  prioritizeSelectedInterchangeLine,
+  type StationInterchange,
+} from '@/src/features/station/utils/station-interchanges';
+import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-detail';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -48,6 +55,8 @@ export interface PlannerMapMarker {
   legId?: string;
   incomingRoute?: string;
   outgoingRoute?: string;
+  incomingMode?: TransportMode;
+  outgoingMode?: TransportMode;
   selected?: boolean;
   accessibilityLabel: string;
 }
@@ -64,9 +73,9 @@ interface MapAdapterProps {
   mode: TransportMode;
   stations: Station[];
   segments: Segment[];
+  transitVehicles?: TransitVehicle[];
   selectedStationCode: string;
   stationInterchanges?: StationInterchange[];
-  isRouteLoading?: boolean;
   bottomInset?: number;
   nearbyStops?: NearbyStopMarker[];
   plannerMarkers?: PlannerMapMarker[];
@@ -166,9 +175,9 @@ export function MapAdapter({
   mode,
   stations,
   segments,
+  transitVehicles = [],
   selectedStationCode,
   stationInterchanges = [],
-  isRouteLoading = false,
   bottomInset = 0,
   nearbyStops = [],
   plannerMarkers = [],
@@ -356,6 +365,7 @@ export function MapAdapter({
     [attributionBottomInset],
   );
   const appleLogoInsets = legalLabelInsets;
+  const markerDetail = getMapMarkerDetail(latitudeDelta);
   const interchangeByStationKey = useMemo(() => {
     const nextInterchangeByStationKey = new Map<string, StationInterchange>();
 
@@ -374,9 +384,13 @@ export function MapAdapter({
     () =>
       visibleStations.filter((station) => {
         const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
-        return (interchange?.members.length ?? 1) > 1;
+        const isSelected = station.code === selectedStationCode;
+        return (
+          (interchange?.members.length ?? 1) > 1 &&
+          (isSelected || markerDetail !== 'minimal')
+        );
       }),
-    [interchangeByStationKey, lineCode, visibleStations],
+    [interchangeByStationKey, lineCode, markerDetail, selectedStationCode, visibleStations],
   );
 
   const centerMap = useCallback((coordinate: LatLng, delta = 0.05) => {
@@ -554,13 +568,9 @@ export function MapAdapter({
       return segmentPolylines;
     }
 
-    if (isRouteLoading) {
-      return [];
-    }
-
     const fallbackPolyline = getFallbackPolyline(stations);
     return fallbackPolyline ? [fallbackPolyline] : [];
-  }, [explorationVisible, isRouteLoading, lineCode, segments, stations]);
+  }, [explorationVisible, lineCode, segments, stations]);
   const routeLayerKey = routePolylines
     .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
     .join('|');
@@ -642,13 +652,32 @@ export function MapAdapter({
         })}
 
         {badgeStations.map((station) => {
+          const isSelected = station.code === selectedStationCode;
           const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
-          const lineCodes =
-            interchange?.members.map((member) => member.line.code) ?? [lineCode];
+          const interchangeLines =
+            (interchange ? getUniqueInterchangeLines(interchange.members) : null) ?? [{
+              code: lineCode,
+              name: lineCode,
+              mode,
+              operator: mode === 'fgc' ? 'fgc' : 'tmb',
+              vehicleMode: mode === 'fgc' ? 'rail' : mode,
+              color: lineColor,
+            }];
+          const transferLines = prioritizeSelectedInterchangeLine(
+            interchangeLines,
+            mode,
+            lineCode,
+          );
+          const visibleLineCount =
+            isSelected || markerDetail === 'full'
+              ? 3
+              : interchangeLines.length === 2
+                ? 2
+                : 1;
 
           return (
             <Marker
-              key={`${lineCode}:station-badges:${station.code}:${lineCodes.join('-')}`}
+              key={`${lineCode}:station-badges:${station.code}:${transferLines.map((line) => `${line.mode}-${line.code}`).join('-')}`}
               anchor={STATION_BADGE_ANCHOR}
               centerOffset={STATION_MARKER_CENTER_OFFSET}
               coordinate={{ latitude: station.lat, longitude: station.lon }}
@@ -656,7 +685,10 @@ export function MapAdapter({
               zIndex={30}
               onPress={() => handleStationPress(station.code)}
             >
-              <StationTransferBadges lineCodes={lineCodes} mode={mode} />
+              <StationTransferBadges
+                lines={transferLines}
+                visibleLineCount={visibleLineCount}
+              />
             </Marker>
           );
         })}
@@ -685,7 +717,7 @@ export function MapAdapter({
 
         {nearbyStops.slice(0, 25).map((stop) => (
           <Marker
-            key={`nearby:${stop.mode}:${stop.code}`}
+            key={`nearby:${stop.mode}:${stop.lineCode}:${stop.code}`}
             anchor={STATION_MARKER_ANCHOR}
             centerOffset={STATION_MARKER_CENTER_OFFSET}
             coordinate={{ latitude: stop.lat, longitude: stop.lon }}
@@ -697,10 +729,47 @@ export function MapAdapter({
           </Marker>
         ))}
 
+        {transitVehicles.map((vehicle) => (
+          <Marker
+            key={`vehicle:${vehicle.id}`}
+            accessibilityLabel={`${vehicle.lineCode}${vehicle.destination ? `, ${vehicle.destination}` : ''}`}
+            anchor={STATION_MARKER_ANCHOR}
+            coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
+            tracksViewChanges={false}
+            zIndex={50}
+          >
+            <View style={[styles.vehicleMarker, { backgroundColor: lineBrand.backgroundColor }]}>
+              <Text style={[styles.vehicleMarkerText, { color: lineBrand.textColor }]}>●</Text>
+            </View>
+            <Callout tooltip>
+              <View style={styles.vehicleCallout}>
+                <Text style={styles.vehicleCalloutTitle}>
+                  {vehicle.lineCode}{vehicle.destination ? ` → ${vehicle.destination}` : ''}
+                </Text>
+                {vehicle.isOnTime !== undefined ? (
+                  <Text style={styles.vehicleCalloutText}>
+                    {t(vehicle.isOnTime ? 'vehicle_on_time' : 'vehicle_delayed')}
+                  </Text>
+                ) : null}
+                {vehicle.occupancyPercent !== undefined ? (
+                  <Text style={styles.vehicleCalloutText}>
+                    {t('vehicle_occupancy', { percent: Math.round(vehicle.occupancyPercent) })}
+                  </Text>
+                ) : null}
+                {vehicle.nextStops.length ? (
+                  <Text style={styles.vehicleCalloutText} numberOfLines={2}>
+                    {t('vehicle_next_stops', { stops: vehicle.nextStops.slice(0, 3).join(', ') })}
+                  </Text>
+                ) : null}
+              </View>
+            </Callout>
+          </Marker>
+        ))}
+
         {latitudeDelta <= 0.02
           ? nearbyStops.slice(0, latitudeDelta <= 0.008 ? 25 : 8).map((stop) => (
               <Marker
-                key={`nearby-label:${stop.mode}:${stop.code}`}
+                key={`nearby-label:${stop.mode}:${stop.lineCode}:${stop.code}`}
                 anchor={STATION_NAME_ANCHOR}
                 centerOffset={STATION_NAME_CENTER_OFFSET}
                 coordinate={{ latitude: stop.lat, longitude: stop.lon }}
@@ -744,12 +813,19 @@ export function MapAdapter({
           }
 
           const routeCode = marker.outgoingRoute ?? marker.incomingRoute ?? '';
-          const routeBrand = getLineBrand(getPlannerRouteMode(routeCode), routeCode);
-          const transferRoutes = Array.from(
-            new Set([marker.incomingRoute, marker.outgoingRoute].filter(
-              (value): value is string => Boolean(value),
-            )),
-          );
+          const routeMode = marker.outgoingMode ?? marker.incomingMode ?? getPlannerRouteMode(routeCode);
+          const routeBrand = getLineBrand(routeMode, routeCode);
+          const transferRoutes = [
+            marker.incomingRoute
+              ? { code: marker.incomingRoute, mode: marker.incomingMode ?? getPlannerRouteMode(marker.incomingRoute) }
+              : null,
+            marker.outgoingRoute
+              ? { code: marker.outgoingRoute, mode: marker.outgoingMode ?? getPlannerRouteMode(marker.outgoingRoute) }
+              : null,
+          ].filter((value): value is { code: string; mode: TransportMode } => value !== null)
+            .filter((value, index, values) =>
+              index === values.findIndex((candidate) => candidate.code === value.code),
+            );
 
           return (
             <Fragment key={`planner-station:${marker.id}:${selectionKey}`}>
@@ -773,7 +849,7 @@ export function MapAdapter({
                   zIndex={65}
                   onPress={handlePress}
                 >
-                  <PlannerTransferBadges routeCodes={transferRoutes} />
+                  <PlannerTransferBadges routes={transferRoutes} />
                 </Marker>
               ) : null}
               <Marker
@@ -836,25 +912,25 @@ export function MapAdapter({
 }
 
 function StationTransferBadges({
-  lineCodes,
-  mode,
+  lines,
+  visibleLineCount,
 }: {
-  lineCodes: string[];
-  mode: TransportMode;
+  lines: Line[];
+  visibleLineCount: number;
 }) {
   const styles = useThemedStyles(createStyles);
-  const visibleLineCodes = lineCodes.slice(0, 3);
-  const extraCount = Math.max(0, lineCodes.length - visibleLineCodes.length);
+  const visibleLines = lines.slice(0, visibleLineCount);
+  const extraCount = Math.max(0, lines.length - visibleLines.length);
 
   return (
     <View style={styles.transferBadgeAnchorBox}>
       <View style={styles.transferBadgeRow}>
-        {visibleLineCodes.map((lineCode) => {
-          const brand = getLineBrand(mode, lineCode);
+        {visibleLines.map((line) => {
+          const brand = getLineBrand(line.mode, line.code, line.color);
 
           return (
             <View
-              key={lineCode}
+              key={`${line.mode}:${line.code}`}
               style={[
                 styles.transferBadge,
                 { backgroundColor: brand.backgroundColor },
@@ -880,16 +956,20 @@ function StationTransferBadges({
   );
 }
 
-function PlannerTransferBadges({ routeCodes }: { routeCodes: string[] }) {
+function PlannerTransferBadges({
+  routes,
+}: {
+  routes: { code: string; mode: TransportMode }[];
+}) {
   const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.transferBadgeAnchorBox}>
       <View style={styles.transferBadgeRow}>
-        {routeCodes.slice(0, 3).map((routeCode) => {
-          const brand = getLineBrand(getPlannerRouteMode(routeCode), routeCode);
+        {routes.slice(0, 3).map((route) => {
+          const brand = getLineBrand(route.mode, route.code);
           return (
             <View
-              key={routeCode}
+              key={`${route.mode}:${route.code}`}
               style={[styles.transferBadge, { backgroundColor: brand.backgroundColor }]}
             >
               <Text
@@ -1089,6 +1169,43 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
     elevation: 3,
+  },
+  vehicleMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: palette.surface,
+    shadowColor: palette.shadow,
+    shadowOpacity: 0.32,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  vehicleMarkerText: {
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  vehicleCallout: {
+    width: 220,
+    gap: 3,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: palette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
+  vehicleCalloutTitle: {
+    color: palette.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  vehicleCalloutText: {
+    color: palette.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
   },
   nearbyLabel: {
     maxWidth: 140,

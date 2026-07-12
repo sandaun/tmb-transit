@@ -15,12 +15,13 @@ import type {
   SegmentDto,
   ServiceAlertDto,
   StationDto,
+  TransitVehicleDto,
 } from '@/src/data/tmb/types';
 import type { Line, Station, TransportMode } from '@/src/domain/catalog/models';
 import type { LatLng, Segment } from '@/src/domain/geo/models';
 import type { NearbyStop } from '@/src/domain/nearby/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
-import type { Arrival } from '@/src/domain/realtime/models';
+import type { Arrival, TransitVehicle } from '@/src/domain/realtime/models';
 import type { ServiceAlert } from '@/src/domain/alerts/models';
 
 interface NearbyStopDto extends StationDto {
@@ -81,8 +82,18 @@ export async function fetchStationArrivals(
   return response.data.map(mapArrivalDto);
 }
 
-export async function fetchServiceAlerts(): Promise<ServiceAlert[]> {
-  const response = await requestJson<ApiResponse<ServiceAlertDto[]>>('/v1/service-alerts');
+export async function fetchFgcVehicles(lineCode: string): Promise<TransitVehicle[]> {
+  const query = new URLSearchParams({ lineCode });
+  const response = await requestJson<ApiResponse<TransitVehicleDto[]>>(
+    `/v1/realtime/fgc/vehicles?${query.toString()}`,
+  );
+  return response.data;
+}
+
+export async function fetchServiceAlerts(language: 'ca' | 'es' | 'en' = 'ca'): Promise<ServiceAlert[]> {
+  const response = await requestJson<ApiResponse<ServiceAlertDto[]>>(
+    `/v1/service-alerts?lang=${encodeURIComponent(language)}`,
+  );
   return response.data.map(mapServiceAlertDto);
 }
 

@@ -1,4 +1,5 @@
 import type { LatLng } from '@/src/domain/geo/models';
+import type { TransitOperator, TransportMode } from '@/src/domain/catalog/models';
 
 export interface PlannerPoint extends Partial<LatLng> {
   name: string;
@@ -12,6 +13,9 @@ export interface PlannedLeg {
   route?: string;
   routeLongName?: string;
   agencyName?: string;
+  operator?: TransitOperator;
+  transportMode?: TransportMode;
+  network?: string;
   from: PlannerPoint;
   to: PlannerPoint;
   startTimeMs?: number;

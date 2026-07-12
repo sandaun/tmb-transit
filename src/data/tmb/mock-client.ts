@@ -9,6 +9,57 @@ const mockMetroLines: Line[] = [
   { code: 'L3', name: 'L3', mode: 'metro', color: '00933B' },
 ];
 
+const mockFgcLines: Line[] = [
+  {
+    code: 'L6',
+    name: 'Barcelona Pl. Catalunya - Sarrià',
+    mode: 'fgc',
+    operator: 'fgc',
+    vehicleMode: 'metro',
+    network: 'barcelona-valles',
+    color: '797FBC',
+    originStation: 'Barcelona Pl. Catalunya',
+    destinationStation: 'Sarrià',
+  },
+  {
+    code: 'S1',
+    name: 'Barcelona Pl. Catalunya - Terrassa Nacions Unides',
+    mode: 'fgc',
+    operator: 'fgc',
+    vehicleMode: 'rail',
+    network: 'barcelona-valles',
+    color: 'EF7900',
+    originStation: 'Barcelona Pl. Catalunya',
+    destinationStation: 'Terrassa Nacions Unides',
+  },
+];
+
+const mockFgcStationsByLine: Record<string, Station[]> = {
+  L6: [
+    { code: 'PC', lineCode: 'L6', mode: 'fgc', operator: 'fgc', vehicleMode: 'metro', network: 'barcelona-valles', name: 'Barcelona - Plaça Catalunya', lat: 41.38563, lon: 2.16872, order: 1 },
+    { code: 'PR', lineCode: 'L6', mode: 'fgc', operator: 'fgc', vehicleMode: 'metro', network: 'barcelona-valles', name: 'Provença', lat: 41.39281, lon: 2.15803, order: 2 },
+    { code: 'SR', lineCode: 'L6', mode: 'fgc', operator: 'fgc', vehicleMode: 'metro', network: 'barcelona-valles', name: 'Sarrià', lat: 41.39893, lon: 2.12557, order: 3 },
+  ],
+  S1: [
+    { code: 'PC', lineCode: 'S1', mode: 'fgc', operator: 'fgc', vehicleMode: 'rail', network: 'barcelona-valles', name: 'Barcelona - Plaça Catalunya', lat: 41.38563, lon: 2.16872, order: 1 },
+    { code: 'PR', lineCode: 'S1', mode: 'fgc', operator: 'fgc', vehicleMode: 'rail', network: 'barcelona-valles', name: 'Provença', lat: 41.39281, lon: 2.15803, order: 2 },
+    { code: 'SC', lineCode: 'S1', mode: 'fgc', operator: 'fgc', vehicleMode: 'rail', network: 'barcelona-valles', name: 'Sant Cugat Centre', lat: 41.47269, lon: 2.08663, order: 3 },
+  ],
+};
+
+const mockFgcSegmentsByLine: Record<string, Segment[]> = Object.fromEntries(
+  Object.entries(mockFgcStationsByLine).map(([lineCode, stations]) => [
+    lineCode,
+    [{
+      id: `fgc-${lineCode.toLowerCase()}-segment`,
+      lineCode,
+      mode: 'fgc' as const,
+      operator: 'fgc' as const,
+      points: stations.map(({ lat, lon }) => ({ lat, lon })),
+    }],
+  ]),
+);
+
 const mockServiceAlerts: ServiceAlert[] = [
   {
     id: 'mock:l4-verdaguer',
@@ -159,6 +210,9 @@ const mockMetroSegmentsByLine: Record<string, Segment[]> = {
 };
 
 export async function fetchLinesFromMock(mode: TransportMode): Promise<Line[]> {
+  if (mode === 'fgc') {
+    return mockFgcLines;
+  }
   if (mode === 'bus') {
     return mockBusLines;
   }
@@ -170,6 +224,9 @@ export async function fetchLineStationsFromMock(
   mode: TransportMode,
   lineCode: string,
 ): Promise<Station[]> {
+  if (mode === 'fgc') {
+    return mockFgcStationsByLine[lineCode] ?? [];
+  }
   if (mode === 'bus') {
     return mockBusStationsByLine[lineCode] ?? [];
   }
@@ -181,6 +238,9 @@ export async function fetchLineSegmentsFromMock(
   mode: TransportMode,
   lineCode: string,
 ): Promise<Segment[]> {
+  if (mode === 'fgc') {
+    return mockFgcSegmentsByLine[lineCode] ?? [];
+  }
   if (mode === 'bus') {
     return mockBusSegmentsByLine[lineCode] ?? [];
   }
@@ -194,6 +254,36 @@ export async function fetchStationArrivalsFromMock(
   stationCode: string,
 ): Promise<Arrival[]> {
   const sourceTimestampMs = Date.now();
+
+  if (mode === 'fgc') {
+    return [
+      {
+        lineCode,
+        stationCode,
+        mode,
+        operator: 'fgc',
+        directionId: 'Terrassa Nacions Unides',
+        platformCode: '1',
+        destination: 'Terrassa Nacions Unides',
+        etaSec: 180,
+        sourceTimestampMs,
+        serviceId: 'mock-fgc-1',
+        realtimeStatus: 'realtime',
+      },
+      {
+        lineCode,
+        stationCode,
+        mode,
+        operator: 'fgc',
+        directionId: 'Terrassa Nacions Unides',
+        platformCode: '1',
+        destination: 'Terrassa Nacions Unides',
+        etaSec: 720,
+        sourceTimestampMs,
+        realtimeStatus: 'scheduled',
+      },
+    ];
+  }
 
   if (mode === 'bus') {
     return [
@@ -293,10 +383,12 @@ export async function fetchNearbyStopsFromMock(
   const linesByMode: Record<TransportMode, Line[]> = {
     metro: mockMetroLines,
     bus: mockBusLines,
+    fgc: mockFgcLines,
   };
   const stationsByLine: Record<TransportMode, Record<string, Station[]>> = {
     metro: mockMetroStationsByLine,
     bus: mockBusStationsByLine,
+    fgc: mockFgcStationsByLine,
   };
 
   const seen = new Set<string>();

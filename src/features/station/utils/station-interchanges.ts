@@ -135,3 +135,39 @@ export function prioritizeSelectedInterchangeMember(
     ...members.slice(selectedIndex + 1),
   ];
 }
+
+export function getUniqueInterchangeLines(
+  members: StationInterchangeMember[],
+): Line[] {
+  const seenLineKeys = new Set<string>();
+
+  return members.flatMap((member) => {
+    const lineKey = `${member.line.mode}:${member.line.code}`;
+    if (seenLineKeys.has(lineKey)) {
+      return [];
+    }
+
+    seenLineKeys.add(lineKey);
+    return [member.line];
+  });
+}
+
+export function prioritizeSelectedInterchangeLine(
+  lines: Line[],
+  mode: Line['mode'],
+  lineCode: string,
+): Line[] {
+  const selectedIndex = lines.findIndex(
+    (line) => line.mode === mode && line.code === lineCode,
+  );
+
+  if (selectedIndex <= 0) {
+    return lines;
+  }
+
+  return [
+    lines[selectedIndex],
+    ...lines.slice(0, selectedIndex),
+    ...lines.slice(selectedIndex + 1),
+  ];
+}

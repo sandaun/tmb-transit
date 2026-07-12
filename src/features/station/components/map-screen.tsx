@@ -27,6 +27,7 @@ import {
 } from '@/src/features/catalog/utils/bus-line-family';
 import { useLineStationsQuery } from '@/src/features/catalog/hooks/use-line-stations-query';
 import { useLineSegmentsQuery } from '@/src/features/station/hooks/use-line-segments-query';
+import { useLineVehiclesQuery } from '@/src/features/station/hooks/use-line-vehicles-query';
 import type { StationInterchange } from '@/src/features/station/utils/station-interchanges';
 import { useAppLanguage } from '@/src/i18n';
 import { Text, type Palette, useThemedStyles } from '@/src/design-system';
@@ -102,12 +103,13 @@ export function MapScreen({
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
-  const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus']);
+  const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus', 'fgc']);
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const explorationVisible = !plannerEnabled;
 
   const stationsQuery = useLineStationsQuery(mode, lineCode);
   const segmentsQuery = useLineSegmentsQuery(mode, lineCode);
+  const vehiclesQuery = useLineVehiclesQuery(mode, lineCode);
   const stations = useMemo(() => stationsQuery.data ?? [], [stationsQuery.data]);
 
   const [busFamily, setBusFamily] = useState<BusLineFamily | null>(null);
@@ -261,9 +263,12 @@ export function MapScreen({
   }, []);
 
   const handleNearbyStopPress = useCallback(
-    (stop: { code: string; mode: TransportMode }) => {
+    (stop: { code: string; lineCode: string; mode: TransportMode }) => {
       const match = (nearbyQuery.data ?? []).find(
-        (candidate) => candidate.code === stop.code && candidate.mode === stop.mode,
+        (candidate) =>
+          candidate.code === stop.code &&
+          candidate.lineCode === stop.lineCode &&
+          candidate.mode === stop.mode,
       );
       if (!match) return;
 
@@ -318,9 +323,9 @@ export function MapScreen({
         mode={mode}
         stations={stations}
         segments={segmentsQuery.data ?? []}
+        transitVehicles={vehiclesQuery.data ?? []}
         selectedStationCode={stationCode}
         stationInterchanges={stationInterchanges}
-        isRouteLoading={segmentsQuery.isLoading}
         bottomInset={bottomInset}
         nearbyStops={nearbyMarkers}
         plannerMarkers={plannerMarkers}

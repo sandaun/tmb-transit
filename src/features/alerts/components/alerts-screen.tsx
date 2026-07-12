@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -21,6 +21,7 @@ import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-sy
 const TAB_BAR_CLEARANCE = 96;
 
 type TimeFilter = AlertsFilter;
+type OperatorFilter = 'all' | 'tmb' | 'fgc';
 
 interface AlertStats {
   all: number;
@@ -88,7 +89,10 @@ interface AlertsHeaderProps {
   error: boolean;
   isFetching: boolean;
   onRetry: () => void;
+  onOperatorFilterChange: (filter: OperatorFilter) => void;
   onTimeFilterChange: (filter: TimeFilter) => void;
+  operatorFilter: OperatorFilter;
+  operatorStats: Record<OperatorFilter, number>;
   stats: AlertStats;
   timeFilter: TimeFilter;
 }
@@ -97,7 +101,10 @@ function AlertsHeader({
   error,
   isFetching,
   onRetry,
+  onOperatorFilterChange,
   onTimeFilterChange,
+  operatorFilter,
+  operatorStats,
   stats,
   timeFilter,
 }: AlertsHeaderProps) {
@@ -139,6 +146,21 @@ function AlertsHeader({
               count={stats[filter.id]}
               label={filter.label}
               onPress={() => onTimeFilterChange(filter.id)}
+            />
+          ))}
+        </View>
+        <View style={styles.segmentedControl}>
+          {([
+            { id: 'all', label: t('alerts_all') },
+            { id: 'tmb', label: 'TMB' },
+            { id: 'fgc', label: 'FGC' },
+          ] as const).map((filter) => (
+            <SegmentButton
+              key={filter.id}
+              active={operatorFilter === filter.id}
+              count={operatorStats[filter.id]}
+              label={filter.label}
+              onPress={() => onOperatorFilterChange(filter.id)}
             />
           ))}
         </View>
@@ -189,6 +211,7 @@ export function AlertsScreen() {
   const favoriteLines = useUserPreferencesStore((state) => state.favoriteLines);
   const favoriteStops = useUserPreferencesStore((state) => state.favoriteStops);
   const { data: alerts = [], error, isFetching, isLoading, refetch } = useServiceAlertsQuery();
+  const [operatorFilter, setOperatorFilter] = useState<OperatorFilter>('all');
 
   const favoriteLineKeys = useMemo(
     () => new Set([
@@ -198,9 +221,17 @@ export function AlertsScreen() {
     [favoriteLines, favoriteStops],
   );
   const stats = useMemo(() => countAlerts(alerts, favoriteLineKeys), [alerts, favoriteLineKeys]);
+  const operatorStats = useMemo<Record<OperatorFilter, number>>(() => ({
+    all: alerts.length,
+    tmb: alerts.filter((alert) => (alert.operator ?? 'tmb') === 'tmb').length,
+    fgc: alerts.filter((alert) => alert.operator === 'fgc').length,
+  }), [alerts]);
   const filteredAlerts = useMemo(
-    () => alerts.filter((alert) => alertMatchesTimeFilter(alert, timeFilter, favoriteLineKeys)),
-    [alerts, favoriteLineKeys, timeFilter],
+    () => alerts.filter((alert) =>
+      alertMatchesTimeFilter(alert, timeFilter, favoriteLineKeys) &&
+      (operatorFilter === 'all' || (alert.operator ?? 'tmb') === operatorFilter),
+    ),
+    [alerts, favoriteLineKeys, operatorFilter, timeFilter],
   );
 
   const handleOpenSource = useCallback((sourceUrl: string) => {
@@ -246,7 +277,10 @@ export function AlertsScreen() {
             error={Boolean(error)}
             isFetching={isFetching && !isLoading}
             onRetry={handleRetry}
+            onOperatorFilterChange={setOperatorFilter}
             onTimeFilterChange={setTimeFilter}
+            operatorFilter={operatorFilter}
+            operatorStats={operatorStats}
             stats={stats}
             timeFilter={timeFilter}
           />

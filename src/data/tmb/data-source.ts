@@ -37,7 +37,7 @@ interface TmbDataSource {
     from: { lat: number; lon: number },
     to: { lat: number; lon: number },
   ) => Promise<PlannedRoute[]>;
-  fetchServiceAlerts: () => Promise<ServiceAlert[]>;
+  fetchServiceAlerts: (language?: 'ca' | 'es' | 'en') => Promise<ServiceAlert[]>;
   fetchNearbyStops: (
     center: LatLng,
     modes: TransportMode[],
@@ -102,8 +102,8 @@ export async function fetchPlannedRoutes(
   return getTmbDataSource().fetchPlannedRoutes(from, to);
 }
 
-export async function fetchServiceAlerts() {
-  return getTmbDataSource().fetchServiceAlerts();
+export async function fetchServiceAlerts(language: 'ca' | 'es' | 'en' = 'ca') {
+  return getTmbDataSource().fetchServiceAlerts(language);
 }
 
 export async function fetchNearbyStops(

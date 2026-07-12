@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { mapPlannedRouteDto, mapServiceAlertDto } from '@/src/data/tmb/mappers';
+import { mapLineDto, mapPlannedRouteDto, mapServiceAlertDto } from '@/src/data/tmb/mappers';
+
+describe('mapLineDto', () => {
+  it('preserves the daily service status', () => {
+    const line = mapLineDto({
+      code: 'R50',
+      name: 'R50',
+      mode: 'fgc',
+      serviceStatus: 'no-service',
+    });
+
+    assert.equal(line.serviceStatus, 'no-service');
+  });
+});
 
 describe('mapServiceAlertDto', () => {
   it('removes internal TMB prefixes from alert titles', () => {

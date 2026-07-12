@@ -113,8 +113,16 @@ export function LineStationsScreen({ mode, lineCode }: LineStationsScreenProps) 
                     {lineCode}
                   </Text>
                 )}
-                <Text style={styles.subtitle} numberOfLines={1}>
-                  {mode === 'bus' ? t('bus') : t('metro')}
+                <Text
+                  style={[
+                    styles.subtitle,
+                    line?.serviceStatus === 'no-service' && styles.subtitleNoService,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {line?.serviceStatus === 'no-service'
+                    ? `${t(mode)} · ${t('line_no_service_today')}`
+                    : t(mode)}
                 </Text>
               </View>
             </View>
@@ -256,6 +264,9 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     color: palette.textMuted,
     fontSize: 13,
     marginTop: 2,
+  },
+  subtitleNoService: {
+    color: palette.warning,
   },
   searchInput: {
     borderWidth: 1,

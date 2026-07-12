@@ -91,7 +91,7 @@ function SearchShell({
     <View style={styles.modeRow}>
       <View style={[styles.modeChip, styles.modeChipActive]}>
         <Text style={[styles.modeChipText, styles.modeChipTextActive]}>
-          {mode === 'bus' ? t('bus') : t('metro')}
+          {t(mode)}
         </Text>
       </View>
       <View style={styles.lineModeChip}>
@@ -406,7 +406,6 @@ export function StationScreen({
           stations={stations}
           segments={segmentsQuery.data ?? []}
           selectedStationCode={activeStationCode}
-          isRouteLoading={segmentsQuery.isLoading}
           onStationPress={handleStationPress}
         />
         <Animated.View
@@ -529,7 +528,7 @@ export function StationScreen({
                   contentContainerStyle={styles.expandedContent}
                   showsVerticalScrollIndicator={false}>
                   <View style={styles.sectionLabelRow}>
-                    <Text style={styles.sectionLabel}>{mode === 'bus' ? 'BUS' : 'METRO'}</Text>
+                    <Text style={styles.sectionLabel}>{mode.toUpperCase()}</Text>
                   </View>
 
                   <View style={styles.infoRow}>

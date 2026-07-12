@@ -5,6 +5,8 @@ import type { Line, Station } from '@/src/domain/catalog/models';
 import {
   buildStationInterchanges,
   findStationInterchange,
+  getUniqueInterchangeLines,
+  prioritizeSelectedInterchangeLine,
   prioritizeSelectedInterchangeMember,
   type StationInterchangeMember,
 } from '@/src/features/station/utils/station-interchanges';
@@ -124,6 +126,53 @@ describe('station interchanges', () => {
     assert.deepEqual(
       members.map((member) => member.line.code),
       ['L3', 'L5', 'L9S'],
+    );
+  });
+
+  it('deduplicates platforms belonging to the same operator line', () => {
+    const s1: Line = { code: 'S1', name: 'S1', mode: 'fgc' };
+    const members: StationInterchangeMember[] = [
+      {
+        line: s1,
+        station: { ...makeStation('S1', 'NA1', 'Terrassa Nacions Unides', 41.584, 2.052), mode: 'fgc' },
+      },
+      {
+        line: s1,
+        station: { ...makeStation('S1', 'NA2', 'Terrassa Nacions Unides', 41.5841, 2.0521), mode: 'fgc' },
+      },
+      {
+        line: lines[0],
+        station: makeStation('L3', 'transfer-l3', 'Transfer', 41.38, 2.14),
+      },
+    ];
+
+    assert.deepEqual(
+      getUniqueInterchangeLines(members).map((line) => `${line.mode}:${line.code}`),
+      ['fgc:S1', 'metro:L3'],
+    );
+  });
+
+  it('keeps the active line visible before compacting interchange badges', () => {
+    const interchangeLines: Line[] = [
+      { code: 'L8', name: 'L8', mode: 'fgc' },
+      { code: 'R5', name: 'R5', mode: 'fgc' },
+      { code: 'R50', name: 'R50', mode: 'fgc' },
+      { code: 'R53', name: 'R53', mode: 'fgc' },
+    ];
+
+    const prioritizedLines = prioritizeSelectedInterchangeLine(
+      interchangeLines,
+      'fgc',
+      'R53',
+    );
+
+    assert.deepEqual(
+      prioritizedLines.map((line) => line.code),
+      ['R53', 'L8', 'R5', 'R50'],
+    );
+    assert.deepEqual(
+      interchangeLines.map((line) => line.code),
+      ['L8', 'R5', 'R50', 'R53'],
     );
   });
 });

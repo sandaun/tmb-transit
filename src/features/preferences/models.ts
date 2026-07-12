@@ -52,7 +52,7 @@ export interface MapSelection {
 }
 
 export interface UserPreferences {
-  version: 1;
+  version: 2;
   language: AppLanguage | null;
   theme: ThemePreference;
   alertsFilter: AlertsFilter;
@@ -87,7 +87,7 @@ export function getDeviceLanguage(): AppLanguage {
 
 export function createDefaultPreferences(): UserPreferences {
   return {
-    version: 1,
+    version: 2,
     language: null,
     theme: 'system',
     alertsFilter: 'all',
@@ -116,7 +116,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isTransportMode(value: unknown): value is TransportMode {
-  return value === 'metro' || value === 'bus';
+  return value === 'metro' || value === 'bus' || value === 'fgc';
 }
 
 function isFiniteNumber(value: unknown): value is number {

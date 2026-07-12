@@ -30,7 +30,10 @@ export function LineRow({ line, onPress, isFavorite, onFavoritePress }: LineRowP
   const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const routeLabel = getRouteLabel(line);
-  const supportLabel = line.mode === 'metro' ? t('metro') : t('bus');
+  const hasNoService = line.serviceStatus === 'no-service';
+  const supportLabel = hasNoService
+    ? `${t(line.mode)} · ${t('line_no_service_today')}`
+    : t(line.mode);
 
   return (
     <View style={styles.row}>
@@ -38,14 +41,19 @@ export function LineRow({ line, onPress, isFavorite, onFavoritePress }: LineRowP
         style={({ pressed }) => [styles.rowContent, pressed && styles.rowPressed]}
         onPress={() => onPress(line)}
         accessibilityRole="button"
-        accessibilityLabel={`${t('line_accessibility', { code: line.code })}${routeLabel ? `, ${routeLabel}` : ''}`}
+        accessibilityLabel={`${t('line_accessibility', { code: line.code })}${routeLabel ? `, ${routeLabel}` : ''}${hasNoService ? `, ${t('line_no_service_today')}` : ''}`}
       >
         <LineBadge color={line.color} lineCode={line.code} mode={line.mode} size="medium" shape="square" />
         <View style={styles.textWrap}>
           {routeLabel ? (
             <>
               <Text style={styles.route} numberOfLines={2}>{routeLabel}</Text>
-              <Text style={styles.support} numberOfLines={1}>{supportLabel}</Text>
+              <Text
+                style={[styles.support, hasNoService && styles.supportNoService]}
+                numberOfLines={1}
+              >
+                {supportLabel}
+              </Text>
             </>
           ) : <Text style={styles.route} numberOfLines={1}>{supportLabel}</Text>}
         </View>
@@ -103,6 +111,9 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
+  },
+  supportNoService: {
+    color: palette.warning,
   },
   chevron: {
     color: palette.textSubtle,

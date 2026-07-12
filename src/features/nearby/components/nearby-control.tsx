@@ -8,7 +8,7 @@ import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-sy
 
 const SIZE = 48;
 const COLLAPSED_WIDTH = SIZE;
-const EXPANDED_WIDTH = 200;
+const EXPANDED_WIDTH = 260;
 const EXPAND_DURATION = 240;
 const COLLAPSE_DURATION = 200;
 const AUTO_COLLAPSE_MS = 4000;
@@ -16,6 +16,7 @@ const AUTO_COLLAPSE_MS = 4000;
 const MODE_CHIPS: { mode: TransportMode; label: string }[] = [
   { mode: 'metro', label: 'Metro' },
   { mode: 'bus', label: 'Bus' },
+  { mode: 'fgc', label: 'FGC' },
 ];
 
 interface NearbyControlProps {

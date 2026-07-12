@@ -36,6 +36,7 @@ const numericMetroLineKeys: Record<string, string> = {
 
 const BUS_FALLBACK_BACKGROUND = '#1F4FB6';
 const METRO_FALLBACK_BACKGROUND = '#24304A';
+const FGC_FALLBACK_BACKGROUND = '#5E2D83';
 const BUS_FAMILY_BACKGROUNDS: Record<string, string> = {
   H: '#009DDC',
   V: '#4DAF50',
@@ -89,10 +90,26 @@ function getBusBrand(lineCode: string, color?: string): LineBrand {
   };
 }
 
+function getFgcBrand(lineCode: string, color?: string): LineBrand {
+  const backgroundColor = toHexColor(color) ?? FGC_FALLBACK_BACKGROUND;
+  const hex = backgroundColor.slice(1);
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  const luminance = (red * 299 + green * 587 + blue * 114) / 1_000;
+  return {
+    label: lineCode.trim().toUpperCase() || lineCode,
+    backgroundColor,
+    textColor: luminance > 170 ? '#111827' : '#FFFFFF',
+  };
+}
+
 export function getLineBrand(
   mode: TransportMode,
   lineCode: string,
   color?: string,
 ): LineBrand {
-  return mode === 'bus' ? getBusBrand(lineCode, color) : getMetroBrand(lineCode, color);
+  if (mode === 'bus') return getBusBrand(lineCode, color);
+  if (mode === 'fgc') return getFgcBrand(lineCode, color);
+  return getMetroBrand(lineCode, color);
 }

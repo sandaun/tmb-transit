@@ -20,7 +20,7 @@ test('normalizes malformed stored preferences to safe defaults', () => {
     savedPlaces: { home: { id: 'home', label: 'Invalid', lat: 'no', lon: 2, updatedAtMs: 1 } },
   });
 
-  assert.equal(preferences.version, 1);
+  assert.equal(preferences.version, 2);
   assert.equal(preferences.language, null);
   assert.equal(preferences.theme, 'system');
   assert.deepEqual(preferences.favoriteLines, []);
@@ -32,6 +32,16 @@ test('preserves supported theme preferences', () => {
   assert.equal(normalizePreferences({ theme: 'light' }).theme, 'light');
   assert.equal(normalizePreferences({ theme: 'dark' }).theme, 'dark');
   assert.equal(normalizePreferences({ theme: 'contrast' }).theme, 'system');
+});
+
+test('preserves FGC favorites during preference normalization', () => {
+  const preferences = normalizePreferences({
+    favoriteLines: [{ mode: 'fgc', lineCode: 'S1', addedAtMs: 1 }],
+  });
+
+  assert.deepEqual(preferences.favoriteLines, [
+    { mode: 'fgc', lineCode: 'S1', addedAtMs: 1 },
+  ]);
 });
 
 test('uses supported device languages and falls back to Catalan', () => {

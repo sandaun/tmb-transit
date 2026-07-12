@@ -45,6 +45,10 @@ interface MapScreenProps {
   onModeChange?: (mode: TransportMode) => void;
   onStationChange?: (stationCode: string) => void;
   onNearbyStopSelect?: (stop: NearbyStop) => void;
+  nearbyEnabled: boolean;
+  nearbyModes: TransportMode[];
+  onNearbyToggle: () => void;
+  onNearbyConfigurationPress: () => void;
   onUserLocationChange?: (coordinate: { lat: number; lon: number } | null) => void;
   plannerEnabled?: boolean;
   plannerOrigin?: { lat: number; lon: number } | null;
@@ -80,6 +84,10 @@ export function MapScreen({
   onModeChange,
   onStationChange,
   onNearbyStopSelect,
+  nearbyEnabled,
+  nearbyModes,
+  onNearbyToggle,
+  onNearbyConfigurationPress,
   onUserLocationChange,
   plannerEnabled = false,
   plannerOrigin = null,
@@ -102,8 +110,6 @@ export function MapScreen({
   const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
-  const [nearbyEnabled, setNearbyEnabled] = useState(false);
-  const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus', 'fgc']);
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const explorationVisible = !plannerEnabled;
 
@@ -258,10 +264,6 @@ export function MapScreen({
     return plannerRoutePolylines;
   }, [plannerEnabled, plannerRoutePolylines]);
 
-  const handleNearbyTogglePress = useCallback(() => {
-    setNearbyEnabled((current) => !current);
-  }, []);
-
   const handleNearbyStopPress = useCallback(
     (stop: { code: string; lineCode: string; mode: TransportMode }) => {
       const match = (nearbyQuery.data ?? []).find(
@@ -340,9 +342,9 @@ export function MapScreen({
               {explorationVisible ? (
                 <NearbyControl
                   enabled={nearbyEnabled}
-                  activeModes={nearbyModes}
-                  onToggle={handleNearbyTogglePress}
-                  onModesChange={setNearbyModes}
+                  selectedModeCount={nearbyModes.length}
+                  onToggle={onNearbyToggle}
+                  onConfigure={onNearbyConfigurationPress}
                 />
               ) : null}
             </>

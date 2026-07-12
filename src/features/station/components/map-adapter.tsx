@@ -1086,7 +1086,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.surfaceTranslucent,
+    backgroundColor: palette.mapControlSurface,
     borderWidth: 1,
     borderColor: palette.borderStrong,
     shadowColor: palette.shadow,

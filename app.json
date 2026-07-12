@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "tmb-transit",
-    "slug": "tmb-transit",
+    "name": "MouBCN",
+    "slug": "moubcn",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "tmbtransit",
+    "scheme": "moubcn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow TMB Transit to center the map on your current location."
+        "NSLocationWhenInUseUsageDescription": "Allow MouBCN to center the map on your current location."
       },
-      "bundleIdentifier": "cat.oriol.transit"
+      "bundleIdentifier": "cat.oriol.moubcn"
     },
     "android": {
       "permissions": [
@@ -28,7 +28,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "cat.oriol.transit"
+      "package": "cat.oriol.moubcn"
     },
     "web": {
       "output": "static",
@@ -39,7 +39,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow TMB Transit to access your location to show nearby stops.",
+          "locationAlwaysAndWhenInUsePermission": "Allow MouBCN to access your location to show nearby stops.",
           "isIosBackgroundLocationEnabled": false
         }
       ],

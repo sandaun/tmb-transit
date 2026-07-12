@@ -323,7 +323,7 @@ export async function fetchServiceAlertsFromTmb(): Promise<ServiceAlertDto[]> {
   const response = await fetchWithTimeout(TMB_SERVICE_NOTICES_URL, {
     headers: {
       accept: 'text/html,application/xhtml+xml',
-      'user-agent': 'tmb-transit/1.0 service-alerts',
+      'user-agent': 'moubcn/1.0 service-alerts',
     },
   });
 

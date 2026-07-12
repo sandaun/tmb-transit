@@ -25,6 +25,7 @@ import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import { useAppLanguage } from '@/src/i18n';
 import type { AlertsTimeFilter } from '@/src/features/preferences/models';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const TAB_BAR_CLEARANCE = 96;
 
@@ -55,12 +56,14 @@ function SegmentButton({
   label,
   onPress,
 }: SegmentButtonProps) {
+  const colorScheme = useColorScheme();
   const styles = useThemedStyles(createStyles);
   return (
     <Pressable
       style={({ pressed }) => [
         styles.segmentButton,
         active ? styles.segmentButtonActive : null,
+        active && colorScheme === 'dark' ? styles.segmentButtonActiveDark : null,
         pressed ? styles.filterButtonPressed : null,
       ]}
       onPress={onPress}
@@ -535,6 +538,8 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     gap: 6,
     paddingHorizontal: 6,
     paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'transparent',
     borderRadius: 12,
     borderCurve: 'continuous',
   },
@@ -545,6 +550,10 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 3,
     elevation: 1,
+  },
+  segmentButtonActiveDark: {
+    borderColor: palette.accent,
+    backgroundColor: palette.accentSoft,
   },
   segmentLabel: {
     color: palette.textMuted,

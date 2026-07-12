@@ -5,6 +5,7 @@ export interface Palette {
   surface: string;
   surfaceElevated: string;
   surfaceTranslucent: string;
+  mapControlSurface: string;
   surfaceStrong: string;
   border: string;
   borderStrong: string;
@@ -35,6 +36,7 @@ export const light: Palette = {
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
   surfaceTranslucent: 'rgba(255, 255, 255, 0.86)',
+  mapControlSurface: 'rgba(255, 255, 255, 0.86)',
   surfaceStrong: '#241C16',
   border: '#ECE4D8',
   borderStrong: '#DCCFBD',
@@ -65,6 +67,7 @@ export const dark: Palette = {
   surface: '#262138',
   surfaceElevated: '#2E2846',
   surfaceTranslucent: 'rgba(48, 40, 72, 0.60)',
+  mapControlSurface: 'rgba(38, 33, 56, 0.90)',
   surfaceStrong: '#F6EFEA',
   border: 'rgba(255, 255, 255, 0.08)',
   borderStrong: 'rgba(255, 255, 255, 0.14)',

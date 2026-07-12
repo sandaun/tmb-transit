@@ -37,6 +37,7 @@ import {
 } from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
 import { MapScreen } from '@/src/features/station/components/map-screen';
 import type { NearbyStop } from '@/src/features/nearby/hooks/use-nearby-stops-query';
+import { NearbySheet } from '@/src/features/nearby/components/nearby-sheet';
 import { StationContent } from '@/src/features/station/components/station-content';
 import { fetchAndCacheLineSegments } from '@/src/features/station/hooks/use-line-segments-query';
 import { buildStationInterchanges } from '@/src/features/station/utils/station-interchanges';
@@ -72,6 +73,7 @@ function reportMapDataError(operation: string, error: unknown): void {
 }
 
 const SHEET_DETENTS = [0.1, 0.5, 1] as const;
+const NEARBY_SHEET_DETENTS = [0.1, 0.34, 1] as const;
 
 type PlannerPointKind = 'origin' | 'destination';
 
@@ -176,6 +178,9 @@ export default function MapTabScreen() {
   const sheetRef = useRef<LocalBottomSheetHandle>(null);
   const [detentIndex, setDetentIndex] = useState(0);
   const [pendingMode, setPendingMode] = useState<TransportMode | null>(null);
+  const [nearbyEnabled, setNearbyEnabled] = useState(false);
+  const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus', 'fgc']);
+  const [nearbyPanelOpen, setNearbyPanelOpen] = useState(false);
   const [plannerEnabled, setPlannerEnabled] = useState(false);
   const [plannerActivePoint, setPlannerActivePoint] = useState<'origin' | 'destination'>(
     'origin',
@@ -198,6 +203,7 @@ export default function MapTabScreen() {
   const destinationLabelRequestRef = useRef(0);
   const lineChangeRequestRef = useRef(0);
   const handledRouteIntentRef = useRef<string | null>(null);
+  const sheetDetents = nearbyPanelOpen ? NEARBY_SHEET_DETENTS : SHEET_DETENTS;
 
   const plannedRoutesQuery = usePlannedRoutesQuery(plannerOrigin, plannerDestination, {
     enabled: plannerEnabled && plannerRequested,
@@ -251,11 +257,11 @@ export default function MapTabScreen() {
 
   const sheetHeight = useMemo(() => {
     const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
-    const detent = SHEET_DETENTS[detentIndex] ?? SHEET_DETENTS[0];
+    const detent = sheetDetents[detentIndex] ?? sheetDetents[0];
     const raw = Math.max(116, Math.round(usableHeight * detent));
     const maxButtonInset = Math.round(windowHeight * 0.45);
     return Math.min(raw, maxButtonInset);
-  }, [detentIndex, insets.top, windowHeight]);
+  }, [detentIndex, insets.top, sheetDetents, windowHeight]);
 
   useEffect(() => {
     // Restore only the initial null selection. An empty line code is used while
@@ -313,7 +319,25 @@ export default function MapTabScreen() {
 
   const handleDetentChange = useCallback((nextDetentIndex: number) => {
     setDetentIndex(nextDetentIndex);
+    if (nextDetentIndex === 0) {
+      setNearbyPanelOpen(false);
+    }
   }, []);
+
+  const handleNearbyConfigurationPress = useCallback(() => {
+    const nextPanelOpen = !nearbyPanelOpen;
+    setNearbyPanelOpen(nextPanelOpen);
+    sheetRef.current?.resize(nextPanelOpen ? 1 : 0);
+  }, [nearbyPanelOpen]);
+
+  const handleNearbyToggle = useCallback(() => {
+    const nextEnabled = !nearbyEnabled;
+    setNearbyEnabled(nextEnabled);
+    if (!nextEnabled) {
+      setNearbyPanelOpen(false);
+      sheetRef.current?.resize(0);
+    }
+  }, [nearbyEnabled]);
 
   const cancelPendingLineChange = useCallback(() => {
     lineChangeRequestRef.current += 1;
@@ -429,6 +453,7 @@ export default function MapTabScreen() {
     (nextStationCode: string) => {
       if (!lineCode) return;
       cancelPendingLineChange();
+      setNearbyPanelOpen(false);
       setSelection(mode, lineCode, nextStationCode);
       const station = stations.find((item) => item.code === nextStationCode);
       if (station) {
@@ -457,6 +482,7 @@ export default function MapTabScreen() {
   const handleNearbyStopSelect = useCallback(
     (stop: NearbyStop) => {
       cancelPendingLineChange();
+      setNearbyPanelOpen(false);
       const effectiveLineCode =
         stop.lineCode || (stop.mode === mode ? lineCode : '') || '';
       setSelection(stop.mode, effectiveLineCode, stop.code);
@@ -512,6 +538,7 @@ export default function MapTabScreen() {
   const handlePlannerToggle = useCallback(() => {
     const nextPlannerEnabled = !plannerEnabled;
     setPlannerEnabled(nextPlannerEnabled);
+    setNearbyPanelOpen(false);
 
     if (nextPlannerEnabled) {
       setPlannerActivePoint(plannerOrigin ? 'destination' : 'origin');
@@ -727,6 +754,10 @@ export default function MapTabScreen() {
         onModeChange={handleModeChange}
         onStationChange={handleStationChange}
         onNearbyStopSelect={handleNearbyStopSelect}
+        nearbyEnabled={nearbyEnabled}
+        nearbyModes={nearbyModes}
+        onNearbyToggle={handleNearbyToggle}
+        onNearbyConfigurationPress={handleNearbyConfigurationPress}
         onUserLocationChange={setPlannerUserLocation}
         plannerEnabled={plannerEnabled}
         plannerOrigin={plannerOrigin}
@@ -756,7 +787,7 @@ export default function MapTabScreen() {
 
       <LocalBottomSheet
         ref={sheetRef}
-        detents={SHEET_DETENTS}
+        detents={sheetDetents}
         initialDetentIndex={0}
         onDetentChange={handleDetentChange}
       >
@@ -793,6 +824,11 @@ export default function MapTabScreen() {
               onRetry={() => void plannedRoutesQuery.refetch()}
               onRouteSelect={handlePlannerRouteSelect}
               onStepSelect={handlePlannerStepSelect}
+            />
+          ) : nearbyPanelOpen ? (
+            <NearbySheet
+              activeModes={nearbyModes}
+              onModesChange={setNearbyModes}
             />
           ) : (
             <StationContent

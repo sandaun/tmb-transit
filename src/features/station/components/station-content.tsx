@@ -1,6 +1,6 @@
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -23,7 +23,6 @@ import {
 } from '@/src/features/station/utils/arrival-helpers';
 import {
   findStationInterchange,
-  prioritizeSelectedInterchangeMember,
   type StationInterchange,
   type StationInterchangeMember,
 } from '@/src/features/station/utils/station-interchanges';
@@ -54,30 +53,6 @@ function useSheetArrivals(
   });
 }
 
-function useInterchangeArrivals(members: StationInterchangeMember[], active: boolean) {
-  return useQueries({
-    queries: members.map((member) => ({
-      queryKey: [
-        'realtime',
-        member.line.mode,
-        'arrivals',
-        member.line.code,
-        member.station.code,
-      ] as const,
-      queryFn: () =>
-        fetchStationArrivals(member.line.mode, member.line.code, member.station.code),
-      enabled: Boolean(
-        member.line.code &&
-        member.station.code &&
-        active &&
-        member.line.serviceStatus !== 'no-service'
-      ),
-      staleTime: 5_000,
-      refetchInterval: active ? APP_CONFIG.arrivalsPollIntervalMs : false,
-    })),
-  });
-}
-
 interface StationContentProps {
   lines?: Line[];
   stationInterchanges?: StationInterchange[];
@@ -95,6 +70,7 @@ export function StationContent({
   const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
+  const lineSelectorRef = useRef<ScrollView | null>(null);
   const mode = useTransitStore((s) => s.selectedMode);
   const lineCode = useTransitStore((s) => s.selectedLineCode);
   const stationCode = useTransitStore((s) => s.selectedStationCode);
@@ -131,11 +107,36 @@ export function StationContent({
 
     return [{ line, station }];
   }, [lineCode, lines, selectedInterchange, station]);
-  const orderedInterchangeMembers = useMemo(
-    () => prioritizeSelectedInterchangeMember(interchangeMembers, lineCode),
-    [interchangeMembers, lineCode],
+  const selectableInterchangeMembers = useMemo(
+    () =>
+      interchangeMembers.filter(
+        (member, index, members) =>
+          index ===
+          members.findIndex(
+            (candidate) =>
+              candidate.line.mode === member.line.mode &&
+              candidate.line.code === member.line.code,
+          ),
+      ),
+    [interchangeMembers],
   );
-  const interchangeArrivalQueries = useInterchangeArrivals(orderedInterchangeMembers, active);
+
+  useEffect(() => {
+    const activeIndex = selectableInterchangeMembers.findIndex(
+      (member) => member.line.mode === mode && member.line.code === lineCode,
+    );
+
+    if (activeIndex < 0) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      lineSelectorRef.current?.scrollTo({
+        animated: true,
+        x: Math.max(0, activeIndex * 58 - 16),
+      });
+    });
+  }, [lineCode, mode, selectableInterchangeMembers]);
 
   const orderedArrivals = useMemo(
     () => sortArrivalsByEta(arrivalsQuery.data ?? []),
@@ -159,7 +160,7 @@ export function StationContent({
   const nextArrival = orderedArrivals[0];
   const followingArrivals = orderedArrivals.slice(1, 6);
   const stationName = selectedInterchange?.name ?? station?.name ?? stationCode;
-  const hasMultipleLines = interchangeMembers.length > 1;
+  const hasMultipleLines = selectableInterchangeMembers.length > 1;
   const isFavorite = favoriteStops.some(
     (item) => item.mode === mode && item.lineCode === lineCode && item.stationCode === stationCode,
   );
@@ -237,13 +238,24 @@ export function StationContent({
       {hasMultipleLines ? (
         <View style={styles.lineSwitcher}>
           <Text style={styles.sectionLabel}>{t('station_lines')}</Text>
-          <View style={styles.lineOptions}>
-            {interchangeMembers.map((member) => {
-              const isActive = member.line.code === lineCode;
+          <ScrollView
+            ref={lineSelectorRef}
+            horizontal
+            contentContainerStyle={styles.lineOptions}
+            showsHorizontalScrollIndicator={false}
+          >
+            {selectableInterchangeMembers.map((member) => {
+              const isActive =
+                member.line.mode === mode && member.line.code === lineCode;
 
               return (
                 <Pressable
-                  key={`${member.line.code}:${member.station.code}`}
+                  key={`${member.line.mode}:${member.line.code}:${member.station.code}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('line_accessibility', {
+                    code: member.line.code,
+                  })}
+                  accessibilityState={{ selected: isActive }}
                   style={[
                     styles.lineOption,
                     isActive && styles.lineOptionActive,
@@ -257,18 +269,10 @@ export function StationContent({
                   }
                 >
                   <RouteBadge lineCode={member.line.code} mode={member.line.mode} color={member.line.color} size="small" />
-                  <Text
-                    style={[
-                      styles.lineOptionText,
-                      isActive && styles.lineOptionTextActive,
-                    ]}
-                  >
-                    {member.station.name}
-                  </Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       ) : null}
 
@@ -283,35 +287,20 @@ export function StationContent({
         </View>
       ) : null}
 
-      {!hasNoService && !hasMultipleLines && arrivalsQuery.isLoading ? (
+      {!hasNoService && arrivalsQuery.isLoading ? (
         <View style={styles.feedbackRow}>
           <ActivityIndicator color={palette.accent} />
           <Text style={styles.feedbackText}>{t('station_loading_arrivals')}</Text>
         </View>
       ) : null}
 
-      {!hasNoService && !hasMultipleLines && arrivalsQuery.isError ? (
+      {!hasNoService && arrivalsQuery.isError ? (
         <Text style={styles.errorText}>
           {t('station_realtime_unavailable')}
         </Text>
       ) : null}
 
-      {hasMultipleLines ? (
-        <View style={styles.lineSections}>
-          {orderedInterchangeMembers.map((member, index) => (
-            <InterchangeArrivalSection
-              key={`${member.line.code}:${member.station.code}`}
-              isActive={member.line.code === lineCode}
-              member={member}
-              now={now}
-              query={interchangeArrivalQueries[index]}
-              onPress={() =>
-                onLineStationSelect?.(member.line.mode, member.line.code, member.station.code)
-              }
-            />
-          ))}
-        </View>
-      ) : !hasNoService && nextArrival ? (
+      {!hasNoService && nextArrival ? (
         <View style={styles.card}>
           <View style={styles.heroRow}>
             <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="large" />
@@ -360,8 +349,7 @@ export function StationContent({
         </View>
       ) : null}
 
-      {!hasMultipleLines &&
-      !hasNoService &&
+      {!hasNoService &&
       !arrivalsQuery.isLoading &&
       !arrivalsQuery.isError &&
       orderedArrivals.length === 0 ? (
@@ -370,101 +358,6 @@ export function StationContent({
         </Text>
       ) : null}
     </ScrollView>
-  );
-}
-
-function InterchangeArrivalSection({
-  isActive,
-  member,
-  now,
-  query,
-  onPress,
-}: {
-  isActive: boolean;
-  member: StationInterchangeMember;
-  now: number;
-  query: ReturnType<typeof useInterchangeArrivals>[number] | undefined;
-  onPress: () => void;
-}) {
-  const palette = usePalette();
-  const styles = useThemedStyles(createStyles);
-  const { t } = useAppLanguage();
-  const arrivals = useMemo(
-    () => sortArrivalsByEta(query?.data ?? []),
-    [query?.data],
-  );
-  const firstArrival = arrivals[0];
-  const followingArrivals = arrivals.slice(1, 4);
-  const hasNoService = member.line.serviceStatus === 'no-service';
-
-  return (
-    <Pressable
-      style={[styles.interchangeCard, isActive && styles.interchangeCardActive]}
-      onPress={onPress}
-    >
-      <View style={styles.interchangeHeader}>
-        <RouteBadge lineCode={member.line.code} mode={member.line.mode} color={member.line.color} size="large" />
-        <View style={styles.interchangeHeaderText}>
-          <Text style={styles.interchangeDestination}>
-            {firstArrival?.destination ?? member.line.name}
-          </Text>
-          {firstArrival ? (
-            <Text style={styles.interchangePlatform}>
-              {firstArrival.platformCode
-                ? t('station_platform', { platform: firstArrival.platformCode })
-                : t('station_direction', { direction: firstArrival.directionId })}
-            </Text>
-          ) : null}
-        </View>
-        {firstArrival ? (
-          <Text style={styles.interchangeEta}>
-            {formatEta(getLiveEtaSec(firstArrival, now))}
-          </Text>
-        ) : null}
-      </View>
-
-      {hasNoService ? (
-        <Text style={styles.noServiceText}>{t('station_no_service_today')}</Text>
-      ) : null}
-
-      {!hasNoService && query?.isLoading ? (
-        <View style={styles.feedbackRow}>
-          <ActivityIndicator color={palette.accent} />
-          <Text style={styles.feedbackText}>{t('station_loading_arrivals')}</Text>
-        </View>
-      ) : null}
-
-      {!hasNoService && query?.isError ? (
-        <Text style={styles.errorText}>{t('station_realtime_unavailable')}</Text>
-      ) : null}
-
-      {!hasNoService && !query?.isLoading && !query?.isError && arrivals.length === 0 ? (
-        <Text style={styles.feedbackText}>{t('station_no_arrivals')}</Text>
-      ) : null}
-
-      {followingArrivals.length > 0 ? (
-        <View style={styles.interchangeRows}>
-          {followingArrivals.map((arrival, index) => (
-            <View
-              key={makeArrivalKey(arrival, index)}
-              style={styles.interchangeRow}
-            >
-              <View style={styles.interchangeRowText}>
-                <Text style={styles.rowDestination}>{arrival.destination}</Text>
-                <Text style={styles.rowPlatform}>
-                  {arrival.platformCode
-                    ? t('station_platform', { platform: arrival.platformCode })
-                    : t('station_direction', { direction: arrival.directionId })}
-                </Text>
-              </View>
-              <Text style={styles.rowEta}>
-                {formatEta(getLiveEtaSec(arrival, now))}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-    </Pressable>
   );
 }
 
@@ -540,18 +433,15 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   },
   lineOptions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
+    paddingRight: 20,
   },
   lineOption: {
-    minWidth: 96,
-    flexBasis: '47%',
-    flexGrow: 1,
-    flexDirection: 'row',
+    width: 50,
+    height: 50,
     alignItems: 'center',
-    gap: 8,
-    borderRadius: 18,
-    padding: 8,
+    justifyContent: 'center',
+    borderRadius: 16,
     backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
     borderColor: palette.border,
@@ -559,15 +449,6 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   lineOptionActive: {
     backgroundColor: palette.accentSoft,
     borderColor: palette.accent,
-  },
-  lineOptionText: {
-    flex: 1,
-    color: palette.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  lineOptionTextActive: {
-    color: palette.text,
   },
   serviceText: {
     color: palette.textMuted,
@@ -611,57 +492,6 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
     gap: 10,
-  },
-  lineSections: {
-    gap: 10,
-  },
-  interchangeCard: {
-    borderRadius: 24,
-    padding: 14,
-    backgroundColor: palette.surfaceElevated,
-    borderWidth: 1,
-    borderColor: palette.border,
-    gap: 10,
-  },
-  interchangeCardActive: {
-    backgroundColor: palette.accentSoft,
-    borderColor: palette.accent,
-  },
-  interchangeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  interchangeHeaderText: {
-    flex: 1,
-  },
-  interchangeDestination: {
-    color: palette.text,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  interchangePlatform: {
-    color: palette.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  interchangeEta: {
-    color: palette.realtime,
-    fontSize: 23,
-    fontWeight: '800',
-  },
-  interchangeRows: {
-    gap: 8,
-  },
-  interchangeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  interchangeRowText: {
-    flex: 1,
   },
   heroRow: {
     flexDirection: 'row',

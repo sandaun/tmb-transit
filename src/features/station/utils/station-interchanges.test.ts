@@ -6,6 +6,7 @@ import {
   buildStationInterchanges,
   findStationInterchange,
   getUniqueInterchangeLines,
+  prioritizeSelectedInterchangeLine,
   prioritizeSelectedInterchangeMember,
   type StationInterchangeMember,
 } from '@/src/features/station/utils/station-interchanges';
@@ -148,6 +149,30 @@ describe('station interchanges', () => {
     assert.deepEqual(
       getUniqueInterchangeLines(members).map((line) => `${line.mode}:${line.code}`),
       ['fgc:S1', 'metro:L3'],
+    );
+  });
+
+  it('keeps the active line visible before compacting interchange badges', () => {
+    const interchangeLines: Line[] = [
+      { code: 'L8', name: 'L8', mode: 'fgc' },
+      { code: 'R5', name: 'R5', mode: 'fgc' },
+      { code: 'R50', name: 'R50', mode: 'fgc' },
+      { code: 'R53', name: 'R53', mode: 'fgc' },
+    ];
+
+    const prioritizedLines = prioritizeSelectedInterchangeLine(
+      interchangeLines,
+      'fgc',
+      'R53',
+    );
+
+    assert.deepEqual(
+      prioritizedLines.map((line) => line.code),
+      ['R53', 'L8', 'R5', 'R50'],
+    );
+    assert.deepEqual(
+      interchangeLines.map((line) => line.code),
+      ['L8', 'R5', 'R50', 'R53'],
     );
   });
 });

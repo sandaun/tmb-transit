@@ -29,8 +29,10 @@ import {
 } from '@/src/features/planner/utils/route-presentation';
 import {
   getUniqueInterchangeLines,
+  prioritizeSelectedInterchangeLine,
   type StationInterchange,
 } from '@/src/features/station/utils/station-interchanges';
+import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-detail';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -363,6 +365,7 @@ export function MapAdapter({
     [attributionBottomInset],
   );
   const appleLogoInsets = legalLabelInsets;
+  const markerDetail = getMapMarkerDetail(latitudeDelta);
   const interchangeByStationKey = useMemo(() => {
     const nextInterchangeByStationKey = new Map<string, StationInterchange>();
 
@@ -381,9 +384,13 @@ export function MapAdapter({
     () =>
       visibleStations.filter((station) => {
         const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
-        return (interchange?.members.length ?? 1) > 1;
+        const isSelected = station.code === selectedStationCode;
+        return (
+          (interchange?.members.length ?? 1) > 1 &&
+          (isSelected || markerDetail !== 'minimal')
+        );
       }),
-    [interchangeByStationKey, lineCode, visibleStations],
+    [interchangeByStationKey, lineCode, markerDetail, selectedStationCode, visibleStations],
   );
 
   const centerMap = useCallback((coordinate: LatLng, delta = 0.05) => {
@@ -645,8 +652,9 @@ export function MapAdapter({
         })}
 
         {badgeStations.map((station) => {
+          const isSelected = station.code === selectedStationCode;
           const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
-          const transferLines =
+          const interchangeLines =
             (interchange ? getUniqueInterchangeLines(interchange.members) : null) ?? [{
               code: lineCode,
               name: lineCode,
@@ -655,6 +663,12 @@ export function MapAdapter({
               vehicleMode: mode === 'fgc' ? 'rail' : mode,
               color: lineColor,
             }];
+          const transferLines = prioritizeSelectedInterchangeLine(
+            interchangeLines,
+            mode,
+            lineCode,
+          );
+          const visibleLineCount = isSelected || markerDetail === 'full' ? 3 : 1;
 
           return (
             <Marker
@@ -666,7 +680,10 @@ export function MapAdapter({
               zIndex={30}
               onPress={() => handleStationPress(station.code)}
             >
-              <StationTransferBadges lines={transferLines} />
+              <StationTransferBadges
+                lines={transferLines}
+                visibleLineCount={visibleLineCount}
+              />
             </Marker>
           );
         })}
@@ -891,11 +908,13 @@ export function MapAdapter({
 
 function StationTransferBadges({
   lines,
+  visibleLineCount,
 }: {
   lines: Line[];
+  visibleLineCount: number;
 }) {
   const styles = useThemedStyles(createStyles);
-  const visibleLines = lines.slice(0, 3);
+  const visibleLines = lines.slice(0, visibleLineCount);
   const extraCount = Math.max(0, lines.length - visibleLines.length);
 
   return (

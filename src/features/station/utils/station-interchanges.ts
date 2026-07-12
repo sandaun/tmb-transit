@@ -151,3 +151,23 @@ export function getUniqueInterchangeLines(
     return [member.line];
   });
 }
+
+export function prioritizeSelectedInterchangeLine(
+  lines: Line[],
+  mode: Line['mode'],
+  lineCode: string,
+): Line[] {
+  const selectedIndex = lines.findIndex(
+    (line) => line.mode === mode && line.code === lineCode,
+  );
+
+  if (selectedIndex <= 0) {
+    return lines;
+  }
+
+  return [
+    lines[selectedIndex],
+    ...lines.slice(0, selectedIndex),
+    ...lines.slice(selectedIndex + 1),
+  ];
+}

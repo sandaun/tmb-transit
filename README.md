@@ -1,152 +1,190 @@
-# Barcelona Transit
+<div align="center">
+  <img src="./assets/images/icon.png" alt="MouBCN app icon" width="120" />
 
-Expo React Native app for TMB and Barcelona-connected FGC services with:
-- Metro, bus, and FGC line/station catalogs
-- Scheduled and realtime station arrivals
-- FGC GeoTren vehicle positions and occupancy when available
-- Combined service alerts, nearby stops, favorites, and route planning
-- Thin Fastify proxy backend with short cache and single-flight dedupe
+  # MouBCN
 
-## Project layout
+  **Barcelona in motion.**
 
-- `/Users/oriolcarbo/code/Projectes/tmb-transit/app` Expo Router routes
-- `/Users/oriolcarbo/code/Projectes/tmb-transit/src/domain` pure domain logic
-- `/Users/oriolcarbo/code/Projectes/tmb-transit/src/data` API client, DTO mapping, cache
-- `/Users/oriolcarbo/code/Projectes/tmb-transit/src/features` screen features and hooks
-- `/Users/oriolcarbo/code/Projectes/tmb-transit/services/api` Fastify proxy
+  Explore Metro, bus, and FGC lines, check live arrivals, follow service alerts,
+  find nearby stops, and plan a route across the city.
 
-## Mobile setup
+  [![CI](https://github.com/sandaun/tmb-transit/actions/workflows/ci.yml/badge.svg)](https://github.com/sandaun/tmb-transit/actions/workflows/ci.yml)
+  ![Expo SDK 54](https://img.shields.io/badge/Expo_SDK-54-000020?logo=expo&logoColor=white)
+  ![React Native 0.81](https://img.shields.io/badge/React_Native-0.81-61DAFB?logo=react&logoColor=111827)
+  ![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=node.js&logoColor=white)
+</div>
 
-1. Install dependencies:
+> [!NOTE]
+> MouBCN is an independent, unofficial project under active development. It is not
+> affiliated with or endorsed by TMB or FGC.
 
-```bash
-npm install
+## What is inside
+
+| | Feature | Details |
+| --- | --- | --- |
+| 🗺️ | Live network map | Browse lines, stations, interchanges, and vehicles on an interactive map. |
+| 🚇 | One connected catalog | Metro, bus, and FGC lines and stops in a consistent interface. |
+| ⏱️ | Realtime arrivals | Live arrival data for Metro, bus, and FGC, with scheduled fallbacks where available. |
+| 📍 | Nearby stops | Find transport around the current location and filter it by mode. |
+| 🧭 | Route planning | Choose an origin and destination on the map and compare route options. |
+| ⚠️ | Service alerts | Combined current and scheduled notices from TMB and FGC. |
+| ⭐ | Personal shortcuts | Save places, lines, and stops, and revisit recent journeys. |
+| 🌗 | Made for the device | Catalan, Spanish, and English; light and dark themes; iOS and Android. |
+
+The repository contains two applications:
+
+```text
+tmb-transit/
+├── app/              Expo Router routes
+├── src/
+│   ├── domain/       Transport models and pure domain logic
+│   ├── data/         API clients, mapping, and local caching
+│   └── features/     Screens, components, hooks, and feature logic
+└── services/api/     Fastify proxy for TMB and FGC data
 ```
 
-2. Start Expo:
+The mobile app never receives provider credentials. It talks to the proxy, which normalizes the
+different upstream APIs, protects credentials, rate-limits clients, and uses short-lived caches with
+single-flight request deduplication.
+
+## Quick start
+
+### Requirements
+
+- Node.js 22 (the repository includes an `.nvmrc`)
+- npm
+- Xcode for iOS or Android Studio for Android
+
+### Run with mock data
+
+Mock mode is the fastest way to explore the app and does not require API credentials.
 
 ```bash
+nvm use
+npm install
+cp .env.local.example .env.local
 npm run start
 ```
 
-3. Set backend URL for device/simulator:
+Keep `EXPO_PUBLIC_USE_MOCK=true` in `.env.local`, then open the project in an iOS simulator,
+Android emulator, development build, or web browser from the Expo terminal.
+
+Useful platform shortcuts:
 
 ```bash
-EXPO_PUBLIC_API_BASE_URL=http://localhost:3001 npm run start
+npm run ios
+npm run android
+npm run web
 ```
 
-If you run on a physical device, use your LAN IP instead of `localhost`.
+If Metro holds stale state, restart it with `npx expo start --clear`.
 
-## Frontend env and mock mode
+## Run with live data
 
-The app reads frontend flags from env via `/Users/oriolcarbo/code/Projectes/tmb-transit/src/config/app-config.ts`.
+Live TMB data requires application credentials. FGC Open Data does not require credentials.
 
-Current flags:
-- `EXPO_PUBLIC_APP_ENV` (`development`, `preview`, or `production`)
-- `EXPO_PUBLIC_API_BASE_URL`
-- `EXPO_PUBLIC_USE_MOCK`
+1. Install the API dependencies and create its local environment file:
 
-Recommended setup:
-- `.env.development` (shared defaults for dev)
-- `.env.local` (personal overrides, ignored by git)
+   ```bash
+   npm install --prefix services/api
+   cp services/api/.env.example services/api/.env
+   ```
 
-For predictable behavior, use `.env.local` as the source of truth for local mode:
+2. Add `TMB_APP_ID` and `TMB_APP_KEY` to `services/api/.env`.
 
-```bash
-cp .env.local.example .env.local
-```
+3. Point the app at the local API and disable mock mode in `.env.local`:
 
-Set:
-- `EXPO_PUBLIC_APP_ENV=development` for local development
-- `EXPO_PUBLIC_USE_MOCK=true` for mock mode
-- `EXPO_PUBLIC_USE_MOCK=false` for real backend mode
+   ```dotenv
+   EXPO_PUBLIC_APP_ENV=development
+   EXPO_PUBLIC_API_BASE_URL=http://localhost:3001
+   EXPO_PUBLIC_USE_MOCK=false
+   ```
+
+4. Start the API and Expo in separate terminals:
+
+   ```bash
+   npm run api:dev
+   ```
+
+   ```bash
+   npm run start
+   ```
+
+When running on a physical device, replace `localhost` with the computer's LAN IP address.
+
+### Environment variables
+
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `EXPO_PUBLIC_APP_ENV` | App | Selects `development`, `preview`, or `production`. |
+| `EXPO_PUBLIC_API_BASE_URL` | App | Base URL of the Fastify API. |
+| `EXPO_PUBLIC_USE_MOCK` | App | Enables deterministic local mock data. |
+| `PORT` | API | Listening port; defaults to `3001`. |
+| `TMB_APP_ID` | API | Server-only TMB application identifier. |
+| `TMB_APP_KEY` | API | Server-only TMB application key. |
 
 Preview and production builds require an explicit non-local HTTPS API URL and reject mock mode.
+Every `EXPO_PUBLIC_*` value is included in the mobile bundle and must be treated as public.
 
-Then start with:
+## API surface
 
-```bash
-npm run start
-```
+The proxy exposes a small normalized API:
 
-If you need to reset Metro cache, run:
+| Endpoint | Description |
+| --- | --- |
+| `GET /health` | Service health check. |
+| `GET /v1/catalog/:mode/lines` | Lines for `metro`, `bus`, or `fgc`. |
+| `GET /v1/catalog/:mode/lines/:lineCode/stations` | Stops on a line. |
+| `GET /v1/catalog/:mode/lines/:lineCode/segments` | Line geometry. |
+| `GET /v1/realtime/:mode/arrivals` | Realtime arrivals for a line and stop. |
+| `GET /v1/realtime/fgc/vehicles` | FGC GeoTren vehicle positions. |
+| `GET /v1/nearby/stops` | Nearby stops by coordinate, radius, and mode. |
+| `GET /v1/planner/routes` | Route options between two coordinates. |
+| `GET /v1/service-alerts` | Combined TMB and FGC service notices. |
 
-```bash
-npx expo start --clear
-```
+Catalog data is cached for 24 hours. Realtime responses use a short cache and can fall back to a
+recent stale value if an upstream service temporarily fails.
 
-## Backend setup
+## Tech stack
 
-1. Install backend dependencies:
+- **App:** Expo, React Native, Expo Router, TypeScript, TanStack Query, Zustand, React Native Maps
+- **API:** Fastify, Zod, TypeScript
+- **Quality:** ESLint, Node test runner, Expo Doctor, CodeQL, Dependabot
 
-```bash
-npm --prefix ./services/api install
-```
+## Quality checks
 
-2. Configure env:
-
-```bash
-cp ./services/api/.env.example ./services/api/.env
-```
-
-Fill:
-- `TMB_APP_ID`
-- `TMB_APP_KEY`
-
-Optional:
-- `TMB_TRANSIT_BASE_URL` (default `https://api.tmb.cat/v1/transit`)
-- `TMB_IMETRO_BASE_URL` (default `https://api.tmb.cat/v1/itransit`)
-- `FGC_OPEN_DATA_BASE_URL` (default `https://dadesobertes.fgc.cat/api/explore/v2.1`)
-
-FGC Open Data does not require credentials.
-
-3. Run backend:
+Run app checks:
 
 ```bash
-npm run api:dev
+npm run lint:app
+npm run typecheck
+npm test
 ```
 
-## API exposed by backend
-
-- `GET /health`
-- `GET /v1/catalog/metro/lines`
-- `GET /v1/catalog/bus/lines`
-- `GET /v1/catalog/fgc/lines`
-- `GET /v1/catalog/metro/lines/:lineCode/stations`
-- `GET /v1/catalog/metro/lines/:lineCode/segments`
-- `GET /v1/realtime/metro/arrivals?lineCode={lineCode}&stationCode={stationCode}`
-- `GET /v1/realtime/fgc/vehicles?lineCode={lineCode}`
-- `GET /v1/service-alerts?lang={ca|es|en}`
-- `GET /v1/nearby/stops?lat={lat}&lon={lon}&modes={metro,bus,fgc}`
-
-## ETA vehicle simulation
-
-Implemented in `/Users/oriolcarbo/code/Projectes/tmb-transit/src/domain/realtime/estimate-vehicles.ts`:
-
-- ordered stations per direction
-- `avgSegmentSec = 90` (configurable)
-- `segmentsBehind = floor(etaSec / avgSegmentSec)`
-- `progress = 1 - ((etaSec % avgSegmentSec) / avgSegmentSec)`
-- `segmentIndex = targetStationIndex - segmentsBehind - 1`
-- no render when `segmentIndex < 0`
-
-UI label shown on station screen:
-
-`Estimated position (based on ETA).`
-
-## Realtime cache strategy (backend)
-
-Implemented in `/Users/oriolcarbo/code/Projectes/tmb-transit/services/api/src/routes/realtime.ts`:
-
-- cache key: `arrivals:{lineCode}:{stationCode}`
-- fresh TTL: `8s`
-- single-flight dedupe: one upstream request per key while in flight
-- stale fallback: return last value up to `30s` when upstream fails
-
-## Tests
-
-Backend unit test included for cache behavior:
+Run API checks:
 
 ```bash
-npm --prefix ./services/api run test
+npm run lint:api
+npm run api:typecheck
+npm run api:test
+npm run api:build
 ```
+
+The complete CI commands are `npm run ci:app` and `npm run ci:api`. See
+[Continuous Integration](./docs/ci.md) and [Security Operations](./docs/security.md) for repository
+policies and deployment constraints.
+
+## Data sources
+
+- [TMB APIs](https://developer.tmb.cat/) for Metro and bus catalogs, arrivals, nearby stops, route
+  planning, and service information.
+- [FGC Open Data](https://dadesobertes.fgc.cat/) for FGC catalogs, realtime data, and service
+  information.
+
+Availability and accuracy depend on the upstream providers. Do not rely on this project as the only
+source of information for time-critical journeys.
+
+## License
+
+No open-source license has been selected yet. Until a license file is added, the source code is
+provided without permission to copy, modify, or redistribute it.

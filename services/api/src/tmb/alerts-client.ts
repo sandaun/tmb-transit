@@ -267,7 +267,7 @@ async function fetchRawAlerts<TAlert>(mode: TransportMode): Promise<TAlert[]> {
   const response = await fetchWithTimeout(buildAlertsUrl(mode), {
     headers: {
       accept: 'application/json',
-      'user-agent': 'tmb-transit/1.0 service-alerts',
+      'user-agent': 'moubcn/1.0 service-alerts',
     },
   });
 

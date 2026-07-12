@@ -668,7 +668,12 @@ export function MapAdapter({
             mode,
             lineCode,
           );
-          const visibleLineCount = isSelected || markerDetail === 'full' ? 3 : 1;
+          const visibleLineCount =
+            isSelected || markerDetail === 'full'
+              ? 3
+              : interchangeLines.length === 2
+                ? 2
+                : 1;
 
           return (
             <Marker

@@ -3,7 +3,7 @@ import { Image, type ImageSource } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { TransportMode } from '@/src/domain/catalog/models';
-import { type Palette, useThemedStyles } from '@/src/design-system';
+import { Text, type Palette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAppLanguage } from '@/src/i18n';
 
@@ -20,9 +20,9 @@ interface ModeBrand {
 }
 
 const MODES: ModeBrand[] = [
-  { mode: 'metro', source: require('@/assets/transport/metro.svg'), width: 27 },
-  { mode: 'bus', source: require('@/assets/transport/bus.svg'), width: 22 },
-  { mode: 'fgc', source: require('@/assets/transport/fgc.svg'), width: 22 },
+  { mode: 'metro', source: require('@/assets/transport/metro.svg'), width: 23 },
+  { mode: 'bus', source: require('@/assets/transport/bus.svg'), width: 19 },
+  { mode: 'fgc', source: require('@/assets/transport/fgc.svg'), width: 19 },
 ];
 
 export function ModeToggle({ mode, pendingMode = null, onChange }: ModeToggleProps) {
@@ -59,6 +59,9 @@ export function ModeToggle({ mode, pendingMode = null, onChange }: ModeTogglePro
                 source={source}
                 style={[styles.logo, { width }]}
               />
+              <Text style={[styles.label, active ? styles.labelActive : null]}>
+                {t(entry)}
+              </Text>
             </Pressable>
           );
         })}
@@ -70,6 +73,7 @@ export function ModeToggle({ mode, pendingMode = null, onChange }: ModeTogglePro
 const createStyles = (palette: Palette) => StyleSheet.create({
   container: {
     borderRadius: 22,
+    borderCurve: 'continuous',
     overflow: 'hidden',
     backgroundColor: palette.surfaceTranslucent,
     borderWidth: 1,
@@ -81,15 +85,19 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    padding: 3,
-    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    gap: 4,
   },
   chip: {
-    width: 64,
+    flex: 1,
     height: 36,
     borderRadius: 16,
+    borderCurve: 'continuous',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 7,
   },
   chipActive: {
     backgroundColor: palette.accentSoft,
@@ -98,6 +106,14 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     opacity: 0.68,
   },
   logo: {
-    height: 22,
+    height: 19,
+  },
+  label: {
+    color: palette.textMuted,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  labelActive: {
+    color: palette.text,
   },
 });

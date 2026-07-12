@@ -20,12 +20,36 @@ test('normalizes malformed stored preferences to safe defaults', () => {
     savedPlaces: { home: { id: 'home', label: 'Invalid', lat: 'no', lon: 2, updatedAtMs: 1 } },
   });
 
-  assert.equal(preferences.version, 2);
+  assert.equal(preferences.version, 3);
   assert.equal(preferences.language, null);
   assert.equal(preferences.theme, 'system');
   assert.deepEqual(preferences.favoriteLines, []);
   assert.equal(preferences.recentItems.length, MAX_RECENT_ITEMS);
   assert.deepEqual(preferences.savedPlaces, {});
+});
+
+test('migrates the legacy mine alert filter to an independent preference', () => {
+  const preferences = normalizePreferences({ alertsFilter: 'mine' });
+
+  assert.equal(preferences.alertsTimeFilter, 'all');
+  assert.equal(preferences.alertsMineOnly, true);
+});
+
+test('migrates legacy time filters and preserves the new alert preferences', () => {
+  assert.deepEqual(
+    {
+      time: normalizePreferences({ alertsFilter: 'planned' }).alertsTimeFilter,
+      mineOnly: normalizePreferences({ alertsFilter: 'planned' }).alertsMineOnly,
+    },
+    { time: 'planned', mineOnly: false },
+  );
+  assert.deepEqual(
+    {
+      time: normalizePreferences({ alertsTimeFilter: 'current', alertsMineOnly: true }).alertsTimeFilter,
+      mineOnly: normalizePreferences({ alertsTimeFilter: 'current', alertsMineOnly: true }).alertsMineOnly,
+    },
+    { time: 'current', mineOnly: true },
+  );
 });
 
 test('preserves supported theme preferences', () => {

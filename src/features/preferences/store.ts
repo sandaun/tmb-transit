@@ -7,7 +7,7 @@ import {
   lineKey,
   stopKey,
   type AppLanguage,
-  type AlertsFilter,
+  type AlertsTimeFilter,
   type FavoriteLine,
   type FavoriteStop,
   type MapSelection,
@@ -24,7 +24,8 @@ interface UserPreferencesStore extends UserPreferences {
   hydrate: () => Promise<void>;
   setLanguage: (language: AppLanguage) => void;
   setTheme: (theme: ThemePreference) => void;
-  setAlertsFilter: (filter: AlertsFilter) => void;
+  setAlertsTimeFilter: (filter: AlertsTimeFilter) => void;
+  setAlertsMineOnly: (mineOnly: boolean) => void;
   setSavedPlace: (place: SavedPlace) => void;
   removeSavedPlace: (id: SavedPlaceId) => void;
   toggleFavoriteLine: (line: Omit<FavoriteLine, 'addedAtMs'>) => void;
@@ -36,10 +37,11 @@ interface UserPreferencesStore extends UserPreferences {
 
 function preferencesFromState(state: UserPreferencesStore): UserPreferences {
   return {
-    version: 2,
+    version: 3,
     language: state.language,
     theme: state.theme,
-    alertsFilter: state.alertsFilter,
+    alertsTimeFilter: state.alertsTimeFilter,
+    alertsMineOnly: state.alertsMineOnly,
     savedPlaces: state.savedPlaces,
     favoriteLines: state.favoriteLines,
     favoriteStops: state.favoriteStops,
@@ -73,8 +75,12 @@ export const useUserPreferencesStore = create<UserPreferencesStore>((set, get) =
     set({ theme });
     persist(get);
   },
-  setAlertsFilter: (alertsFilter) => {
-    set({ alertsFilter });
+  setAlertsTimeFilter: (alertsTimeFilter) => {
+    set({ alertsTimeFilter });
+    persist(get);
+  },
+  setAlertsMineOnly: (alertsMineOnly) => {
+    set({ alertsMineOnly });
     persist(get);
   },
   setSavedPlace: (place) => {

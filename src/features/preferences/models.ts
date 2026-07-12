@@ -3,7 +3,7 @@ import type { TransportMode } from '@/src/domain/catalog/models';
 export type AppLanguage = 'ca' | 'en' | 'es';
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type SavedPlaceId = 'home' | 'work';
-export type AlertsFilter = 'all' | 'mine' | 'current' | 'planned';
+export type AlertsTimeFilter = 'all' | 'current' | 'planned';
 
 export interface SavedPlace {
   id: SavedPlaceId;
@@ -52,10 +52,11 @@ export interface MapSelection {
 }
 
 export interface UserPreferences {
-  version: 2;
+  version: 3;
   language: AppLanguage | null;
   theme: ThemePreference;
-  alertsFilter: AlertsFilter;
+  alertsTimeFilter: AlertsTimeFilter;
+  alertsMineOnly: boolean;
   savedPlaces: Partial<Record<SavedPlaceId, SavedPlace>>;
   favoriteLines: FavoriteLine[];
   favoriteStops: FavoriteStop[];
@@ -87,10 +88,11 @@ export function getDeviceLanguage(): AppLanguage {
 
 export function createDefaultPreferences(): UserPreferences {
   return {
-    version: 2,
+    version: 3,
     language: null,
     theme: 'system',
-    alertsFilter: 'all',
+    alertsTimeFilter: 'all',
+    alertsMineOnly: false,
     savedPlaces: {},
     favoriteLines: [],
     favoriteStops: [],
@@ -107,8 +109,8 @@ export function isThemePreference(value: unknown): value is ThemePreference {
   return value === 'system' || value === 'light' || value === 'dark';
 }
 
-export function isAlertsFilter(value: unknown): value is AlertsFilter {
-  return value === 'all' || value === 'mine' || value === 'current' || value === 'planned';
+export function isAlertsTimeFilter(value: unknown): value is AlertsTimeFilter {
+  return value === 'all' || value === 'current' || value === 'planned';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -177,6 +179,7 @@ export function normalizePreferences(value: unknown): UserPreferences {
   if (!value || typeof value !== 'object') return defaults;
 
   const candidate = value as Record<string, unknown>;
+  const legacyAlertsFilter = candidate.alertsFilter;
   const savedPlaces: Partial<Record<SavedPlaceId, SavedPlace>> = {};
   if (isRecord(candidate.savedPlaces)) {
     if (isSavedPlace(candidate.savedPlaces.home, 'home')) savedPlaces.home = candidate.savedPlaces.home;
@@ -187,7 +190,14 @@ export function normalizePreferences(value: unknown): UserPreferences {
     ...defaults,
     language: isAppLanguage(candidate.language) ? candidate.language : null,
     theme: isThemePreference(candidate.theme) ? candidate.theme : 'system',
-    alertsFilter: isAlertsFilter(candidate.alertsFilter) ? candidate.alertsFilter : 'all',
+    alertsTimeFilter: isAlertsTimeFilter(candidate.alertsTimeFilter)
+      ? candidate.alertsTimeFilter
+      : isAlertsTimeFilter(legacyAlertsFilter)
+        ? legacyAlertsFilter
+        : 'all',
+    alertsMineOnly: typeof candidate.alertsMineOnly === 'boolean'
+      ? candidate.alertsMineOnly
+      : legacyAlertsFilter === 'mine',
     savedPlaces,
     favoriteLines: Array.isArray(candidate.favoriteLines)
       ? candidate.favoriteLines.filter(isFavoriteLine)

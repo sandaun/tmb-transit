@@ -1,8 +1,9 @@
 import { BlurView } from 'expo-blur';
+import { Image, type ImageSource } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { TransportMode } from '@/src/domain/catalog/models';
-import { Text, type Palette, useThemedStyles } from '@/src/design-system';
+import { type Palette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAppLanguage } from '@/src/i18n';
 
@@ -12,7 +13,17 @@ interface ModeToggleProps {
   onChange: (mode: TransportMode) => void;
 }
 
-const MODES: TransportMode[] = ['metro', 'bus', 'fgc'];
+interface ModeBrand {
+  mode: TransportMode;
+  source: ImageSource;
+  width: number;
+}
+
+const MODES: ModeBrand[] = [
+  { mode: 'metro', source: require('@/assets/transport/metro.svg'), width: 27 },
+  { mode: 'bus', source: require('@/assets/transport/bus.svg'), width: 22 },
+  { mode: 'fgc', source: require('@/assets/transport/fgc.svg'), width: 22 },
+];
 
 export function ModeToggle({ mode, pendingMode = null, onChange }: ModeToggleProps) {
   const colorScheme = useColorScheme();
@@ -22,24 +33,32 @@ export function ModeToggle({ mode, pendingMode = null, onChange }: ModeTogglePro
     <View style={styles.container}>
       <BlurView intensity={40} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
       <View style={styles.row}>
-        {MODES.map((entry) => {
+        {MODES.map(({ mode: entry, source, width }) => {
           const active = entry === (pendingMode ?? mode);
           return (
             <Pressable
               key={entry}
               accessibilityRole="button"
+              accessibilityLabel={t(entry)}
               accessibilityState={{
                 busy: entry === pendingMode,
                 disabled: pendingMode !== null,
                 selected: active,
               }}
               disabled={pendingMode !== null}
-              style={[styles.chip, active ? styles.chipActive : null]}
+              style={({ pressed }) => [
+                styles.chip,
+                active ? styles.chipActive : null,
+                pressed ? styles.chipPressed : null,
+              ]}
               onPress={() => onChange(entry)}
             >
-              <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
-                {t(entry)}
-              </Text>
+              <Image
+                accessibilityIgnoresInvertColors
+                contentFit="contain"
+                source={source}
+                style={[styles.logo, { width }]}
+              />
             </Pressable>
           );
         })}
@@ -62,23 +81,23 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    padding: 4,
-    gap: 4,
+    padding: 3,
+    gap: 2,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    width: 64,
+    height: 36,
     borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: palette.accent,
+    backgroundColor: palette.accentSoft,
   },
-  chipText: {
-    color: palette.text,
-    fontSize: 14,
-    fontWeight: '700',
+  chipPressed: {
+    opacity: 0.68,
   },
-  chipTextActive: {
-    color: palette.onAccent,
+  logo: {
+    height: 22,
   },
 });

@@ -33,6 +33,8 @@ import {
 } from '@/src/features/planner/utils/route-presentation';
 import {
   LocalBottomSheet,
+  LOCAL_SHEET_BOTTOM_GAP,
+  LOCAL_SHEET_MIN_HEIGHT,
   type LocalBottomSheetHandle,
 } from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
 import { MapScreen } from '@/src/features/station/components/map-screen';
@@ -46,6 +48,7 @@ import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import { useAppLanguage } from '@/src/i18n';
 import { useTransitStore } from '@/src/state/store';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
+import { useSharedValue } from 'react-native-reanimated';
 
 function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null {
   if (!lines.length) {
@@ -176,6 +179,9 @@ export default function MapTabScreen() {
     null;
 
   const sheetRef = useRef<LocalBottomSheetHandle>(null);
+  const animatedSheetBottomInset = useSharedValue(
+    LOCAL_SHEET_MIN_HEIGHT + LOCAL_SHEET_BOTTOM_GAP,
+  );
   const [detentIndex, setDetentIndex] = useState(0);
   const [pendingMode, setPendingMode] = useState<TransportMode | null>(null);
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
@@ -255,12 +261,12 @@ export default function MapTabScreen() {
     return null;
   }, [selectedLegId, selectedRoute, selectedRouteLandmarks]);
 
-  const sheetHeight = useMemo(() => {
+  const settledSheetBottomInset = useMemo(() => {
     const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
     const detent = sheetDetents[detentIndex] ?? sheetDetents[0];
-    const raw = Math.max(116, Math.round(usableHeight * detent));
+    const raw = Math.max(LOCAL_SHEET_MIN_HEIGHT, Math.round(usableHeight * detent));
     const maxButtonInset = Math.round(windowHeight * 0.45);
-    return Math.min(raw, maxButtonInset);
+    return Math.min(raw, maxButtonInset) + LOCAL_SHEET_BOTTOM_GAP;
   }, [detentIndex, insets.top, sheetDetents, windowHeight]);
 
   useEffect(() => {
@@ -749,7 +755,8 @@ export default function MapTabScreen() {
         stationCode={stationCode}
         showBackButton={false}
         stationInterchanges={stationInterchanges}
-        bottomInset={sheetHeight}
+        bottomInset={settledSheetBottomInset}
+        animatedBottomInset={animatedSheetBottomInset}
         onLineChange={handleLineChange}
         onModeChange={handleModeChange}
         onStationChange={handleStationChange}
@@ -789,6 +796,7 @@ export default function MapTabScreen() {
         ref={sheetRef}
         detents={sheetDetents}
         initialDetentIndex={0}
+        animatedBottomInset={animatedSheetBottomInset}
         onDetentChange={handleDetentChange}
       >
         <View

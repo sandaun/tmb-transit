@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -41,6 +42,7 @@ interface MapScreenProps {
   showBackButton?: boolean;
   stationInterchanges?: StationInterchange[];
   bottomInset?: number;
+  animatedBottomInset?: SharedValue<number>;
   onLineChange?: (lineCode: string) => void;
   onModeChange?: (mode: TransportMode) => void;
   onStationChange?: (stationCode: string) => void;
@@ -80,6 +82,7 @@ export function MapScreen({
   showBackButton = true,
   stationInterchanges,
   bottomInset = 0,
+  animatedBottomInset,
   onLineChange,
   onModeChange,
   onStationChange,
@@ -329,6 +332,7 @@ export function MapScreen({
         selectedStationCode={stationCode}
         stationInterchanges={stationInterchanges}
         bottomInset={bottomInset}
+        animatedBottomInset={animatedBottomInset}
         nearbyStops={nearbyMarkers}
         plannerMarkers={plannerMarkers}
         plannerPolylines={plannerPolylines}

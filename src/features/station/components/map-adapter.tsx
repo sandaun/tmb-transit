@@ -7,6 +7,10 @@ import {
   View,
   type ImageRequireSource,
 } from 'react-native';
+import Animated, {
+  type SharedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 import MapView, {
   Callout,
   Marker,
@@ -77,6 +81,7 @@ interface MapAdapterProps {
   selectedStationCode: string;
   stationInterchanges?: StationInterchange[];
   bottomInset?: number;
+  animatedBottomInset?: SharedValue<number>;
   nearbyStops?: NearbyStopMarker[];
   plannerMarkers?: PlannerMapMarker[];
   plannerPolylines?: PlannerMapPolyline[];
@@ -179,6 +184,7 @@ export function MapAdapter({
   selectedStationCode,
   stationInterchanges = [],
   bottomInset = 0,
+  animatedBottomInset,
   nearbyStops = [],
   plannerMarkers = [],
   plannerPolylines = [],
@@ -202,6 +208,13 @@ export function MapAdapter({
   const [isWaitingForUserLocation, setIsWaitingForUserLocation] = useState(false);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const locationMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bottomControlsAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: -(animatedBottomInset?.get() ?? bottomInset),
+      },
+    ],
+  }));
 
   useEffect(() => {
     if (locationMessageTimerRef.current) {
@@ -353,8 +366,8 @@ export function MapAdapter({
   // resting position. Required by Apple's MapKit terms.
   // When the user expands the sheet, the attribution gets covered, which is
   // a user-driven action and accepted by App Store review.
-  const COLLAPSED_SHEET_HEIGHT = 116;
-  const attributionBottomInset = Math.min(bottomInset, COLLAPSED_SHEET_HEIGHT);
+  const COLLAPSED_SHEET_INSET = 128;
+  const attributionBottomInset = Math.min(bottomInset, COLLAPSED_SHEET_INSET);
   const mapPadding = useMemo(
     () => ({ top: 0, right: 0, bottom: attributionBottomInset, left: 0 }),
     [attributionBottomInset],
@@ -873,9 +886,9 @@ export function MapAdapter({
 
       </MapView>
 
-      <View
+      <Animated.View
         pointerEvents="box-none"
-        style={[styles.actionsColumn, { bottom: bottomInset + 28 }]}
+        style={[styles.actionsColumn, bottomControlsAnimatedStyle]}
       >
         {bottomActions}
         <Pressable
@@ -898,14 +911,14 @@ export function MapAdapter({
             />
           )}
         </Pressable>
-      </View>
+      </Animated.View>
       {locationMessage ? (
-        <View
+        <Animated.View
           pointerEvents="none"
-          style={[styles.locationMessage, { bottom: bottomInset + 80 }]}
+          style={[styles.locationMessage, bottomControlsAnimatedStyle]}
         >
           <Text style={styles.locationMessageText}>{locationMessage}</Text>
-        </View>
+        </Animated.View>
       ) : null}
     </View>
   );
@@ -1076,6 +1089,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   actionsColumn: {
     position: 'absolute',
     right: 16,
+    bottom: 28,
     alignItems: 'flex-end',
     gap: 8,
     zIndex: 15,
@@ -1101,6 +1115,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   locationMessage: {
     position: 'absolute',
     right: 16,
+    bottom: 80,
     maxWidth: 240,
     borderRadius: 16,
     paddingHorizontal: 12,

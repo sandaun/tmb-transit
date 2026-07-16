@@ -37,6 +37,7 @@ import {
   type StationInterchange,
 } from '@/src/features/station/utils/station-interchanges';
 import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-detail';
+import { getViewportFocusedRegion } from '@/src/features/station/utils/map-camera';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -79,8 +80,11 @@ interface MapAdapterProps {
   segments: Segment[];
   transitVehicles?: TransitVehicle[];
   selectedStationCode: string;
+  stationFocusRequestId?: number;
   stationInterchanges?: StationInterchange[];
+  topInset?: number;
   bottomInset?: number;
+  bottomOverlayOffset?: number;
   animatedBottomInset?: SharedValue<number>;
   nearbyStops?: NearbyStopMarker[];
   plannerMarkers?: PlannerMapMarker[];
@@ -182,8 +186,11 @@ export function MapAdapter({
   segments,
   transitVehicles = [],
   selectedStationCode,
+  stationFocusRequestId = 0,
   stationInterchanges = [],
+  topInset = 0,
   bottomInset = 0,
+  bottomOverlayOffset = 0,
   animatedBottomInset,
   nearbyStops = [],
   plannerMarkers = [],
@@ -203,7 +210,10 @@ export function MapAdapter({
   const styles = useThemedStyles(createStyles);
   const { t } = useAppLanguage();
   const mapRef = useRef<MapView | null>(null);
+  const currentRegionRef = useRef<Region | null>(null);
+  const lastStationFocusRequestRef = useRef(0);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapHeight, setMapHeight] = useState(0);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [isWaitingForUserLocation, setIsWaitingForUserLocation] = useState(false);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
@@ -245,6 +255,7 @@ export function MapAdapter({
   const lineBrand = getLineBrand(mode, lineCode, lineColor);
 
   const handleRegionChangeComplete = useCallback((region: Region) => {
+    currentRegionRef.current = region;
     setLatitudeDelta(region.latitudeDelta);
   }, []);
 
@@ -361,23 +372,34 @@ export function MapAdapter({
     return Array.from(result.values());
   }, [latitudeDelta, mode, selectedStation, visibleStations]);
 
-  // Cap the attribution insets to the collapsed sheet height so Apple Maps'
-  // logo, wordmark, and "Legal" link remain visible just above the sheet's
-  // resting position. Required by Apple's MapKit terms.
-  // When the user expands the sheet, the attribution gets covered, which is
-  // a user-driven action and accepted by App Store review.
-  const COLLAPSED_SHEET_INSET = 128;
-  const attributionBottomInset = Math.min(bottomInset, COLLAPSED_SHEET_INSET);
+  // Keep Apple Maps' logo, wordmark, and "Legal" link visible. Attached sheets
+  // place them above the collapsed surface; detached sheets use the gap between
+  // the surface and the native tab bar. Required by Apple's MapKit terms.
+  const COLLAPSED_ATTACHED_SHEET_HEIGHT = 100;
+  const DETACHED_ATTRIBUTION_CLEARANCE = 16;
+  const attributionBottomInset = bottomOverlayOffset > 0
+    ? Math.max(0, bottomOverlayOffset - DETACHED_ATTRIBUTION_CLEARANCE)
+    : Math.min(bottomInset, COLLAPSED_ATTACHED_SHEET_HEIGHT);
   const mapPadding = useMemo(
     () => ({ top: 0, right: 0, bottom: attributionBottomInset, left: 0 }),
     [attributionBottomInset],
   );
 
   const legalLabelInsets = useMemo(
-    () => ({ bottom: attributionBottomInset + 4, left: 4, right: 0, top: 0 }),
+    () => ({ bottom: attributionBottomInset, left: 70, right: 0, top: 0 }),
     [attributionBottomInset],
   );
-  const appleLogoInsets = legalLabelInsets;
+  const appleLogoInsets = useMemo(
+    () => ({
+      bottom: bottomOverlayOffset > 0
+        ? Math.max(0, attributionBottomInset - 12)
+        : attributionBottomInset,
+      left: 8,
+      right: 0,
+      top: 0,
+    }),
+    [attributionBottomInset, bottomOverlayOffset],
+  );
   const markerDetail = getMapMarkerDetail(latitudeDelta);
   const interchangeByStationKey = useMemo(() => {
     const nextInterchangeByStationKey = new Map<string, StationInterchange>();
@@ -430,15 +452,47 @@ export function MapAdapter({
   }, []);
 
   useEffect(() => {
-    if (!explorationVisible || !selectedStation || !isMapReady) {
+    if (
+      stationFocusRequestId === 0 ||
+      stationFocusRequestId === lastStationFocusRequestRef.current ||
+      !explorationVisible ||
+      !selectedStation ||
+      !isMapReady ||
+      mapHeight <= 0
+    ) {
       return;
     }
 
-    centerMap({
+    lastStationFocusRequestRef.current = stationFocusRequestId;
+    const currentRegion = currentRegionRef.current ?? {
       latitude: selectedStation.lat,
       longitude: selectedStation.lon,
-    });
-  }, [centerMap, explorationVisible, isMapReady, selectedStation]);
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    };
+    const focusedRegion = getViewportFocusedRegion(
+      {
+        latitude: selectedStation.lat,
+        longitude: selectedStation.lon,
+      },
+      currentRegion,
+      {
+        height: mapHeight,
+        topInset,
+        bottomInset,
+      },
+    );
+
+    mapRef.current?.animateToRegion(focusedRegion, MAP_CENTER_ANIMATION_MS);
+  }, [
+    bottomInset,
+    explorationVisible,
+    isMapReady,
+    mapHeight,
+    selectedStation,
+    stationFocusRequestId,
+    topInset,
+  ]);
 
   useEffect(() => {
     if (!plannerFocusKey) {
@@ -596,7 +650,12 @@ export function MapAdapter({
   const routeZIndex = hasPlannerRoute ? 1 : 5;
 
   return (
-    <View style={styles.root}>
+    <View
+      style={styles.root}
+      onLayout={(event) => {
+        setMapHeight(event.nativeEvent.layout.height);
+      }}
+    >
       <MapView
         ref={mapRef}
         style={styles.map}

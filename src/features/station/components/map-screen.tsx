@@ -39,9 +39,11 @@ interface MapScreenProps {
   mode: TransportMode;
   pendingMode?: TransportMode | null;
   stationCode: string;
+  stationFocusRequestId?: number;
   showBackButton?: boolean;
   stationInterchanges?: StationInterchange[];
   bottomInset?: number;
+  bottomOverlayOffset?: number;
   animatedBottomInset?: SharedValue<number>;
   onLineChange?: (lineCode: string) => void;
   onModeChange?: (mode: TransportMode) => void;
@@ -79,9 +81,11 @@ export function MapScreen({
   mode,
   pendingMode = null,
   stationCode,
+  stationFocusRequestId = 0,
   showBackButton = true,
   stationInterchanges,
   bottomInset = 0,
+  bottomOverlayOffset = 0,
   animatedBottomInset,
   onLineChange,
   onModeChange,
@@ -114,7 +118,11 @@ export function MapScreen({
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [topOverlayHeight, setTopOverlayHeight] = useState(0);
   const explorationVisible = !plannerEnabled;
+  const topMapInset = showBackButton || explorationVisible
+    ? insets.top + 8 + topOverlayHeight + 12
+    : insets.top;
 
   const stationsQuery = useLineStationsQuery(mode, lineCode);
   const segmentsQuery = useLineSegmentsQuery(mode, lineCode);
@@ -330,8 +338,11 @@ export function MapScreen({
         segments={segmentsQuery.data ?? []}
         transitVehicles={vehiclesQuery.data ?? []}
         selectedStationCode={stationCode}
+        stationFocusRequestId={stationFocusRequestId}
         stationInterchanges={stationInterchanges}
+        topInset={topMapInset}
         bottomInset={bottomInset}
+        bottomOverlayOffset={bottomOverlayOffset}
         animatedBottomInset={animatedBottomInset}
         nearbyStops={nearbyMarkers}
         plannerMarkers={plannerMarkers}
@@ -362,7 +373,12 @@ export function MapScreen({
       />
 
       {showBackButton || explorationVisible ? (
-        <View style={[styles.topOverlay, { top: insets.top + 8 }]}>
+        <View
+          style={[styles.topOverlay, { top: insets.top + 8 }]}
+          onLayout={(event) => {
+            setTopOverlayHeight(event.nativeEvent.layout.height);
+          }}
+        >
           {showBackButton ? (
             <Pressable
               accessibilityRole="button"

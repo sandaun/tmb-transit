@@ -31,6 +31,7 @@ interface LocalBottomSheetProps {
   initialDetentIndex?: number;
   footer?: ReactNode;
   children: ReactNode;
+  bottomOffset?: number;
   animatedBottomInset?: SharedValue<number>;
   onDetentChange?: (index: number) => void;
 }
@@ -39,8 +40,8 @@ export interface LocalBottomSheetHandle {
   resize: (index: number) => void;
 }
 
-export const LOCAL_SHEET_MIN_HEIGHT = 116;
-export const LOCAL_SHEET_BOTTOM_GAP = 12;
+export const LOCAL_SHEET_MIN_HEIGHT = 100;
+export const LOCAL_SHEET_DEFAULT_BOTTOM_OFFSET = 12;
 
 const SPRING_CONFIG = {
   damping: 110,
@@ -80,6 +81,7 @@ export const LocalBottomSheet = forwardRef<
     initialDetentIndex = 0,
     footer,
     children,
+    bottomOffset = LOCAL_SHEET_DEFAULT_BOTTOM_OFFSET,
     animatedBottomInset,
     onDetentChange,
   },
@@ -92,7 +94,7 @@ export const LocalBottomSheet = forwardRef<
   const [containerHeight, setContainerHeight] = useState(0);
   const activeIndexRef = useRef(initialDetentIndex);
   const internalBottomInset = useSharedValue(
-    LOCAL_SHEET_MIN_HEIGHT + LOCAL_SHEET_BOTTOM_GAP,
+    LOCAL_SHEET_MIN_HEIGHT + bottomOffset,
   );
   const bottomInset = animatedBottomInset ?? internalBottomInset;
   const dragStartHeight = useSharedValue(LOCAL_SHEET_MIN_HEIGHT);
@@ -105,13 +107,13 @@ export const LocalBottomSheet = forwardRef<
 
     const usableHeight = Math.max(
       LOCAL_SHEET_MIN_HEIGHT,
-      containerHeight - Math.max(insets.top, 48) - LOCAL_SHEET_BOTTOM_GAP,
+      containerHeight - Math.max(insets.top, 48) - bottomOffset,
     );
 
     return detents.map((detent) =>
       Math.max(LOCAL_SHEET_MIN_HEIGHT, Math.round(usableHeight * detent)),
     );
-  }, [containerHeight, detents, insets.top]);
+  }, [bottomOffset, containerHeight, detents, insets.top]);
 
   const notifyDetentChange = useCallback(
     (nextIndex: number) => {
@@ -131,7 +133,7 @@ export const LocalBottomSheet = forwardRef<
 
       activeIndex.set(boundedIndex);
       bottomInset.set(
-        withSpring(nextHeight + LOCAL_SHEET_BOTTOM_GAP, SPRING_CONFIG),
+        withSpring(nextHeight + bottomOffset, SPRING_CONFIG),
       );
 
       if (notify) {
@@ -140,7 +142,7 @@ export const LocalBottomSheet = forwardRef<
         activeIndexRef.current = boundedIndex;
       }
     },
-    [activeIndex, bottomInset, detents.length, notifyDetentChange, snapHeights],
+    [activeIndex, bottomInset, bottomOffset, detents.length, notifyDetentChange, snapHeights],
   );
 
   const resizeGesture = useMemo(() => {
@@ -149,7 +151,7 @@ export const LocalBottomSheet = forwardRef<
       .failOffsetX([-24, 24])
       .onBegin(() => {
         cancelAnimation(bottomInset);
-        dragStartHeight.set(bottomInset.get() - LOCAL_SHEET_BOTTOM_GAP);
+        dragStartHeight.set(bottomInset.get() - bottomOffset);
       })
       .onUpdate((event) => {
         const minHeight = snapHeights[0] ?? LOCAL_SHEET_MIN_HEIGHT;
@@ -160,17 +162,17 @@ export const LocalBottomSheet = forwardRef<
           maxHeight,
         );
 
-        bottomInset.set(nextHeight + LOCAL_SHEET_BOTTOM_GAP);
+        bottomInset.set(nextHeight + bottomOffset);
       })
       .onEnd((event) => {
-        const currentHeight = bottomInset.get() - LOCAL_SHEET_BOTTOM_GAP;
+        const currentHeight = bottomInset.get() - bottomOffset;
         const projectedHeight = currentHeight - event.velocityY * 0.14;
         const nextIndex = findNearestIndex(snapHeights, projectedHeight);
         const nextHeight = snapHeights[nextIndex] ?? LOCAL_SHEET_MIN_HEIGHT;
 
         activeIndex.set(nextIndex);
         bottomInset.set(
-          withSpring(nextHeight + LOCAL_SHEET_BOTTOM_GAP, {
+          withSpring(nextHeight + bottomOffset, {
             ...SPRING_CONFIG,
             velocity: -event.velocityY,
           }),
@@ -185,7 +187,7 @@ export const LocalBottomSheet = forwardRef<
         const currentIndex = activeIndex.get();
         const nextHeight = snapHeights[currentIndex] ?? LOCAL_SHEET_MIN_HEIGHT;
         bottomInset.set(
-          withSpring(nextHeight + LOCAL_SHEET_BOTTOM_GAP, SPRING_CONFIG),
+          withSpring(nextHeight + bottomOffset, SPRING_CONFIG),
         );
       });
 
@@ -197,20 +199,20 @@ export const LocalBottomSheet = forwardRef<
 
       activeIndex.set(nextIndex);
       bottomInset.set(
-        withSpring(nextHeight + LOCAL_SHEET_BOTTOM_GAP, SPRING_CONFIG),
+        withSpring(nextHeight + bottomOffset, SPRING_CONFIG),
       );
       runOnJS(notifyDetentChange)(nextIndex);
     });
 
     return Gesture.Exclusive(panGesture, tapGesture);
-  }, [activeIndex, bottomInset, detents.length, dragStartHeight, notifyDetentChange, snapHeights]);
+  }, [activeIndex, bottomInset, bottomOffset, detents.length, dragStartHeight, notifyDetentChange, snapHeights]);
 
   const animatedSheetStyle = useAnimatedStyle(() => ({
     height: Math.max(
       LOCAL_SHEET_MIN_HEIGHT,
-      bottomInset.get() - LOCAL_SHEET_BOTTOM_GAP,
+      bottomInset.get() - bottomOffset,
     ),
-  }));
+  }), [bottomOffset]);
 
   useImperativeHandle(
     ref,
@@ -238,7 +240,7 @@ export const LocalBottomSheet = forwardRef<
         style={[
           styles.sheet,
           animatedSheetStyle,
-          { paddingBottom: insets.bottom },
+          { bottom: bottomOffset },
         ]}
       >
         <BlurView
@@ -294,7 +296,6 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: LOCAL_SHEET_BOTTOM_GAP,
     backgroundColor: palette.surfaceTranslucent,
     borderRadius: 28,
     borderCurve: 'continuous',
@@ -313,7 +314,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   handleButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 32,
+    height: 26,
   },
   handle: {
     width: 42,

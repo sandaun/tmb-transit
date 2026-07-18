@@ -708,18 +708,27 @@ export function MapAdapter({
 
         {visibleStations.map((station) => {
           const isSelected = station.code === selectedStationCode;
+          const usesDynamicSelectedMarker = isSelected && mode !== 'metro';
 
           return (
             <Marker
-              key={`${lineCode}:station:${station.code}`}
+              key={`${lineCode}:station:${station.code}:${usesDynamicSelectedMarker ? 'dynamic-selected' : 'native'}`}
               anchor={STATION_MARKER_ANCHOR}
               centerOffset={STATION_MARKER_CENTER_OFFSET}
               coordinate={{ latitude: station.lat, longitude: station.lon }}
-              image={getStationMarkerImage(lineBrand.label, isSelected)}
-              tracksViewChanges={false}
+              image={
+                usesDynamicSelectedMarker
+                  ? undefined
+                  : getStationMarkerImage(lineBrand.label, isSelected)
+              }
+              tracksViewChanges={usesDynamicSelectedMarker}
               zIndex={isSelected ? 20 : 10}
               onPress={() => handleStationPress(station.code)}
-            />
+            >
+              {usesDynamicSelectedMarker ? (
+                <DynamicSelectedStationMarker color={lineBrand.backgroundColor} />
+              ) : null}
+            </Marker>
           );
         })}
 
@@ -887,6 +896,7 @@ export function MapAdapter({
           const routeCode = marker.outgoingRoute ?? marker.incomingRoute ?? '';
           const routeMode = marker.outgoingMode ?? marker.incomingMode ?? getPlannerRouteMode(routeCode);
           const routeBrand = getLineBrand(routeMode, routeCode);
+          const usesDynamicSelectedMarker = Boolean(marker.selected) && routeMode !== 'metro';
           const transferRoutes = [
             marker.incomingRoute
               ? { code: marker.incomingRoute, mode: marker.incomingMode ?? getPlannerRouteMode(marker.incomingRoute) }
@@ -906,11 +916,19 @@ export function MapAdapter({
                 anchor={STATION_MARKER_ANCHOR}
                 centerOffset={STATION_MARKER_CENTER_OFFSET}
                 coordinate={coordinate}
-                image={getStationMarkerImage(routeBrand.label, Boolean(marker.selected))}
-                tracksViewChanges={false}
+                image={
+                  usesDynamicSelectedMarker
+                    ? undefined
+                    : getStationMarkerImage(routeBrand.label, Boolean(marker.selected))
+                }
+                tracksViewChanges={usesDynamicSelectedMarker}
                 zIndex={60}
                 onPress={handlePress}
-              />
+              >
+                {usesDynamicSelectedMarker ? (
+                  <DynamicSelectedStationMarker color={routeBrand.backgroundColor} />
+                ) : null}
+              </Marker>
               {marker.kind === 'transfer' && transferRoutes.length > 1 ? (
                 <Marker
                   accessibilityElementsHidden
@@ -1138,6 +1156,30 @@ function PlannerEndpointMarker({ marker }: { marker: PlannerMapMarker }) {
   );
 }
 
+function DynamicSelectedStationMarker({ color }: { color: string }) {
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View collapsable={false} style={styles.selectedStationHitTarget}>
+      <View
+        collapsable={false}
+        style={[
+          styles.selectedStationHalo,
+          {
+            backgroundColor: withAlpha(color, 0.2),
+            borderColor: withAlpha(color, 0.72),
+          },
+        ]}
+      >
+        <View
+          collapsable={false}
+          style={[styles.selectedStationCore, { backgroundColor: color }]}
+        />
+      </View>
+    </View>
+  );
+}
+
 const createStyles = (palette: Palette) => StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
@@ -1243,6 +1285,27 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
     elevation: 3,
+  },
+  selectedStationHitTarget: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedStationHalo: {
+    width: 29,
+    height: 29,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedStationCore: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
   vehicleMarker: {
     width: 24,

@@ -3,6 +3,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { queryClient } from '@/src/core/query-client';
@@ -28,24 +30,32 @@ export default function RootLayout() {
   };
 
   return (
-    <LanguageProvider>
-      <ErrorBoundary>
-        <SafeAreaProvider>
-          <QueryClientProvider client={queryClient}>
-            <ThemeProvider value={navigationTheme}>
-              <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="station/[lineCode]/[stationCode]" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="lines/[mode]/[lineCode]"
-                  options={{ headerShown: false, animation: 'slide_from_right' }}
-                />
-              </Stack>
-              <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-            </ThemeProvider>
-          </QueryClientProvider>
-        </SafeAreaProvider>
-      </ErrorBoundary>
-    </LanguageProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <LanguageProvider>
+        <ErrorBoundary>
+          <SafeAreaProvider>
+            <QueryClientProvider client={queryClient}>
+              <ThemeProvider value={navigationTheme}>
+                <Stack>
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="station/[lineCode]/[stationCode]" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="lines/[mode]/[lineCode]"
+                    options={{ headerShown: false, animation: 'slide_from_right' }}
+                  />
+                </Stack>
+                <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+              </ThemeProvider>
+            </QueryClientProvider>
+          </SafeAreaProvider>
+        </ErrorBoundary>
+      </LanguageProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

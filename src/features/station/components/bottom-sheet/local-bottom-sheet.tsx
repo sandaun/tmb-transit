@@ -9,25 +9,30 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  Animated,
-  AccessibilityInfo,
-  Easing,
-  PanResponder,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  ReduceMotion,
+  cancelAnimation,
+  runOnJS,
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAppLanguage } from '@/src/i18n';
-import { type Palette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { type Palette, useThemedStyles } from '@/src/design-system';
+import { useAppLanguage } from '@/src/i18n';
 
 interface LocalBottomSheetProps {
   detents: readonly number[];
   initialDetentIndex?: number;
   footer?: ReactNode;
   children: ReactNode;
+  bottomOffset?: number;
+  animatedBottomInset?: SharedValue<number>;
   onDetentChange?: (index: number) => void;
 }
 
@@ -35,7 +40,37 @@ export interface LocalBottomSheetHandle {
   resize: (index: number) => void;
 }
 
-const MIN_SHEET_HEIGHT = 116;
+export const LOCAL_SHEET_MIN_HEIGHT = 100;
+export const LOCAL_SHEET_DEFAULT_BOTTOM_OFFSET = 12;
+
+const SPRING_CONFIG = {
+  damping: 110,
+  stiffness: 900,
+  mass: 4,
+  overshootClamping: true,
+  reduceMotion: ReduceMotion.System,
+} as const;
+
+function clamp(value: number, min: number, max: number): number {
+  'worklet';
+  return Math.min(Math.max(value, min), max);
+}
+
+function findNearestIndex(heights: readonly number[], target: number): number {
+  'worklet';
+  let nearestIndex = 0;
+  let nearestDistance = Math.abs((heights[0] ?? LOCAL_SHEET_MIN_HEIGHT) - target);
+
+  for (let index = 1; index < heights.length; index += 1) {
+    const distance = Math.abs(heights[index] - target);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  }
+
+  return nearestIndex;
+}
 
 export const LocalBottomSheet = forwardRef<
   LocalBottomSheetHandle,
@@ -46,6 +81,8 @@ export const LocalBottomSheet = forwardRef<
     initialDetentIndex = 0,
     footer,
     children,
+    bottomOffset = LOCAL_SHEET_DEFAULT_BOTTOM_OFFSET,
+    animatedBottomInset,
     onDetentChange,
   },
   ref,
@@ -55,132 +92,127 @@ export const LocalBottomSheet = forwardRef<
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [containerHeight, setContainerHeight] = useState(0);
-  const [activeIndex, setActiveIndex] = useState(initialDetentIndex);
-  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
-  const animatedHeight = useRef(new Animated.Value(MIN_SHEET_HEIGHT)).current;
   const activeIndexRef = useRef(initialDetentIndex);
-  const currentHeightRef = useRef(MIN_SHEET_HEIGHT);
-  const dragStartHeightRef = useRef(MIN_SHEET_HEIGHT);
+  const internalBottomInset = useSharedValue(
+    LOCAL_SHEET_MIN_HEIGHT + bottomOffset,
+  );
+  const bottomInset = animatedBottomInset ?? internalBottomInset;
+  const dragStartHeight = useSharedValue(LOCAL_SHEET_MIN_HEIGHT);
+  const activeIndex = useSharedValue(initialDetentIndex);
 
   const snapHeights = useMemo(() => {
     if (containerHeight <= 0) {
-      return detents.map(() => MIN_SHEET_HEIGHT);
+      return detents.map(() => LOCAL_SHEET_MIN_HEIGHT);
     }
 
     const usableHeight = Math.max(
-      MIN_SHEET_HEIGHT,
-      containerHeight - Math.max(insets.top, 48),
+      LOCAL_SHEET_MIN_HEIGHT,
+      containerHeight - Math.max(insets.top, 48) - bottomOffset,
     );
 
     return detents.map((detent) =>
-      Math.max(MIN_SHEET_HEIGHT, Math.round(usableHeight * detent)),
+      Math.max(LOCAL_SHEET_MIN_HEIGHT, Math.round(usableHeight * detent)),
     );
-  }, [containerHeight, detents, insets.top]);
+  }, [bottomOffset, containerHeight, detents, insets.top]);
+
+  const notifyDetentChange = useCallback(
+    (nextIndex: number) => {
+      activeIndexRef.current = nextIndex;
+      onDetentChange?.(nextIndex);
+    },
+    [onDetentChange],
+  );
 
   const animateToIndex = useCallback(
-    (nextIndex: number) => {
+    (nextIndex: number, notify = true) => {
       const boundedIndex = Math.min(
         Math.max(nextIndex, 0),
         Math.max(detents.length - 1, 0),
       );
-      const nextHeight = snapHeights[boundedIndex] ?? MIN_SHEET_HEIGHT;
+      const nextHeight = snapHeights[boundedIndex] ?? LOCAL_SHEET_MIN_HEIGHT;
 
-      activeIndexRef.current = boundedIndex;
-      setActiveIndex(boundedIndex);
-      onDetentChange?.(boundedIndex);
+      activeIndex.set(boundedIndex);
+      bottomInset.set(
+        withSpring(nextHeight + bottomOffset, SPRING_CONFIG),
+      );
 
-      if (reduceMotionEnabled) {
-        animatedHeight.setValue(nextHeight);
-        currentHeightRef.current = nextHeight;
-        return;
+      if (notify) {
+        notifyDetentChange(boundedIndex);
+      } else {
+        activeIndexRef.current = boundedIndex;
       }
-
-      Animated.timing(animatedHeight, {
-        toValue: nextHeight,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }).start();
     },
-    [animatedHeight, detents.length, onDetentChange, reduceMotionEnabled, snapHeights],
+    [activeIndex, bottomInset, bottomOffset, detents.length, notifyDetentChange, snapHeights],
   );
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onStartShouldSetPanResponderCapture: () => true,
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dy) > 4 &&
-          Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
-        onMoveShouldSetPanResponderCapture: (_, gestureState) =>
-          Math.abs(gestureState.dy) > 4 &&
-          Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
-        onPanResponderGrant: () => {
-          dragStartHeightRef.current = currentHeightRef.current;
-          animatedHeight.stopAnimation((height) => {
-            currentHeightRef.current = height;
-            dragStartHeightRef.current = height;
-          });
-        },
-        onPanResponderMove: (_, gestureState) => {
-          const minHeight = snapHeights[0] ?? MIN_SHEET_HEIGHT;
-          const maxHeight =
-            snapHeights[snapHeights.length - 1] ?? MIN_SHEET_HEIGHT;
-          const nextHeight = Math.min(
-            Math.max(dragStartHeightRef.current - gestureState.dy, minHeight),
-            maxHeight,
-          );
+  const resizeGesture = useMemo(() => {
+    const panGesture = Gesture.Pan()
+      .activeOffsetY([-4, 4])
+      .failOffsetX([-24, 24])
+      .onBegin(() => {
+        cancelAnimation(bottomInset);
+        dragStartHeight.set(bottomInset.get() - bottomOffset);
+      })
+      .onUpdate((event) => {
+        const minHeight = snapHeights[0] ?? LOCAL_SHEET_MIN_HEIGHT;
+        const maxHeight = snapHeights[snapHeights.length - 1] ?? minHeight;
+        const nextHeight = clamp(
+          dragStartHeight.get() - event.translationY,
+          minHeight,
+          maxHeight,
+        );
 
-          currentHeightRef.current = nextHeight;
-          animatedHeight.setValue(nextHeight);
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          const isTap =
-            Math.abs(gestureState.dx) < 6 && Math.abs(gestureState.dy) < 6;
+        bottomInset.set(nextHeight + bottomOffset);
+      })
+      .onEnd((event) => {
+        const currentHeight = bottomInset.get() - bottomOffset;
+        const projectedHeight = currentHeight - event.velocityY * 0.14;
+        const nextIndex = findNearestIndex(snapHeights, projectedHeight);
+        const nextHeight = snapHeights[nextIndex] ?? LOCAL_SHEET_MIN_HEIGHT;
 
-          if (isTap) {
-            const nextIndex =
-              activeIndexRef.current >= detents.length - 1
-                ? 0
-                : activeIndexRef.current + 1;
-            animateToIndex(nextIndex);
-            return;
-          }
+        activeIndex.set(nextIndex);
+        bottomInset.set(
+          withSpring(nextHeight + bottomOffset, {
+            ...SPRING_CONFIG,
+            velocity: -event.velocityY,
+          }),
+        );
+        runOnJS(notifyDetentChange)(nextIndex);
+      })
+      .onFinalize((_event, success) => {
+        if (success) {
+          return;
+        }
 
-          if (gestureState.vy < -0.75) {
-            animateToIndex(activeIndexRef.current + 1);
-            return;
-          }
+        const currentIndex = activeIndex.get();
+        const nextHeight = snapHeights[currentIndex] ?? LOCAL_SHEET_MIN_HEIGHT;
+        bottomInset.set(
+          withSpring(nextHeight + bottomOffset, SPRING_CONFIG),
+        );
+      });
 
-          if (gestureState.vy > 0.75) {
-            animateToIndex(activeIndexRef.current - 1);
-            return;
-          }
+    const tapGesture = Gesture.Tap().onEnd(() => {
+      const currentIndex = activeIndex.get();
+      const nextIndex =
+        currentIndex >= detents.length - 1 ? 0 : currentIndex + 1;
+      const nextHeight = snapHeights[nextIndex] ?? LOCAL_SHEET_MIN_HEIGHT;
 
-          const nearestIndex = snapHeights.reduce(
-            (nearest, height, index) => {
-              const nearestDistance = Math.abs(
-                height - currentHeightRef.current,
-              );
-              const previousDistance = Math.abs(
-                snapHeights[nearest] - currentHeightRef.current,
-              );
+      activeIndex.set(nextIndex);
+      bottomInset.set(
+        withSpring(nextHeight + bottomOffset, SPRING_CONFIG),
+      );
+      runOnJS(notifyDetentChange)(nextIndex);
+    });
 
-              return nearestDistance < previousDistance ? index : nearest;
-            },
-            0,
-          );
+    return Gesture.Exclusive(panGesture, tapGesture);
+  }, [activeIndex, bottomInset, bottomOffset, detents.length, dragStartHeight, notifyDetentChange, snapHeights]);
 
-          animateToIndex(nearestIndex);
-        },
-        onPanResponderTerminate: () => {
-          animateToIndex(activeIndexRef.current);
-        },
-        onPanResponderTerminationRequest: () => false,
-      }),
-    [animateToIndex, animatedHeight, detents.length, snapHeights],
-  );
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    height: Math.max(
+      LOCAL_SHEET_MIN_HEIGHT,
+      bottomInset.get() - bottomOffset,
+    ),
+  }), [bottomOffset]);
 
   useImperativeHandle(
     ref,
@@ -193,27 +225,8 @@ export const LocalBottomSheet = forwardRef<
   );
 
   useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotionEnabled);
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduceMotionEnabled,
-    );
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    animateToIndex(activeIndex);
-  }, [activeIndex, animateToIndex, snapHeights]);
-
-  useEffect(() => {
-    const listenerId = animatedHeight.addListener(({ value }) => {
-      currentHeightRef.current = value;
-    });
-
-    return () => {
-      animatedHeight.removeListener(listenerId);
-    };
-  }, [animatedHeight]);
+    animateToIndex(activeIndexRef.current, false);
+  }, [animateToIndex, snapHeights]);
 
   return (
     <View
@@ -226,39 +239,44 @@ export const LocalBottomSheet = forwardRef<
       <Animated.View
         style={[
           styles.sheet,
-          {
-            height: animatedHeight,
-            paddingBottom: insets.bottom,
-          },
+          animatedSheetStyle,
+          { bottom: bottomOffset },
         ]}
       >
-        <BlurView intensity={58} tint={colorScheme} style={StyleSheet.absoluteFillObject} />
+        <BlurView
+          intensity={52}
+          tint={colorScheme}
+          style={StyleSheet.absoluteFillObject}
+        />
 
-        <View
-          {...panResponder.panHandlers}
-          style={styles.handleButton}
-          accessibilityRole="button"
-          accessibilityLabel={t('sheet_resize')}
-          accessibilityActions={[
-            { name: 'increment', label: t('sheet_expand') },
-            { name: 'decrement', label: t('sheet_collapse') },
-          ]}
-          onAccessibilityTap={() => {
-            const nextIndex = activeIndexRef.current >= detents.length - 1
-              ? 0
-              : activeIndexRef.current + 1;
-            animateToIndex(nextIndex);
-          }}
-          onAccessibilityAction={(event) => {
-            if (event.nativeEvent.actionName === 'increment') {
-              animateToIndex(activeIndexRef.current + 1);
-            } else if (event.nativeEvent.actionName === 'decrement') {
-              animateToIndex(activeIndexRef.current - 1);
-            }
-          }}
-        >
-          <View style={styles.handle} />
-        </View>
+        <GestureDetector gesture={resizeGesture}>
+          <View
+            style={styles.handleButton}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={t('sheet_resize')}
+            accessibilityActions={[
+              { name: 'increment', label: t('sheet_expand') },
+              { name: 'decrement', label: t('sheet_collapse') },
+            ]}
+            onAccessibilityTap={() => {
+              const nextIndex =
+                activeIndexRef.current >= detents.length - 1
+                  ? 0
+                  : activeIndexRef.current + 1;
+              animateToIndex(nextIndex);
+            }}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === 'increment') {
+                animateToIndex(activeIndexRef.current + 1);
+              } else if (event.nativeEvent.actionName === 'decrement') {
+                animateToIndex(activeIndexRef.current - 1);
+              }
+            }}
+          >
+            <View style={styles.handle} />
+          </View>
+        </GestureDetector>
 
         <View style={styles.content}>{children}</View>
 
@@ -276,30 +294,27 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   },
   sheet: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: 16,
+    right: 16,
     backgroundColor: palette.surfaceTranslucent,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    borderRadius: 28,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: palette.border,
     overflow: 'hidden',
     shadowColor: palette.shadow,
-    shadowOpacity: 0.42,
-    shadowRadius: 28,
+    shadowOpacity: 0.24,
+    shadowRadius: 20,
     shadowOffset: {
       width: 0,
-      height: 18,
+      height: 10,
     },
-    elevation: 24,
+    elevation: 18,
   },
   handleButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 32,
+    height: 26,
   },
   handle: {
     width: 42,

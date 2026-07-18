@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -38,9 +39,12 @@ interface MapScreenProps {
   mode: TransportMode;
   pendingMode?: TransportMode | null;
   stationCode: string;
+  stationFocusRequestId?: number;
   showBackButton?: boolean;
   stationInterchanges?: StationInterchange[];
   bottomInset?: number;
+  bottomOverlayOffset?: number;
+  animatedBottomInset?: SharedValue<number>;
   onLineChange?: (lineCode: string) => void;
   onModeChange?: (mode: TransportMode) => void;
   onStationChange?: (stationCode: string) => void;
@@ -77,9 +81,12 @@ export function MapScreen({
   mode,
   pendingMode = null,
   stationCode,
+  stationFocusRequestId = 0,
   showBackButton = true,
   stationInterchanges,
   bottomInset = 0,
+  bottomOverlayOffset = 0,
+  animatedBottomInset,
   onLineChange,
   onModeChange,
   onStationChange,
@@ -111,7 +118,11 @@ export function MapScreen({
   const { t } = useAppLanguage();
   const insets = useSafeAreaInsets();
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [topOverlayHeight, setTopOverlayHeight] = useState(0);
   const explorationVisible = !plannerEnabled;
+  const topMapInset = showBackButton || explorationVisible
+    ? insets.top + 8 + topOverlayHeight + 12
+    : insets.top;
 
   const stationsQuery = useLineStationsQuery(mode, lineCode);
   const segmentsQuery = useLineSegmentsQuery(mode, lineCode);
@@ -327,8 +338,12 @@ export function MapScreen({
         segments={segmentsQuery.data ?? []}
         transitVehicles={vehiclesQuery.data ?? []}
         selectedStationCode={stationCode}
+        stationFocusRequestId={stationFocusRequestId}
         stationInterchanges={stationInterchanges}
+        topInset={topMapInset}
         bottomInset={bottomInset}
+        bottomOverlayOffset={bottomOverlayOffset}
+        animatedBottomInset={animatedBottomInset}
         nearbyStops={nearbyMarkers}
         plannerMarkers={plannerMarkers}
         plannerPolylines={plannerPolylines}
@@ -358,7 +373,12 @@ export function MapScreen({
       />
 
       {showBackButton || explorationVisible ? (
-        <View style={[styles.topOverlay, { top: insets.top + 8 }]}>
+        <View
+          style={[styles.topOverlay, { top: insets.top + 8 }]}
+          onLayout={(event) => {
+            setTopOverlayHeight(event.nativeEvent.layout.height);
+          }}
+        >
           {showBackButton ? (
             <Pressable
               accessibilityRole="button"

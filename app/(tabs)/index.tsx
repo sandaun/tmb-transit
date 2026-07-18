@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -33,8 +34,10 @@ import {
 } from '@/src/features/planner/utils/route-presentation';
 import {
   LocalBottomSheet,
+  LOCAL_SHEET_MIN_HEIGHT,
   type LocalBottomSheetHandle,
 } from '@/src/features/station/components/bottom-sheet/local-bottom-sheet';
+import { CollapsedSheetSummary } from '@/src/features/station/components/bottom-sheet/collapsed-sheet-summary';
 import { MapScreen } from '@/src/features/station/components/map-screen';
 import type { NearbyStop } from '@/src/features/nearby/hooks/use-nearby-stops-query';
 import { NearbySheet } from '@/src/features/nearby/components/nearby-sheet';
@@ -46,6 +49,7 @@ import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import { useAppLanguage } from '@/src/i18n';
 import { useTransitStore } from '@/src/state/store';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
+import { useSharedValue } from 'react-native-reanimated';
 
 function pickDefaultLineCode(mode: TransportMode, lines: Line[]): string | null {
   if (!lines.length) {
@@ -74,6 +78,8 @@ function reportMapDataError(operation: string, error: unknown): void {
 
 const SHEET_DETENTS = [0.1, 0.5, 1] as const;
 const NEARBY_SHEET_DETENTS = [0.1, 0.34, 1] as const;
+const IOS_NATIVE_TAB_BAR_CLEARANCE = 80;
+const ANDROID_NATIVE_TAB_BAR_CLEARANCE = 20;
 
 type PlannerPointKind = 'origin' | 'destination';
 
@@ -175,8 +181,17 @@ export default function MapTabScreen() {
     stations[0]?.code ||
     null;
 
+  const sheetBottomOffset = insets.bottom + (
+    Platform.OS === 'ios'
+      ? IOS_NATIVE_TAB_BAR_CLEARANCE
+      : ANDROID_NATIVE_TAB_BAR_CLEARANCE
+  );
   const sheetRef = useRef<LocalBottomSheetHandle>(null);
+  const animatedSheetBottomInset = useSharedValue(
+    LOCAL_SHEET_MIN_HEIGHT + sheetBottomOffset,
+  );
   const [detentIndex, setDetentIndex] = useState(0);
+  const [stationFocusRequestId, setStationFocusRequestId] = useState(0);
   const [pendingMode, setPendingMode] = useState<TransportMode | null>(null);
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus', 'fgc']);
@@ -255,13 +270,16 @@ export default function MapTabScreen() {
     return null;
   }, [selectedLegId, selectedRoute, selectedRouteLandmarks]);
 
-  const sheetHeight = useMemo(() => {
-    const usableHeight = Math.max(0, windowHeight - Math.max(insets.top, 48));
+  const settledSheetBottomInset = useMemo(() => {
+    const usableHeight = Math.max(
+      LOCAL_SHEET_MIN_HEIGHT,
+      windowHeight - Math.max(insets.top, 48) - sheetBottomOffset,
+    );
     const detent = sheetDetents[detentIndex] ?? sheetDetents[0];
-    const raw = Math.max(116, Math.round(usableHeight * detent));
+    const raw = Math.max(LOCAL_SHEET_MIN_HEIGHT, Math.round(usableHeight * detent));
     const maxButtonInset = Math.round(windowHeight * 0.45);
-    return Math.min(raw, maxButtonInset);
-  }, [detentIndex, insets.top, sheetDetents, windowHeight]);
+    return Math.min(raw, maxButtonInset) + sheetBottomOffset;
+  }, [detentIndex, insets.top, sheetBottomOffset, sheetDetents, windowHeight]);
 
   useEffect(() => {
     // Restore only the initial null selection. An empty line code is used while
@@ -388,6 +406,7 @@ export default function MapTabScreen() {
 
           if (lineChangeRequestRef.current === requestId) {
             setSelection(nextMode, nextLineCode, nextStationCode);
+            setStationFocusRequestId((focusRequestId) => focusRequestId + 1);
           }
         } catch (error: unknown) {
           if (lineChangeRequestRef.current === requestId) {
@@ -435,7 +454,12 @@ export default function MapTabScreen() {
             return;
           }
 
-          setSelection(nextMode, nextLineCode, nextStations[0]?.code ?? '');
+          const nextStationCode = nextStations[0]?.code;
+          setSelection(nextMode, nextLineCode, nextStationCode ?? '');
+
+          if (nextStationCode) {
+            setStationFocusRequestId((focusRequestId) => focusRequestId + 1);
+          }
         })
         .catch((error: unknown) => {
           if (lineChangeRequestRef.current !== requestId) {
@@ -467,6 +491,7 @@ export default function MapTabScreen() {
         });
       }
       sheetRef.current?.resize(1);
+      setStationFocusRequestId((requestId) => requestId + 1);
     },
     [addRecentItem, cancelPendingLineChange, lineCode, mode, setSelection, stations],
   );
@@ -475,6 +500,7 @@ export default function MapTabScreen() {
       cancelPendingLineChange();
       setSelection(nextMode, nextLineCode, nextStationCode);
       sheetRef.current?.resize(1);
+      setStationFocusRequestId((requestId) => requestId + 1);
     },
     [cancelPendingLineChange, setSelection],
   );
@@ -495,6 +521,7 @@ export default function MapTabScreen() {
         visitedAtMs: Date.now(),
       });
       sheetRef.current?.resize(1);
+      setStationFocusRequestId((requestId) => requestId + 1);
     },
     [addRecentItem, cancelPendingLineChange, lineCode, mode, setSelection],
   );
@@ -738,6 +765,20 @@ export default function MapTabScreen() {
   }
 
   const isCollapsed = detentIndex === 0;
+  const activeLine = lines.find((line) => line.code === lineCode);
+  const activeStation = stations.find((station) => station.code === stationCode);
+  const collapsedTitle = placeToSave
+    ? t('map_select_place_title', {
+        place: placeToSave === 'home' ? t('saved_home') : t('saved_work'),
+      })
+    : plannerEnabled
+      ? t('planner_title')
+      : activeStation?.name ?? stationCode;
+  const collapsedSubtitle = placeToSave
+    ? t('map_select_place_body')
+    : plannerEnabled
+      ? `${plannerOriginLabel ?? t('planner_origin')} → ${plannerDestinationLabel ?? t('planner_destination')}`
+      : activeStation?.serviceDescription ?? activeLine?.name ?? lineCode;
 
   return (
     <View style={styles.root}>
@@ -747,9 +788,12 @@ export default function MapTabScreen() {
         mode={mode}
         pendingMode={pendingMode}
         stationCode={stationCode}
+        stationFocusRequestId={stationFocusRequestId}
         showBackButton={false}
         stationInterchanges={stationInterchanges}
-        bottomInset={sheetHeight}
+        bottomInset={settledSheetBottomInset}
+        bottomOverlayOffset={sheetBottomOffset}
+        animatedBottomInset={animatedSheetBottomInset}
         onLineChange={handleLineChange}
         onModeChange={handleModeChange}
         onStationChange={handleStationChange}
@@ -789,56 +833,73 @@ export default function MapTabScreen() {
         ref={sheetRef}
         detents={sheetDetents}
         initialDetentIndex={0}
+        bottomOffset={sheetBottomOffset}
+        animatedBottomInset={animatedSheetBottomInset}
         onDetentChange={handleDetentChange}
       >
-        <View
-          style={isCollapsed ? styles.contentHidden : styles.contentVisible}
-          pointerEvents={isCollapsed ? 'none' : 'auto'}
-        >
-          {placeToSave ? (
-            <View style={styles.placePrompt}>
-              <Text style={styles.placePromptTitle}>
-                {t('map_select_place_title', { place: placeToSave === 'home' ? t('saved_home') : t('saved_work') })}
-              </Text>
-              <Text style={styles.placePromptBody}>{t('map_select_place_body')}</Text>
-            </View>
-          ) : plannerEnabled ? (
-            <PlannerSheet
-              origin={plannerOrigin}
-              originLabel={plannerOriginLabel}
-              destination={plannerDestination}
-              destinationLabel={plannerDestinationLabel}
-              userLocation={plannerUserLocation}
-              activePoint={plannerActivePoint}
-              requested={plannerRequested}
-              routes={plannedRoutes}
-              selectedRouteId={selectedRoute?.id ?? null}
-              selectedLegId={selectedLegId}
-              isExpanded={detentIndex === 2}
-              isLoading={plannedRoutesQuery.isFetching}
-              isError={plannedRoutesQuery.isError}
-              onActivePointChange={handlePlannerActivePointChange}
-              onSwap={handlePlannerSwap}
-              onUseCurrentLocation={() => handlePlannerUseCurrentLocation(plannerUserLocation)}
-              onPlan={handlePlannerPlan}
-              onRetry={() => void plannedRoutesQuery.refetch()}
-              onRouteSelect={handlePlannerRouteSelect}
-              onStepSelect={handlePlannerStepSelect}
-            />
-          ) : nearbyPanelOpen ? (
-            <NearbySheet
-              activeModes={nearbyModes}
-              onModesChange={setNearbyModes}
-            />
-          ) : (
-            <StationContent
-              lines={lines}
-              stationInterchanges={stationInterchanges}
-              active={!isCollapsed}
-              onLineStationSelect={handleLineStationSelect}
-            />
-          )}
-        </View>
+        {isCollapsed ? (
+          <CollapsedSheetSummary
+            title={collapsedTitle}
+            subtitle={collapsedSubtitle}
+            line={
+              !placeToSave && !plannerEnabled
+                ? {
+                    code: lineCode,
+                    mode,
+                    color: activeLine?.color,
+                  }
+                : undefined
+            }
+            icon={placeToSave ? 'add-location-alt' : 'route'}
+            onPress={() => sheetRef.current?.resize(1)}
+          />
+        ) : (
+          <View style={styles.contentVisible}>
+            {placeToSave ? (
+              <View style={styles.placePrompt}>
+                <Text style={styles.placePromptTitle}>
+                  {t('map_select_place_title', { place: placeToSave === 'home' ? t('saved_home') : t('saved_work') })}
+                </Text>
+                <Text style={styles.placePromptBody}>{t('map_select_place_body')}</Text>
+              </View>
+            ) : plannerEnabled ? (
+              <PlannerSheet
+                origin={plannerOrigin}
+                originLabel={plannerOriginLabel}
+                destination={plannerDestination}
+                destinationLabel={plannerDestinationLabel}
+                userLocation={plannerUserLocation}
+                activePoint={plannerActivePoint}
+                requested={plannerRequested}
+                routes={plannedRoutes}
+                selectedRouteId={selectedRoute?.id ?? null}
+                selectedLegId={selectedLegId}
+                isExpanded={detentIndex === 2}
+                isLoading={plannedRoutesQuery.isFetching}
+                isError={plannedRoutesQuery.isError}
+                onActivePointChange={handlePlannerActivePointChange}
+                onSwap={handlePlannerSwap}
+                onUseCurrentLocation={() => handlePlannerUseCurrentLocation(plannerUserLocation)}
+                onPlan={handlePlannerPlan}
+                onRetry={() => void plannedRoutesQuery.refetch()}
+                onRouteSelect={handlePlannerRouteSelect}
+                onStepSelect={handlePlannerStepSelect}
+              />
+            ) : nearbyPanelOpen ? (
+              <NearbySheet
+                activeModes={nearbyModes}
+                onModesChange={setNearbyModes}
+              />
+            ) : (
+              <StationContent
+                lines={lines}
+                stationInterchanges={stationInterchanges}
+                active={!isCollapsed}
+                onLineStationSelect={handleLineStationSelect}
+              />
+            )}
+          </View>
+        )}
       </LocalBottomSheet>
     </View>
   );
@@ -851,11 +912,6 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   },
   contentVisible: {
     flex: 1,
-  },
-  contentHidden: {
-    flex: 0,
-    height: 0,
-    opacity: 0,
   },
   loading: {
     flex: 1,

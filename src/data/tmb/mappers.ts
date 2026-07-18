@@ -18,6 +18,16 @@ import type {
   StationDto,
 } from '@/src/data/tmb/types';
 
+const TRAM_BRAND_COLOR = '009189';
+
+function normalizeTramRouteName(value: string | undefined): string | undefined {
+  return value
+    ?.replace(/[_|]+/g, ' | ')
+    .replace(/\s*-\s*/g, ' - ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function defaultOperator(mode: TransportMode): TransitOperator {
   if (mode === 'fgc') return 'fgc';
   if (mode === 'tram') return 'tram';
@@ -30,17 +40,20 @@ function defaultVehicleMode(mode: TransportMode): VehicleMode {
 }
 
 export function mapLineDto(dto: LineDto): Line {
+  const isTram = dto.mode === 'tram';
   return {
     code: dto.code,
-    name: dto.name,
-    color: dto.color,
-    textColor: dto.textColor,
+    name: isTram ? normalizeTramRouteName(dto.name) ?? dto.name : dto.name,
+    color: isTram ? TRAM_BRAND_COLOR : dto.color,
+    textColor: isTram ? 'FFFFFF' : dto.textColor,
     mode: dto.mode,
     operator: dto.operator ?? defaultOperator(dto.mode),
     vehicleMode: dto.vehicleMode ?? defaultVehicleMode(dto.mode),
     network: dto.network,
-    originStation: dto.originStation,
-    destinationStation: dto.destinationStation,
+    originStation: isTram ? normalizeTramRouteName(dto.originStation) : dto.originStation,
+    destinationStation: isTram
+      ? normalizeTramRouteName(dto.destinationStation)
+      : dto.destinationStation,
     serviceStatus: dto.serviceStatus,
   };
 }

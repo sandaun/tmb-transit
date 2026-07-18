@@ -18,7 +18,7 @@ describe('TRAM data mappers', async () => {
   const rows = {
     routes: [
       { route_id: 'route-t3', route_short_name: 'T3', route_long_name: 'Sant Feliu - Francesc Macià', route_color: '00AEEF' },
-      { route_id: 'route-t2', route_short_name: 'T2', route_long_name: 'Llevant - Francesc Macià', route_color: '84BD00' },
+      { route_id: 'route-t2', route_short_name: 'T2', route_long_name: 'Llevant_Les Planes-Francesc Macià', route_color: '84BD00' },
     ],
     stops: [
       { stop_id: 'parent-a', stop_name: 'Canonical A', stop_lat: '41.38', stop_lon: '2.12', location_type: '1' },
@@ -63,6 +63,22 @@ describe('TRAM data mappers', async () => {
     );
     assert.equal(snapshot.segmentsByLine.get('T3')?.[0].points.length, 2);
     assert.equal(snapshot.tripsById.get('trip-t2')?.destination, 'Canonical B');
+    assert.deepEqual(
+      snapshot.lines.find((line) => line.code === 'T2'),
+      {
+        code: 'T2',
+        name: 'Llevant | Les Planes - Francesc Macià',
+        color: '009189',
+        textColor: 'FFFFFF',
+        mode: 'tram',
+        operator: 'tram',
+        vehicleMode: 'tram',
+        network: 'trambaix',
+        originStation: 'Llevant | Les Planes',
+        destinationStation: 'Francesc Macià',
+        serviceStatus: 'no-service',
+      },
+    );
   });
 
   it('maps realtime platform predictions and scheduled fallback arrivals', () => {

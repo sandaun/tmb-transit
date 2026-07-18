@@ -37,7 +37,7 @@ const numericMetroLineKeys: Record<string, string> = {
 const BUS_FALLBACK_BACKGROUND = '#1F4FB6';
 const METRO_FALLBACK_BACKGROUND = '#24304A';
 const FGC_FALLBACK_BACKGROUND = '#5E2D83';
-const TRAM_FALLBACK_BACKGROUND = '#E30613';
+const TRAM_BACKGROUND = '#009189';
 const BUS_FAMILY_BACKGROUNDS: Record<string, string> = {
   H: '#009DDC',
   V: '#4DAF50',
@@ -105,17 +105,11 @@ function getFgcBrand(lineCode: string, color?: string): LineBrand {
   };
 }
 
-function getTramBrand(lineCode: string, color?: string): LineBrand {
-  const backgroundColor = toHexColor(color) ?? TRAM_FALLBACK_BACKGROUND;
-  const hex = backgroundColor.slice(1);
-  const red = Number.parseInt(hex.slice(0, 2), 16);
-  const green = Number.parseInt(hex.slice(2, 4), 16);
-  const blue = Number.parseInt(hex.slice(4, 6), 16);
-  const luminance = (red * 299 + green * 587 + blue * 114) / 1_000;
+function getTramBrand(lineCode: string): LineBrand {
   return {
     label: lineCode.trim().toUpperCase() || lineCode,
-    backgroundColor,
-    textColor: luminance > 170 ? '#111827' : '#FFFFFF',
+    backgroundColor: TRAM_BACKGROUND,
+    textColor: '#FFFFFF',
   };
 }
 
@@ -126,6 +120,6 @@ export function getLineBrand(
 ): LineBrand {
   if (mode === 'bus') return getBusBrand(lineCode, color);
   if (mode === 'fgc') return getFgcBrand(lineCode, color);
-  if (mode === 'tram') return getTramBrand(lineCode, color);
+  if (mode === 'tram') return getTramBrand(lineCode);
   return getMetroBrand(lineCode, color);
 }

@@ -3,15 +3,15 @@ import test from 'node:test';
 
 import { getLineBrand } from '@/src/features/catalog/utils/line-brand';
 
-test('uses GTFS colors for TRAM line badges', () => {
+test('uses the corporate color for every TRAM line', () => {
   assert.deepEqual(getLineBrand('tram', 'T1', 'FF0D0D'), {
     label: 'T1',
-    backgroundColor: '#FF0D0D',
+    backgroundColor: '#009189',
     textColor: '#FFFFFF',
   });
   assert.deepEqual(getLineBrand('tram', 'T2', '80FF80'), {
     label: 'T2',
-    backgroundColor: '#80FF80',
-    textColor: '#111827',
+    backgroundColor: '#009189',
+    textColor: '#FFFFFF',
   });
 });

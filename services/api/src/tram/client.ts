@@ -16,6 +16,7 @@ import { readZipTextFiles } from './zip';
 
 const TRAM_MODE = 'tram' as const;
 const TRAM_OPERATOR = 'tram' as const;
+const TRAM_BRAND_COLOR = '009189';
 const CATALOG_TTL_MS = 24 * 60 * 60 * 1_000;
 const CATALOG_STALE_MAX_MS = 7 * CATALOG_TTL_MS;
 const REQUIRED_GTFS_FILES = [
@@ -233,6 +234,14 @@ function splitTerminals(name: string): [string | undefined, string | undefined] 
   return [terminals[0], terminals.length > 1 ? terminals.at(-1) : undefined];
 }
 
+function normalizeRouteName(name: string): string {
+  return name
+    .replace(/[_|]+/g, ' | ')
+    .replace(/\s*-\s*/g, ' - ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseShapes(rows: Record<string, unknown>[]): Map<string, Array<{ lat: number; lon: number }>> {
   const raw = new Map<string, Array<{ lat: number; lon: number; sequence: number }>>();
   for (const row of rows) {
@@ -271,9 +280,9 @@ export function buildTramSnapshot(
     return [{
       routeId,
       code,
-      name: asString(row.route_long_name) ?? code,
-      color: asString(row.route_color),
-      textColor: asString(row.route_text_color),
+      name: normalizeRouteName(asString(row.route_long_name) ?? code),
+      color: TRAM_BRAND_COLOR,
+      textColor: 'FFFFFF',
     }];
   });
   const tripsById = new Map<string, TripRow>();

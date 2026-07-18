@@ -8,7 +8,11 @@ import type {
 export type ServiceAlertModeDto = TransportMode | 'mixed';
 export type ServiceAlertSeverityDto = 'info' | 'warning' | 'disruption';
 export type ServiceAlertKindDto = 'current' | 'planned';
-export type ServiceAlertSourceDto = 'tmb-alerts-api' | 'tmb-service-notices' | 'fgc-gtfs-rt';
+export type ServiceAlertSourceDto =
+  | 'tmb-alerts-api'
+  | 'tmb-service-notices'
+  | 'fgc-gtfs-rt'
+  | 'tram-alterations';
 
 export interface LineDto {
   code: string;

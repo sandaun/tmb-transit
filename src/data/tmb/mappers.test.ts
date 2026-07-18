@@ -14,6 +14,22 @@ describe('mapLineDto', () => {
 
     assert.equal(line.serviceStatus, 'no-service');
   });
+
+  it('normalizes TRAM branding and route names', () => {
+    const line = mapLineDto({
+      code: 'T2',
+      name: 'Llevant_Les Planes-Francesc Macià',
+      color: '80FF80',
+      mode: 'tram',
+      originStation: 'Llevant_Les Planes',
+      destinationStation: 'Francesc Macià',
+    });
+
+    assert.equal(line.name, 'Llevant | Les Planes - Francesc Macià');
+    assert.equal(line.originStation, 'Llevant | Les Planes');
+    assert.equal(line.color, '009189');
+    assert.equal(line.textColor, 'FFFFFF');
+  });
 });
 
 describe('mapServiceAlertDto', () => {

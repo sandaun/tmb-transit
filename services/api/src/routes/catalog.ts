@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 
 import { TtlCache } from '../cache/ttl-cache';
 import { getFgcLineSegments, getFgcLines, getFgcLineStations } from '../fgc/client';
+import { getTramLineSegments, getTramLines, getTramLineStations } from '../tram/client';
 import { getBusLineSegments, getBusLineStations, getBusLines } from '../tmb/bus-client';
 import {
   getMetroLineSegments,
@@ -11,7 +12,7 @@ import {
 } from '../tmb/transit-client';
 import type { LineDto, SegmentDto, StationDto } from '../types/api';
 
-const modeSchema = z.enum(['metro', 'bus', 'fgc']);
+const modeSchema = z.enum(['metro', 'bus', 'fgc', 'tram']);
 const modeParams = z.object({ mode: modeSchema });
 const modeAndLineParams = z.object({ mode: modeSchema, lineCode: z.string().min(1) });
 
@@ -56,23 +57,28 @@ async function loadCached<T>(key: string, loader: () => Promise<T>): Promise<T> 
   }
 }
 
-async function listLines(mode: 'metro' | 'bus' | 'fgc'): Promise<LineDto[]> {
+async function listLines(mode: 'metro' | 'bus' | 'fgc' | 'tram'): Promise<LineDto[]> {
   if (mode === 'fgc') return getFgcLines();
+  if (mode === 'tram') return getTramLines();
   return mode === 'bus' ? getBusLines() : getMetroLines();
 }
 
-async function listLineStations(mode: 'metro' | 'bus' | 'fgc', lineCode: string): Promise<StationDto[]> {
+async function listLineStations(mode: 'metro' | 'bus' | 'fgc' | 'tram', lineCode: string): Promise<StationDto[]> {
   if (mode === 'fgc') return getFgcLineStations(lineCode);
+  if (mode === 'tram') return getTramLineStations(lineCode);
   return mode === 'bus' ? getBusLineStations(lineCode) : getMetroLineStations(lineCode);
 }
 
-async function listLineSegments(mode: 'metro' | 'bus' | 'fgc', lineCode: string): Promise<SegmentDto[]> {
+async function listLineSegments(mode: 'metro' | 'bus' | 'fgc' | 'tram', lineCode: string): Promise<SegmentDto[]> {
   if (mode === 'fgc') return getFgcLineSegments(lineCode);
+  if (mode === 'tram') return getTramLineSegments(lineCode);
   return mode === 'bus' ? getBusLineSegments(lineCode) : getMetroLineSegments(lineCode);
 }
 
-function sourceForMode(mode: 'metro' | 'bus' | 'fgc'): string {
-  return mode === 'fgc' ? 'fgc-open-data' : 'tmb-transit';
+function sourceForMode(mode: 'metro' | 'bus' | 'fgc' | 'tram'): string {
+  if (mode === 'fgc') return 'fgc-open-data';
+  if (mode === 'tram') return 'tram-open-data';
+  return 'tmb-transit';
 }
 
 function currentBarcelonaDate(): string {
@@ -87,7 +93,7 @@ function currentBarcelonaDate(): string {
 export const catalogRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/v1/catalog/:mode/lines', async (request) => {
     const { mode } = modeParams.parse(request.params);
-    const cacheKey = mode === 'fgc'
+    const cacheKey = mode === 'fgc' || mode === 'tram'
       ? `lines:${mode}:${currentBarcelonaDate()}`
       : `lines:${mode}`;
     const lines = await loadCached(cacheKey, () => listLines(mode));

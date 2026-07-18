@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { TtlCache } from '../cache/ttl-cache';
 import { runtimeConfig } from '../config/env';
 import { getFgcServiceAlerts } from '../fgc/client';
+import { getTramServiceAlerts } from '../tram/client';
 import { fetchOperationalServiceAlertsFromTmb } from '../tmb/alerts-client';
 import { fetchServiceAlertsFromTmb } from '../tmb/service-notices-client';
 import type { ServiceAlertDto } from '../types/api';
@@ -23,10 +24,11 @@ function sortAlerts(alerts: ServiceAlertDto[]): ServiceAlertDto[] {
 }
 
 async function fetchCombinedServiceAlerts(language: 'ca' | 'es' | 'en'): Promise<ServiceAlertDto[]> {
-  const [operationalResult, plannedResult, fgcResult] = await Promise.allSettled([
+  const [operationalResult, plannedResult, fgcResult, tramResult] = await Promise.allSettled([
     fetchOperationalServiceAlertsFromTmb(),
     fetchServiceAlertsFromTmb(),
     getFgcServiceAlerts(language),
+    getTramServiceAlerts(language),
   ]);
   const alerts: ServiceAlertDto[] = [];
 
@@ -40,6 +42,10 @@ async function fetchCombinedServiceAlerts(language: 'ca' | 'es' | 'en'): Promise
 
   if (fgcResult.status === 'fulfilled') {
     alerts.push(...fgcResult.value);
+  }
+
+  if (tramResult.status === 'fulfilled') {
+    alerts.push(...tramResult.value);
   }
 
   if (alerts.length === 0) {

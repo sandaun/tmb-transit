@@ -201,6 +201,7 @@ function AlertsHeader({
             { id: 'all', label: t('alerts_all') },
             { id: 'tmb', label: 'TMB' },
             { id: 'fgc', label: 'FGC' },
+            { id: 'tram', label: 'TRAM' },
           ] as const).map((option) => (
             <SegmentButton
               key={option.id}

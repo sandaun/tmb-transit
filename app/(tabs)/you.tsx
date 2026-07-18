@@ -1,10 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { AppLanguage, RecentItem, SavedPlaceId, ThemePreference } from '@/src/features/preferences/models';
+import type { TransportMode } from '@/src/domain/catalog/models';
 import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import { useTransitStore } from '@/src/state/store';
 import { useAppLanguage } from '@/src/i18n';
@@ -38,10 +40,12 @@ export default function YouTabScreen() {
   const metroLinesQuery = useLinesQuery('metro');
   const busLinesQuery = useLinesQuery('bus');
   const fgcLinesQuery = useLinesQuery('fgc');
+  const tramLinesQuery = useLinesQuery('tram');
   const favoriteLineDetails = [
     ...(metroLinesQuery.data ?? []),
     ...(busLinesQuery.data ?? []),
     ...(fgcLinesQuery.data ?? []),
+    ...(tramLinesQuery.data ?? []),
   ];
   const [preferencesVisible, setPreferencesVisible] = useState(false);
   const visibleRecentItems = recentItems.slice(0, 3);
@@ -54,7 +58,7 @@ export default function YouTabScreen() {
     router.navigate({ pathname: '/', params: { planFrom: id } } as never);
   };
 
-  const openFavoriteStop = (mode: 'metro' | 'bus' | 'fgc', lineCode: string, stationCode: string) => {
+  const openFavoriteStop = (mode: TransportMode, lineCode: string, stationCode: string) => {
     setSelection(mode, lineCode, stationCode);
     router.navigate('/');
   };
@@ -289,6 +293,24 @@ export default function YouTabScreen() {
                 </Pressable>
               ))}
             </View>
+            <Text style={styles.preferenceLabel}>{t('saved_data_sources')}</Text>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={t('saved_powered_by_tram')}
+              style={styles.dataSourceButton}
+              onPress={() => void Linking.openURL('https://www.tram.cat')}
+            >
+              <View style={styles.dataSourceBrand}>
+                <Text style={styles.dataSourceText}>Powered by</Text>
+                <Image
+                  accessibilityIgnoresInvertColors
+                  contentFit="contain"
+                  source={require('@/assets/transport/tram.png')}
+                  style={styles.tramLogo}
+                />
+              </View>
+              <MaterialIcons name="open-in-new" size={18} color={palette.accent} />
+            </Pressable>
             <Pressable accessibilityRole="button" style={styles.clearButton} onPress={confirmClear}>
               <MaterialIcons name="delete-outline" size={20} color={palette.danger} />
               <Text style={styles.clearButtonText}>{t('saved_clear_data')}</Text>
@@ -338,6 +360,10 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   languageButtonActive: { borderColor: palette.accent, backgroundColor: palette.accent },
   languageText: { color: palette.text, fontSize: 13, fontWeight: '700' },
   languageTextActive: { color: palette.onAccent },
+  dataSourceButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 10, borderWidth: 1, borderColor: palette.borderStrong, paddingHorizontal: 12, paddingVertical: 10 },
+  dataSourceBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dataSourceText: { color: palette.accent, fontSize: 14, fontWeight: '700' },
+  tramLogo: { width: 74, height: 24 },
   clearButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 10, borderWidth: 1, borderColor: palette.danger, backgroundColor: palette.dangerSoft, paddingHorizontal: 14, paddingVertical: 10 },
   clearButtonText: { color: palette.danger, fontSize: 14, fontWeight: '800' },
   modalSafeArea: { flex: 1, backgroundColor: palette.background, padding: 16 },

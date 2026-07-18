@@ -14,7 +14,7 @@ Supported mobile environments:
 | `production` | Explicit non-local HTTPS URL | Rejected |
 
 If `EXPO_PUBLIC_APP_ENV` is absent during a production Node build, the app fails closed as
-`production`. TMB credentials remain server-only variables in `services/api`.
+`production`. TMB and TRAM credentials remain server-only variables in `services/api`.
 
 ## Location data in logs
 
@@ -42,8 +42,9 @@ new high or critical vulnerabilities remain blocked.
 
 ## Secret handling and rotation
 
-Store `TMB_APP_ID` and `TMB_APP_KEY` only in local ignored files or the deployment platform's secret
-store. If a secret is exposed:
+Store `TMB_APP_ID`, `TMB_APP_KEY`, `TRAM_CLIENT_ID`, and `TRAM_CLIENT_SECRET` only in local ignored
+files or the deployment platform's secret store. Never expose TRAM OAuth credentials through an
+`EXPO_PUBLIC_*` variable. If a secret is exposed:
 
 1. Revoke or rotate it at the provider immediately.
 2. Remove it from the current tree and repository history when necessary.

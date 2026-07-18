@@ -185,6 +185,7 @@ describe('getPlannerRouteMode', () => {
     assert.equal(getPlannerRouteMode('FM'), 'metro');
     assert.equal(getPlannerRouteMode('H10'), 'bus');
     assert.equal(getPlannerRouteMode('S1', 'FGC'), 'fgc');
+    assert.equal(getPlannerRouteMode('T3', 'TRAMBAIX'), 'tram');
     assert.equal(getPlannerRouteMode(undefined), 'bus');
   });
 });

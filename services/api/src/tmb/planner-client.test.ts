@@ -64,4 +64,27 @@ describe('planner client helpers', async () => {
     assert.deepEqual(mapPlannerResponse({ error: { noPath: true } }), []);
     assert.deepEqual(mapPlannerResponse({ plan: { itineraries: [] } }), []);
   });
+
+  it('maps Trambaix transit legs as TRAM', () => {
+    const [route] = mapPlannerResponse({
+      plan: {
+        itineraries: [{
+          duration: 600,
+          legs: [{
+            mode: 'TRAM',
+            routeShortName: 'T3',
+            routeLongName: 'Sant Feliu - Francesc Macià',
+            agencyName: 'TRAMBAIX',
+            duration: 600,
+            from: { name: 'Palau Reial', lat: 41.38, lon: 2.12 },
+            to: { name: 'Francesc Macià', lat: 41.39, lon: 2.14 },
+          }],
+        }],
+      },
+    });
+
+    assert.equal(route.legs[0].operator, 'tram');
+    assert.equal(route.legs[0].transportMode, 'tram');
+    assert.equal(route.legs[0].network, 'trambaix');
+  });
 });

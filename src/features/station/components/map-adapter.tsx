@@ -340,10 +340,10 @@ export function MapAdapter({
 
     // Bus lines have many more stops and short distances between them,
     // so we keep all-names off until the user is very zoomed in.
-    const showAllThreshold = mode === 'bus' ? 0.012 : 0.04;
-    const showEveryThreshold = mode === 'bus' ? 0.025 : 0.08;
+    const showAllThreshold = mode === 'bus' || mode === 'tram' ? 0.012 : 0.04;
+    const showEveryThreshold = mode === 'tram' ? 0.025 : mode === 'bus' ? 0.025 : 0.08;
     const showAll = latitudeDelta <= showAllThreshold;
-    const showEvery = latitudeDelta <= showEveryThreshold ? 3 : 0;
+    const showEvery = latitudeDelta <= showEveryThreshold ? (mode === 'tram' ? 4 : 3) : 0;
     const result = new Map<string, (typeof visibleStations)[number]>();
 
     // Always show terminals.
@@ -422,7 +422,7 @@ export function MapAdapter({
         const isSelected = station.code === selectedStationCode;
         return (
           (interchange?.members.length ?? 1) > 1 &&
-          (isSelected || markerDetail !== 'minimal')
+          (isSelected || markerDetail === 'full')
         );
       }),
     [interchangeByStationKey, lineCode, markerDetail, selectedStationCode, visibleStations],
@@ -731,8 +731,8 @@ export function MapAdapter({
               code: lineCode,
               name: lineCode,
               mode,
-              operator: mode === 'fgc' ? 'fgc' : 'tmb',
-              vehicleMode: mode === 'fgc' ? 'rail' : mode,
+              operator: mode === 'tram' ? 'tram' : mode === 'fgc' ? 'fgc' : 'tmb',
+              vehicleMode: mode === 'tram' ? 'tram' : mode === 'fgc' ? 'rail' : mode,
               color: lineColor,
             }];
           const transferLines = prioritizeSelectedInterchangeLine(

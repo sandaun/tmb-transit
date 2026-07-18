@@ -4,12 +4,13 @@ import type { FastifyPluginAsync } from 'fastify';
 import { TtlCache } from '../cache/ttl-cache';
 import { runtimeConfig } from '../config/env';
 import { getFgcArrivals, getFgcVehicles } from '../fgc/client';
+import { getTramArrivals } from '../tram/client';
 import { fetchBusArrivalsByStation } from '../tmb/ibus-client';
 import { fetchArrivalsByStation } from '../tmb/imetro-client';
 import type { ArrivalDto, TransitVehicleDto, TransportMode } from '../types/api';
 import { toSafeErrorDetails } from '../utils/safe-logging';
 
-const modeParams = z.object({ mode: z.enum(['metro', 'bus', 'fgc']) });
+const modeParams = z.object({ mode: z.enum(['metro', 'bus', 'fgc', 'tram']) });
 const querySchema = z.object({
   lineCode: z.string().min(1),
   stationCode: z.string().min(1),
@@ -29,6 +30,9 @@ async function fetchArrivals(
 ): Promise<ArrivalDto[]> {
   if (mode === 'fgc') {
     return getFgcArrivals(lineCode, stationCode);
+  }
+  if (mode === 'tram') {
+    return getTramArrivals(lineCode, stationCode);
   }
   if (mode === 'bus') {
     return fetchBusArrivalsByStation(stationCode, lineCode);
@@ -84,7 +88,13 @@ export const realtimeRoutes: FastifyPluginAsync = async (fastify) => {
       return {
         data: arrivals,
         meta: {
-          source: mode === 'fgc' ? 'fgc-gtfs-rt' : mode === 'bus' ? 'tmb-ibus' : 'tmb-imetro',
+          source: mode === 'fgc'
+            ? 'fgc-gtfs-rt'
+            : mode === 'tram'
+              ? 'tram-gtfs-rt'
+              : mode === 'bus'
+                ? 'tmb-ibus'
+                : 'tmb-imetro',
           stale: false,
           fetchedAt: new Date().toISOString(),
         },

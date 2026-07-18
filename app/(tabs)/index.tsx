@@ -148,9 +148,17 @@ export default function MapTabScreen() {
     error: linesError,
     refetch: refetchLines,
   } = useLinesQuery(mode);
-  const interchangeMode: TransportMode = mode === 'fgc' ? 'metro' : 'fgc';
-  const { data: interchangeOperatorLines = [] } = useLinesQuery(
-    interchangeMode,
+  const interchangeModes: [TransportMode, TransportMode] = mode === 'metro'
+    ? ['fgc', 'tram']
+    : mode === 'fgc'
+      ? ['metro', 'tram']
+      : ['metro', 'fgc'];
+  const { data: firstInterchangeLines = [] } = useLinesQuery(
+    interchangeModes[0],
+    mode !== 'bus',
+  );
+  const { data: secondInterchangeLines = [] } = useLinesQuery(
+    interchangeModes[1],
     mode !== 'bus',
   );
 
@@ -165,8 +173,8 @@ export default function MapTabScreen() {
     refetch: refetchStations,
   } = useLineStationsQuery(mode, lineCode);
   const interchangeLines = useMemo(
-    () => (mode === 'bus' ? [] : [...lines, ...interchangeOperatorLines]),
-    [interchangeOperatorLines, lines, mode],
+    () => (mode === 'bus' ? [] : [...lines, ...firstInterchangeLines, ...secondInterchangeLines]),
+    [firstInterchangeLines, lines, mode, secondInterchangeLines],
   );
   const allStationsQuery = useAllLineStationsQuery(interchangeLines);
   const stationInterchanges = useMemo(
@@ -194,7 +202,12 @@ export default function MapTabScreen() {
   const [stationFocusRequestId, setStationFocusRequestId] = useState(0);
   const [pendingMode, setPendingMode] = useState<TransportMode | null>(null);
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
-  const [nearbyModes, setNearbyModes] = useState<TransportMode[]>(['metro', 'bus', 'fgc']);
+  const [nearbyModes, setNearbyModes] = useState<TransportMode[]>([
+    'metro',
+    'bus',
+    'fgc',
+    'tram',
+  ]);
   const [nearbyPanelOpen, setNearbyPanelOpen] = useState(false);
   const [plannerEnabled, setPlannerEnabled] = useState(false);
   const [plannerActivePoint, setPlannerActivePoint] = useState<'origin' | 'destination'>(

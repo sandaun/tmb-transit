@@ -15,6 +15,7 @@ const AVAILABLE_MODES: ModeOption[] = [
   { mode: 'metro', source: require('@/assets/transport/metro.svg'), logoWidth: 23 },
   { mode: 'bus', source: require('@/assets/transport/bus.svg'), logoWidth: 19 },
   { mode: 'fgc', source: require('@/assets/transport/fgc.svg'), logoWidth: 19 },
+  { mode: 'tram', source: require('@/assets/transport/tram.png'), logoWidth: 58 },
 ];
 
 interface NearbySheetProps {
@@ -60,9 +61,11 @@ export function NearbySheet({
                 source={source}
                 style={[styles.modeLogo, { width: logoWidth }]}
               />
-              <Text style={[styles.modeLabel, selected ? styles.modeLabelSelected : null]}>
-                {t(mode)}
-              </Text>
+              {mode === 'tram' ? null : (
+                <Text style={[styles.modeLabel, selected ? styles.modeLabelSelected : null]}>
+                  {t(mode)}
+                </Text>
+              )}
               <Text style={[styles.checkmark, selected ? null : styles.checkmarkHidden]}>✓</Text>
             </Pressable>
           );
@@ -93,7 +96,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     minWidth: 88,
     minHeight: 42,
     flexGrow: 1,
-    flexBasis: '30%',
+    flexBasis: '45%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

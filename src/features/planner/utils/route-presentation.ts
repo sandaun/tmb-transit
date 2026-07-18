@@ -84,6 +84,14 @@ export function getPlannerRouteMode(
   if (normalizedAgency.includes('fgc') || normalizedAgency.includes('ferrocarrils')) {
     return 'fgc';
   }
+  if (
+    normalizedAgency.includes('trambaix') ||
+    normalizedAgency.includes('trambesòs') ||
+    normalizedAgency.includes('trambesos') ||
+    normalizedAgency === 'tram'
+  ) {
+    return 'tram';
+  }
   return /^L\d|^FM$/i.test(route?.trim() ?? '') ? 'metro' : 'bus';
 }
 

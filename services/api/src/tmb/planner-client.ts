@@ -192,16 +192,24 @@ function mapLeg(raw: RawPlannerLeg, index: number): PlannedLegDto {
   const agencyName = asString(raw.agencyName);
   const normalizedAgency = agencyName?.toLowerCase() ?? '';
   const isFgc = normalizedAgency.includes('fgc') || normalizedAgency.includes('ferrocarrils');
-  const transportMode = isFgc
+  const isTram = normalizedAgency.includes('trambaix') ||
+    normalizedAgency.includes('trambesòs') ||
+    normalizedAgency.includes('trambesos') ||
+    normalizedAgency === 'tram';
+  const transportMode = isTram
+    ? 'tram'
+    : isFgc
     ? 'fgc'
     : /^L\d|^FM$/i.test(route ?? '')
       ? 'metro'
       : 'bus';
-  const network = isFgc && route
-    ? ['L6', 'L7', 'L12', 'S1', 'S2', 'FV'].includes(route.toUpperCase())
+  const network = isTram
+    ? normalizedAgency.includes('baix') ? 'trambaix' : 'trambesos'
+    : isFgc && route
+      ? ['L6', 'L7', 'L12', 'S1', 'S2', 'FV'].includes(route.toUpperCase())
       ? 'barcelona-valles'
       : 'llobregat-anoia'
-    : undefined;
+      : undefined;
   const encodedGeometry = asString(raw.legGeometry?.points);
 
   return {
@@ -210,7 +218,9 @@ function mapLeg(raw: RawPlannerLeg, index: number): PlannedLegDto {
     ...(route ? { route } : {}),
     ...(asString(raw.routeLongName) ? { routeLongName: asString(raw.routeLongName) } : {}),
     ...(agencyName ? { agencyName } : {}),
-    ...(!isFgc && mode === 'walk' ? {} : { operator: isFgc ? 'fgc' : 'tmb', transportMode }),
+    ...(!isFgc && !isTram && mode === 'walk'
+      ? {}
+      : { operator: isTram ? 'tram' : isFgc ? 'fgc' : 'tmb', transportMode }),
     ...(network ? { network } : {}),
     from: mapPoint(raw.from, 'Origin'),
     to: mapPoint(raw.to, 'Destination'),

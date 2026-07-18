@@ -406,6 +406,7 @@ export default function MapTabScreen() {
 
           if (lineChangeRequestRef.current === requestId) {
             setSelection(nextMode, nextLineCode, nextStationCode);
+            setStationFocusRequestId((focusRequestId) => focusRequestId + 1);
           }
         } catch (error: unknown) {
           if (lineChangeRequestRef.current === requestId) {
@@ -453,7 +454,12 @@ export default function MapTabScreen() {
             return;
           }
 
-          setSelection(nextMode, nextLineCode, nextStations[0]?.code ?? '');
+          const nextStationCode = nextStations[0]?.code;
+          setSelection(nextMode, nextLineCode, nextStationCode ?? '');
+
+          if (nextStationCode) {
+            setStationFocusRequestId((focusRequestId) => focusRequestId + 1);
+          }
         })
         .catch((error: unknown) => {
           if (lineChangeRequestRef.current !== requestId) {

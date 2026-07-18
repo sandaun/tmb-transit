@@ -154,21 +154,21 @@ const STATION_MARKER_CENTER_OFFSET = { x: 0, y: 0 };
 const STATION_BADGE_ANCHOR = { x: 0, y: 1 };
 const STATION_NAME_ANCHOR = { x: 0.5, y: 0 };
 const STATION_NAME_CENTER_OFFSET = { x: 0, y: 26 };
-const STATION_MARKER_IMAGE = require('@/assets/map/station-marker-large.png') as ImageRequireSource;
+const STATION_MARKER_IMAGE = require('@/assets/map/station-marker.png') as ImageRequireSource;
 const SELECTED_STATION_MARKER_IMAGES: Record<string, ImageRequireSource> = {
-  L1: require('@/assets/map/station-marker-selected-large-l1.png') as ImageRequireSource,
-  L2: require('@/assets/map/station-marker-selected-large-l2.png') as ImageRequireSource,
-  L3: require('@/assets/map/station-marker-selected-large-l3.png') as ImageRequireSource,
-  L4: require('@/assets/map/station-marker-selected-large-l4.png') as ImageRequireSource,
-  L5: require('@/assets/map/station-marker-selected-large-l5.png') as ImageRequireSource,
-  L9N: require('@/assets/map/station-marker-selected-large-l9.png') as ImageRequireSource,
-  L9S: require('@/assets/map/station-marker-selected-large-l9.png') as ImageRequireSource,
-  L10N: require('@/assets/map/station-marker-selected-large-l10.png') as ImageRequireSource,
-  L10S: require('@/assets/map/station-marker-selected-large-l10.png') as ImageRequireSource,
-  L11: require('@/assets/map/station-marker-selected-large-l11.png') as ImageRequireSource,
-  FM: require('@/assets/map/station-marker-selected-large-fm.png') as ImageRequireSource,
+  L1: require('@/assets/map/station-marker-selected-l1.png') as ImageRequireSource,
+  L2: require('@/assets/map/station-marker-selected-l2.png') as ImageRequireSource,
+  L3: require('@/assets/map/station-marker-selected-l3.png') as ImageRequireSource,
+  L4: require('@/assets/map/station-marker-selected-l4.png') as ImageRequireSource,
+  L5: require('@/assets/map/station-marker-selected-l5.png') as ImageRequireSource,
+  L9N: require('@/assets/map/station-marker-selected-l9.png') as ImageRequireSource,
+  L9S: require('@/assets/map/station-marker-selected-l9.png') as ImageRequireSource,
+  L10N: require('@/assets/map/station-marker-selected-l10.png') as ImageRequireSource,
+  L10S: require('@/assets/map/station-marker-selected-l10.png') as ImageRequireSource,
+  L11: require('@/assets/map/station-marker-selected-l11.png') as ImageRequireSource,
+  FM: require('@/assets/map/station-marker-selected-fm.png') as ImageRequireSource,
 };
-const FALLBACK_SELECTED_STATION_MARKER_IMAGE = require('@/assets/map/station-marker-selected-large-fallback.png') as ImageRequireSource;
+const FALLBACK_SELECTED_STATION_MARKER_IMAGE = require('@/assets/map/station-marker-selected-fallback.png') as ImageRequireSource;
 
 function getStationMarkerImage(lineLabel: string, isSelected: boolean): ImageRequireSource {
   if (!isSelected) {

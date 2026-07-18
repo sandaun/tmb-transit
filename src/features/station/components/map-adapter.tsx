@@ -731,8 +731,8 @@ export function MapAdapter({
               code: lineCode,
               name: lineCode,
               mode,
-              operator: mode === 'fgc' ? 'fgc' : 'tmb',
-              vehicleMode: mode === 'fgc' ? 'rail' : mode,
+              operator: mode === 'tram' ? 'tram' : mode === 'fgc' ? 'fgc' : 'tmb',
+              vehicleMode: mode === 'tram' ? 'tram' : mode === 'fgc' ? 'rail' : mode,
               color: lineColor,
             }];
           const transferLines = prioritizeSelectedInterchangeLine(

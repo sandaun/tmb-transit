@@ -2,7 +2,7 @@ import type { ServiceAlert } from '@/src/domain/alerts/models';
 import type { AlertsTimeFilter } from '@/src/features/preferences/models';
 import { lineKey } from '@/src/features/preferences/models';
 
-export type OperatorFilter = 'all' | 'tmb' | 'fgc';
+export type OperatorFilter = 'all' | 'tmb' | 'fgc' | 'tram';
 
 export interface AlertFilters {
   mineOnly: boolean;
@@ -64,6 +64,7 @@ export function getAlertFilterCounts(
       all: operatorContext.length,
       tmb: operatorContext.filter((alert) => (alert.operator ?? 'tmb') === 'tmb').length,
       fgc: operatorContext.filter((alert) => alert.operator === 'fgc').length,
+      tram: operatorContext.filter((alert) => alert.operator === 'tram').length,
     },
   };
 }

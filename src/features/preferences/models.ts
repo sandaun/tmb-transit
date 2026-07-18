@@ -118,7 +118,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isTransportMode(value: unknown): value is TransportMode {
-  return value === 'metro' || value === 'bus' || value === 'fgc';
+  return value === 'metro' || value === 'bus' || value === 'fgc' || value === 'tram';
 }
 
 function isFiniteNumber(value: unknown): value is number {

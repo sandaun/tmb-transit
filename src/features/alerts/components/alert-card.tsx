@@ -28,6 +28,7 @@ function getModeLabel(
   metro: string,
   bus: string,
   fgc: string,
+  tram: string,
   mixed: string,
 ): string {
   if (mode === 'metro') {
@@ -40,6 +41,10 @@ function getModeLabel(
 
   if (mode === 'fgc') {
     return fgc;
+  }
+
+  if (mode === 'tram') {
+    return tram;
   }
 
   return mixed;
@@ -110,7 +115,7 @@ function AlertCardComponent({
           </View>
 
           <Text style={styles.modeLabel}>
-            {getKindLabel(kind, t('alerts_now'), t('alerts_planned'))} · {getModeLabel(mode, t('metro'), t('bus'), t('fgc'), t('alert_metro_bus'))}
+            {getKindLabel(kind, t('alerts_now'), t('alerts_planned'))} · {getModeLabel(mode, t('metro'), t('bus'), t('fgc'), t('tram'), t('alert_metro_bus'))}
           </Text>
         </View>
 

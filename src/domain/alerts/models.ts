@@ -3,7 +3,11 @@ import type { TransitOperator, TransportMode } from '@/src/domain/catalog/models
 export type ServiceAlertMode = TransportMode | 'mixed';
 export type ServiceAlertSeverity = 'info' | 'warning' | 'disruption';
 export type ServiceAlertKind = 'current' | 'planned';
-export type ServiceAlertSource = 'tmb-alerts-api' | 'tmb-service-notices' | 'fgc-gtfs-rt';
+export type ServiceAlertSource =
+  | 'tmb-alerts-api'
+  | 'tmb-service-notices'
+  | 'fgc-gtfs-rt'
+  | 'tram-alterations';
 
 export interface ServiceAlertLine {
   mode: TransportMode;

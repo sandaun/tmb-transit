@@ -21,6 +21,10 @@ export const env = {
   iBusBaseUrl: process.env.TMB_IBUS_BASE_URL ?? 'https://api.tmb.cat/v1/ibus',
   plannerBaseUrl: process.env.TMB_PLANNER_BASE_URL ?? 'https://api.tmb.cat/v1/planner',
   alertsBaseUrl: process.env.TMB_ALERTS_BASE_URL ?? 'https://api.tmb.cat/v1/alerts',
+  tramClientId: required('TRAM_CLIENT_ID'),
+  tramClientSecret: required('TRAM_CLIENT_SECRET'),
+  tramOpenDataBaseUrl:
+    process.env.TRAM_OPEN_DATA_BASE_URL ?? 'https://opendata.tram.cat',
   fgcOpenDataBaseUrl:
     process.env.FGC_OPEN_DATA_BASE_URL ?? 'https://dadesobertes.fgc.cat/api/explore/v2.1',
 } as const;

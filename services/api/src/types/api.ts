@@ -1,12 +1,16 @@
-export type TransitOperator = 'tmb' | 'fgc';
-export type TransportMode = 'metro' | 'bus' | 'fgc';
-export type TmbMode = Exclude<TransportMode, 'fgc'>;
-export type VehicleMode = 'metro' | 'bus' | 'rail' | 'funicular';
+export type TransitOperator = 'tmb' | 'fgc' | 'tram';
+export type TransportMode = 'metro' | 'bus' | 'fgc' | 'tram';
+export type TmbMode = 'metro' | 'bus';
+export type VehicleMode = 'metro' | 'bus' | 'rail' | 'funicular' | 'tram';
 export type LineServiceStatus = 'active' | 'no-service' | 'unknown';
 export type ServiceAlertMode = TransportMode | 'mixed';
 export type ServiceAlertSeverity = 'info' | 'warning' | 'disruption';
 export type ServiceAlertKind = 'current' | 'planned';
-export type ServiceAlertSource = 'tmb-alerts-api' | 'tmb-service-notices' | 'fgc-gtfs-rt';
+export type ServiceAlertSource =
+  | 'tmb-alerts-api'
+  | 'tmb-service-notices'
+  | 'fgc-gtfs-rt'
+  | 'tram-alterations';
 
 export interface ApiEnvelope<T> {
   data: T;

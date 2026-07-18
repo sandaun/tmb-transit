@@ -85,6 +85,8 @@ jobs:
         env:
           TMB_APP_ID: test-app
           TMB_APP_KEY: test-key
+          TRAM_CLIENT_ID: test-client
+          TRAM_CLIENT_SECRET: test-secret
 
       - name: Build API
         run: npm run api:build

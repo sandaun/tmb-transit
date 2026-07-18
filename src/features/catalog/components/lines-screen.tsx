@@ -90,7 +90,7 @@ export function LinesScreen() {
         <Text style={styles.subtitle}>{t('lines_subtitle')}</Text>
 
         <View style={styles.modeRow}>
-          {(['metro', 'bus', 'fgc'] as const).map((entry) => {
+          {(['metro', 'bus', 'fgc', 'tram'] as const).map((entry) => {
             const active = mode === entry;
             return (
               <Pressable

@@ -23,6 +23,7 @@ const MODES: ModeBrand[] = [
   { mode: 'metro', source: require('@/assets/transport/metro.svg'), width: 23 },
   { mode: 'bus', source: require('@/assets/transport/bus.svg'), width: 19 },
   { mode: 'fgc', source: require('@/assets/transport/fgc.svg'), width: 19 },
+  { mode: 'tram', source: require('@/assets/transport/tram.png'), width: 50 },
 ];
 
 export function ModeToggle({ mode, pendingMode = null, onChange }: ModeToggleProps) {
@@ -59,9 +60,11 @@ export function ModeToggle({ mode, pendingMode = null, onChange }: ModeTogglePro
                 source={source}
                 style={[styles.logo, { width }]}
               />
-              <Text style={[styles.label, active ? styles.labelActive : null]}>
-                {t(entry)}
-              </Text>
+              {entry === 'tram' ? null : (
+                <Text style={[styles.label, active ? styles.labelActive : null]}>
+                  {t(entry)}
+                </Text>
+              )}
             </Pressable>
           );
         })}

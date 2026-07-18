@@ -60,6 +60,57 @@ const mockFgcSegmentsByLine: Record<string, Segment[]> = Object.fromEntries(
   ]),
 );
 
+const mockTramLines: Line[] = [
+  {
+    code: 'T3',
+    name: 'Sant Feliu | Consell Comarcal - Francesc Macià',
+    mode: 'tram',
+    operator: 'tram',
+    vehicleMode: 'tram',
+    network: 'trambaix',
+    color: '0074E8',
+    originStation: 'Sant Feliu | Consell Comarcal',
+    destinationStation: 'Francesc Macià',
+  },
+  {
+    code: 'T4',
+    name: 'Ciutadella | Vila Olímpica - Estació de Sant Adrià',
+    mode: 'tram',
+    operator: 'tram',
+    vehicleMode: 'tram',
+    network: 'trambesos',
+    color: '008080',
+    originStation: 'Ciutadella | Vila Olímpica',
+    destinationStation: 'Estació de Sant Adrià',
+  },
+];
+
+const mockTramStationsByLine: Record<string, Station[]> = {
+  T3: [
+    { code: 'T3-FM', lineCode: 'T3', mode: 'tram', operator: 'tram', vehicleMode: 'tram', network: 'trambaix', name: 'Francesc Macià', lat: 41.39214, lon: 2.14367, order: 1 },
+    { code: 'T3-MC', lineCode: 'T3', mode: 'tram', operator: 'tram', vehicleMode: 'tram', network: 'trambaix', name: 'Maria Cristina', lat: 41.38808, lon: 2.12981, order: 2 },
+    { code: 'T3-PZ', lineCode: 'T3', mode: 'tram', operator: 'tram', vehicleMode: 'tram', network: 'trambaix', name: 'Palau Reial', lat: 41.38383, lon: 2.11812, order: 3 },
+  ],
+  T4: [
+    { code: 'T4-CV', lineCode: 'T4', mode: 'tram', operator: 'tram', vehicleMode: 'tram', network: 'trambesos', name: 'Ciutadella | Vila Olímpica', lat: 41.38782, lon: 2.19305, order: 1 },
+    { code: 'T4-GR', lineCode: 'T4', mode: 'tram', operator: 'tram', vehicleMode: 'tram', network: 'trambesos', name: 'Glòries', lat: 41.40255, lon: 2.18809, order: 2 },
+    { code: 'T4-SA', lineCode: 'T4', mode: 'tram', operator: 'tram', vehicleMode: 'tram', network: 'trambesos', name: 'Estació de Sant Adrià', lat: 41.42449, lon: 2.23059, order: 3 },
+  ],
+};
+
+const mockTramSegmentsByLine: Record<string, Segment[]> = Object.fromEntries(
+  Object.entries(mockTramStationsByLine).map(([lineCode, stations]) => [
+    lineCode,
+    [{
+      id: `tram-${lineCode.toLowerCase()}-segment`,
+      lineCode,
+      mode: 'tram' as const,
+      operator: 'tram' as const,
+      points: stations.map(({ lat, lon }) => ({ lat, lon })),
+    }],
+  ]),
+);
+
 const mockServiceAlerts: ServiceAlert[] = [
   {
     id: 'mock:l4-verdaguer',
@@ -100,6 +151,22 @@ const mockServiceAlerts: ServiceAlert[] = [
     ],
     source: 'tmb-alerts-api',
     dateLabel: '25/06/2026 - 30/08/2026',
+  },
+  {
+    id: 'mock:tram-alteration',
+    title: 'T4, T5 and T6 service alteration',
+    description: 'Temporary changes to tram service due to infrastructure works.',
+    mode: 'tram',
+    operator: 'tram',
+    severity: 'warning',
+    kind: 'current',
+    affectedLines: [
+      { mode: 'tram', code: 'T4' },
+      { mode: 'tram', code: 'T5' },
+      { mode: 'tram', code: 'T6' },
+    ],
+    source: 'tram-alterations',
+    sourceUrl: 'https://www.tram.cat',
   },
 ];
 
@@ -210,6 +277,9 @@ const mockMetroSegmentsByLine: Record<string, Segment[]> = {
 };
 
 export async function fetchLinesFromMock(mode: TransportMode): Promise<Line[]> {
+  if (mode === 'tram') {
+    return mockTramLines;
+  }
   if (mode === 'fgc') {
     return mockFgcLines;
   }
@@ -224,6 +294,9 @@ export async function fetchLineStationsFromMock(
   mode: TransportMode,
   lineCode: string,
 ): Promise<Station[]> {
+  if (mode === 'tram') {
+    return mockTramStationsByLine[lineCode] ?? [];
+  }
   if (mode === 'fgc') {
     return mockFgcStationsByLine[lineCode] ?? [];
   }
@@ -238,6 +311,9 @@ export async function fetchLineSegmentsFromMock(
   mode: TransportMode,
   lineCode: string,
 ): Promise<Segment[]> {
+  if (mode === 'tram') {
+    return mockTramSegmentsByLine[lineCode] ?? [];
+  }
   if (mode === 'fgc') {
     return mockFgcSegmentsByLine[lineCode] ?? [];
   }
@@ -254,6 +330,37 @@ export async function fetchStationArrivalsFromMock(
   stationCode: string,
 ): Promise<Arrival[]> {
   const sourceTimestampMs = Date.now();
+
+  if (mode === 'tram') {
+    return [
+      {
+        lineCode,
+        stationCode,
+        mode,
+        operator: 'tram',
+        directionId: 'outbound',
+        platformCode: '1',
+        destination: 'Francesc Macià',
+        etaSec: 150,
+        sourceTimestampMs,
+        serviceId: 'mock-tram-1',
+        realtimeStatus: 'realtime',
+      },
+      {
+        lineCode,
+        stationCode,
+        mode,
+        operator: 'tram',
+        directionId: 'outbound',
+        platformCode: '1',
+        destination: 'Francesc Macià',
+        etaSec: 690,
+        sourceTimestampMs,
+        serviceId: 'mock-tram-2',
+        realtimeStatus: 'scheduled',
+      },
+    ];
+  }
 
   if (mode === 'fgc') {
     return [
@@ -384,11 +491,13 @@ export async function fetchNearbyStopsFromMock(
     metro: mockMetroLines,
     bus: mockBusLines,
     fgc: mockFgcLines,
+    tram: mockTramLines,
   };
   const stationsByLine: Record<TransportMode, Record<string, Station[]>> = {
     metro: mockMetroStationsByLine,
     bus: mockBusStationsByLine,
     fgc: mockFgcStationsByLine,
+    tram: mockTramStationsByLine,
   };
 
   const seen = new Set<string>();

@@ -58,13 +58,33 @@ test('preserves supported theme preferences', () => {
   assert.equal(normalizePreferences({ theme: 'contrast' }).theme, 'system');
 });
 
-test('preserves FGC favorites during preference normalization', () => {
+test('preserves rail favorites during preference normalization', () => {
   const preferences = normalizePreferences({
-    favoriteLines: [{ mode: 'fgc', lineCode: 'S1', addedAtMs: 1 }],
+    favoriteLines: [
+      { mode: 'fgc', lineCode: 'S1', addedAtMs: 1 },
+      { mode: 'tram', lineCode: 'T3', addedAtMs: 2 },
+    ],
+    favoriteStops: [{
+      mode: 'tram',
+      lineCode: 'T3',
+      stationCode: 'FM',
+      stationName: 'Francesc Macià',
+      addedAtMs: 3,
+    }],
   });
 
   assert.deepEqual(preferences.favoriteLines, [
     { mode: 'fgc', lineCode: 'S1', addedAtMs: 1 },
+    { mode: 'tram', lineCode: 'T3', addedAtMs: 2 },
+  ]);
+  assert.deepEqual(preferences.favoriteStops, [
+    {
+      mode: 'tram',
+      lineCode: 'T3',
+      stationCode: 'FM',
+      stationName: 'Francesc Macià',
+      addedAtMs: 3,
+    },
   ]);
 });
 

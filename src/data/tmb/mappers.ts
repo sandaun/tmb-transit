@@ -1,4 +1,10 @@
-import type { Line, Station } from '@/src/domain/catalog/models';
+import type {
+  Line,
+  Station,
+  TransitOperator,
+  TransportMode,
+  VehicleMode,
+} from '@/src/domain/catalog/models';
 import type { Segment } from '@/src/domain/geo/models';
 import type { PlannedRoute } from '@/src/domain/planner/models';
 import type { Arrival } from '@/src/domain/realtime/models';
@@ -12,6 +18,17 @@ import type {
   StationDto,
 } from '@/src/data/tmb/types';
 
+function defaultOperator(mode: TransportMode): TransitOperator {
+  if (mode === 'fgc') return 'fgc';
+  if (mode === 'tram') return 'tram';
+  return 'tmb';
+}
+
+function defaultVehicleMode(mode: TransportMode): VehicleMode {
+  if (mode === 'fgc') return 'rail';
+  return mode;
+}
+
 export function mapLineDto(dto: LineDto): Line {
   return {
     code: dto.code,
@@ -19,8 +36,8 @@ export function mapLineDto(dto: LineDto): Line {
     color: dto.color,
     textColor: dto.textColor,
     mode: dto.mode,
-    operator: dto.operator ?? (dto.mode === 'fgc' ? 'fgc' : 'tmb'),
-    vehicleMode: dto.vehicleMode ?? (dto.mode === 'fgc' ? 'rail' : dto.mode),
+    operator: dto.operator ?? defaultOperator(dto.mode),
+    vehicleMode: dto.vehicleMode ?? defaultVehicleMode(dto.mode),
     network: dto.network,
     originStation: dto.originStation,
     destinationStation: dto.destinationStation,
@@ -34,8 +51,8 @@ export function mapStationDto(dto: StationDto): Station {
     lineCode: dto.lineCode,
     lineColor: dto.lineColor,
     mode: dto.mode,
-    operator: dto.operator ?? (dto.mode === 'fgc' ? 'fgc' : 'tmb'),
-    vehicleMode: dto.vehicleMode ?? (dto.mode === 'fgc' ? 'rail' : dto.mode),
+    operator: dto.operator ?? defaultOperator(dto.mode),
+    vehicleMode: dto.vehicleMode ?? defaultVehicleMode(dto.mode),
     network: dto.network,
     name: dto.name,
     lat: dto.lat,
@@ -56,7 +73,7 @@ export function mapSegmentDto(dto: SegmentDto): Segment {
     id: dto.id,
     lineCode: dto.lineCode,
     mode: dto.mode,
-    operator: dto.operator ?? (dto.mode === 'fgc' ? 'fgc' : 'tmb'),
+    operator: dto.operator ?? defaultOperator(dto.mode),
     fromStationCode: dto.fromStationCode,
     toStationCode: dto.toStationCode,
     points: dto.points,
@@ -68,7 +85,7 @@ export function mapArrivalDto(dto: ArrivalDto): Arrival {
     lineCode: dto.lineCode,
     stationCode: dto.stationCode,
     mode: dto.mode,
-    operator: dto.operator ?? (dto.mode === 'fgc' ? 'fgc' : 'tmb'),
+    operator: dto.operator ?? defaultOperator(dto.mode),
     directionId: dto.directionId,
     platformCode: dto.platformCode,
     destination: dto.destination,
@@ -91,10 +108,10 @@ export function mapServiceAlertDto(dto: ServiceAlertDto): ServiceAlert {
     title: cleanServiceAlertTitle(dto.title),
     description: dto.description,
     mode: dto.mode,
-    operator: dto.operator ?? 'tmb',
+    operator: dto.operator ?? (dto.mode === 'tram' ? 'tram' : dto.mode === 'fgc' ? 'fgc' : 'tmb'),
     affectedLines: dto.affectedLines.map((line) => ({
       ...line,
-      operator: line.operator ?? (line.mode === 'fgc' ? 'fgc' : 'tmb'),
+      operator: line.operator ?? defaultOperator(line.mode),
     })),
     severity: dto.severity,
     kind: dto.kind,

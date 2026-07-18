@@ -13,7 +13,7 @@ function ensureString(value: string | string[] | undefined): string {
 
 function parseMode(value: string | string[] | undefined): TransportMode {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (raw === 'bus' || raw === 'fgc') return raw;
+  if (raw === 'bus' || raw === 'fgc' || raw === 'tram') return raw;
   return 'metro';
 }
 

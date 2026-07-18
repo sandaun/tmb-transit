@@ -1,8 +1,8 @@
 import type { LatLng } from '@/src/domain/geo/models';
 
-export type TransitOperator = 'tmb' | 'fgc';
-export type TransportMode = 'metro' | 'bus' | 'fgc';
-export type VehicleMode = 'metro' | 'bus' | 'rail' | 'funicular';
+export type TransitOperator = 'tmb' | 'fgc' | 'tram';
+export type TransportMode = 'metro' | 'bus' | 'fgc' | 'tram';
+export type VehicleMode = 'metro' | 'bus' | 'rail' | 'funicular' | 'tram';
 export type LineServiceStatus = 'active' | 'no-service' | 'unknown';
 
 export interface Line {

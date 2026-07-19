@@ -7,13 +7,14 @@ import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-sy
 import { useAppLanguage } from '@/src/i18n';
 
 interface SourceCardProps {
+  attribution: string;
   description: string;
   linkLabel: string;
   onPress: () => void;
   title: string;
 }
 
-function SourceCard({ description, linkLabel, onPress, title }: SourceCardProps) {
+function SourceCard({ attribution, description, linkLabel, onPress, title }: SourceCardProps) {
   const palette = usePalette();
   const styles = useThemedStyles(createStyles);
 
@@ -21,6 +22,7 @@ function SourceCard({ description, linkLabel, onPress, title }: SourceCardProps)
     <View style={styles.sourceCard}>
       <Text style={styles.sourceTitle}>{title}</Text>
       <Text style={styles.sourceDescription}>{description}</Text>
+      <Text style={styles.attribution}>{attribution}</Text>
       <Pressable accessibilityRole="link" style={styles.sourceLink} onPress={onPress}>
         <Text style={styles.sourceLinkText}>{linkLabel}</Text>
         <MaterialIcons name="open-in-new" size={17} color={palette.accent} />
@@ -44,6 +46,7 @@ export default function DataSourcesScreen() {
 
       <SourceCard
         title="TMB"
+        attribution={t('sources_tmb_attribution')}
         description={t('sources_tmb_description')}
         linkLabel={t('sources_provider_website')}
         onPress={() => void Linking.openURL(PROVIDER_LINKS.tmb)}

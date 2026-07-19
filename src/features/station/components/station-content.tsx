@@ -325,13 +325,11 @@ export function StationContent({
 
           {followingArrivals.map((arrival, index) => (
             <View key={makeArrivalKey(arrival, index)} style={styles.row}>
-              <View style={styles.rowLeft}>
-                <View style={styles.lineRow}>
-                  <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="small" />
-                  <Text style={styles.rowDestination}>
-                    {arrival.destination}
-                  </Text>
-                </View>
+              <RouteBadge lineCode={lineCode} mode={mode} color={activeLine?.color} size="small" />
+              <View style={styles.rowTextWrap}>
+                <Text numberOfLines={1} style={styles.rowDestination}>
+                  {arrival.destination}
+                </Text>
                 <Text style={styles.rowPlatform}>
                   {arrival.platformCode
                     ? t('station_platform', { platform: arrival.platformCode })
@@ -534,28 +532,25 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
   },
-  rowLeft: {
+  rowTextWrap: {
     flex: 1,
-  },
-  lineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    minWidth: 0,
   },
   rowDestination: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: palette.text,
   },
   rowPlatform: {
     color: palette.textMuted,
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '600',
     marginTop: 2,
   },
   rowEta: {
+    flexShrink: 0,
     fontSize: 18,
     fontWeight: '700',
     color: palette.realtime,

@@ -38,6 +38,10 @@ import {
 } from '@/src/features/station/utils/station-interchanges';
 import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-detail';
 import { getViewportFocusedRegion } from '@/src/features/station/utils/map-camera';
+import {
+  selectStationMarkers,
+  trimSegmentToStations,
+} from '@/src/features/station/utils/map-route-geometry';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -154,21 +158,21 @@ const STATION_MARKER_CENTER_OFFSET = { x: 0, y: 0 };
 const STATION_BADGE_ANCHOR = { x: 0, y: 1 };
 const STATION_NAME_ANCHOR = { x: 0.5, y: 0 };
 const STATION_NAME_CENTER_OFFSET = { x: 0, y: 26 };
-const STATION_MARKER_IMAGE = require('@/assets/map/station-marker-large.png') as ImageRequireSource;
+const STATION_MARKER_IMAGE = require('@/assets/map/station-marker.png') as ImageRequireSource;
 const SELECTED_STATION_MARKER_IMAGES: Record<string, ImageRequireSource> = {
-  L1: require('@/assets/map/station-marker-selected-large-l1.png') as ImageRequireSource,
-  L2: require('@/assets/map/station-marker-selected-large-l2.png') as ImageRequireSource,
-  L3: require('@/assets/map/station-marker-selected-large-l3.png') as ImageRequireSource,
-  L4: require('@/assets/map/station-marker-selected-large-l4.png') as ImageRequireSource,
-  L5: require('@/assets/map/station-marker-selected-large-l5.png') as ImageRequireSource,
-  L9N: require('@/assets/map/station-marker-selected-large-l9.png') as ImageRequireSource,
-  L9S: require('@/assets/map/station-marker-selected-large-l9.png') as ImageRequireSource,
-  L10N: require('@/assets/map/station-marker-selected-large-l10.png') as ImageRequireSource,
-  L10S: require('@/assets/map/station-marker-selected-large-l10.png') as ImageRequireSource,
-  L11: require('@/assets/map/station-marker-selected-large-l11.png') as ImageRequireSource,
-  FM: require('@/assets/map/station-marker-selected-large-fm.png') as ImageRequireSource,
+  L1: require('@/assets/map/station-marker-selected-l1.png') as ImageRequireSource,
+  L2: require('@/assets/map/station-marker-selected-l2.png') as ImageRequireSource,
+  L3: require('@/assets/map/station-marker-selected-l3.png') as ImageRequireSource,
+  L4: require('@/assets/map/station-marker-selected-l4.png') as ImageRequireSource,
+  L5: require('@/assets/map/station-marker-selected-l5.png') as ImageRequireSource,
+  L9N: require('@/assets/map/station-marker-selected-l9.png') as ImageRequireSource,
+  L9S: require('@/assets/map/station-marker-selected-l9.png') as ImageRequireSource,
+  L10N: require('@/assets/map/station-marker-selected-l10.png') as ImageRequireSource,
+  L10S: require('@/assets/map/station-marker-selected-l10.png') as ImageRequireSource,
+  L11: require('@/assets/map/station-marker-selected-l11.png') as ImageRequireSource,
+  FM: require('@/assets/map/station-marker-selected-fm.png') as ImageRequireSource,
 };
-const FALLBACK_SELECTED_STATION_MARKER_IMAGE = require('@/assets/map/station-marker-selected-large-fallback.png') as ImageRequireSource;
+const FALLBACK_SELECTED_STATION_MARKER_IMAGE = require('@/assets/map/station-marker-selected-fallback.png') as ImageRequireSource;
 
 function getStationMarkerImage(lineLabel: string, isSelected: boolean): ImageRequireSource {
   if (!isSelected) {
@@ -333,8 +337,13 @@ export function MapAdapter({
     [explorationVisible, stations],
   );
 
+  const markerStations = useMemo(
+    () => selectStationMarkers(visibleStations, selectedStationCode, latitudeDelta),
+    [latitudeDelta, selectedStationCode, visibleStations],
+  );
+
   const namedStations = useMemo(() => {
-    if (visibleStations.length === 0) {
+    if (markerStations.length === 0) {
       return [];
     }
 
@@ -344,13 +353,13 @@ export function MapAdapter({
     const showEveryThreshold = mode === 'tram' ? 0.025 : mode === 'bus' ? 0.025 : 0.08;
     const showAll = latitudeDelta <= showAllThreshold;
     const showEvery = latitudeDelta <= showEveryThreshold ? (mode === 'tram' ? 4 : 3) : 0;
-    const result = new Map<string, (typeof visibleStations)[number]>();
+    const result = new Map<string, (typeof markerStations)[number]>();
 
     // Always show terminals.
-    result.set(visibleStations[0].code, visibleStations[0]);
+    result.set(markerStations[0].code, markerStations[0]);
     result.set(
-      visibleStations[visibleStations.length - 1].code,
-      visibleStations[visibleStations.length - 1],
+      markerStations[markerStations.length - 1].code,
+      markerStations[markerStations.length - 1],
     );
 
     // Always show selected station.
@@ -359,18 +368,18 @@ export function MapAdapter({
     }
 
     if (showAll) {
-      for (const station of visibleStations) {
+      for (const station of markerStations) {
         result.set(station.code, station);
       }
     } else if (showEvery > 0) {
-      for (let index = 0; index < visibleStations.length; index += showEvery) {
-        const station = visibleStations[index];
+      for (let index = 0; index < markerStations.length; index += showEvery) {
+        const station = markerStations[index];
         result.set(station.code, station);
       }
     }
 
     return Array.from(result.values());
-  }, [latitudeDelta, mode, selectedStation, visibleStations]);
+  }, [latitudeDelta, markerStations, mode, selectedStation]);
 
   // Keep Apple Maps' logo, wordmark, and "Legal" link visible. Attached sheets
   // place them above the collapsed surface; detached sheets use the gap between
@@ -417,7 +426,7 @@ export function MapAdapter({
   }, [stationInterchanges]);
   const badgeStations = useMemo(
     () =>
-      visibleStations.filter((station) => {
+      markerStations.filter((station) => {
         const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
         const isSelected = station.code === selectedStationCode;
         return (
@@ -425,7 +434,7 @@ export function MapAdapter({
           (isSelected || markerDetail === 'full')
         );
       }),
-    [interchangeByStationKey, lineCode, markerDetail, selectedStationCode, visibleStations],
+    [interchangeByStationKey, lineCode, markerDetail, markerStations, selectedStationCode],
   );
 
   const centerMap = useCallback((coordinate: LatLng, delta = 0.05) => {
@@ -627,7 +636,9 @@ export function MapAdapter({
       .filter((segment) => segment.lineCode === lineCode)
       .map((segment) => ({
         id: `segment:${segment.id}`,
-        coordinates: segment.points.map(toMapCoordinate).filter(hasFiniteCoordinate),
+        coordinates: trimSegmentToStations(segment, stations)
+          .map(toMapCoordinate)
+          .filter(hasFiniteCoordinate),
       }))
       .filter((polyline) => polyline.coordinates.length > 1);
 
@@ -706,20 +717,29 @@ export function MapAdapter({
           );
         })}
 
-        {visibleStations.map((station) => {
+        {markerStations.map((station) => {
           const isSelected = station.code === selectedStationCode;
+          const usesDynamicSelectedMarker = isSelected && mode !== 'metro';
 
           return (
             <Marker
-              key={`${lineCode}:station:${station.code}`}
+              key={`${lineCode}:station:${station.code}:${usesDynamicSelectedMarker ? 'dynamic-selected' : 'native'}`}
               anchor={STATION_MARKER_ANCHOR}
               centerOffset={STATION_MARKER_CENTER_OFFSET}
               coordinate={{ latitude: station.lat, longitude: station.lon }}
-              image={getStationMarkerImage(lineBrand.label, isSelected)}
-              tracksViewChanges={false}
+              image={
+                usesDynamicSelectedMarker
+                  ? undefined
+                  : getStationMarkerImage(lineBrand.label, isSelected)
+              }
+              tracksViewChanges={usesDynamicSelectedMarker}
               zIndex={isSelected ? 20 : 10}
               onPress={() => handleStationPress(station.code)}
-            />
+            >
+              {usesDynamicSelectedMarker ? (
+                <DynamicSelectedStationMarker color={lineBrand.backgroundColor} />
+              ) : null}
+            </Marker>
           );
         })}
 
@@ -887,6 +907,7 @@ export function MapAdapter({
           const routeCode = marker.outgoingRoute ?? marker.incomingRoute ?? '';
           const routeMode = marker.outgoingMode ?? marker.incomingMode ?? getPlannerRouteMode(routeCode);
           const routeBrand = getLineBrand(routeMode, routeCode);
+          const usesDynamicSelectedMarker = Boolean(marker.selected) && routeMode !== 'metro';
           const transferRoutes = [
             marker.incomingRoute
               ? { code: marker.incomingRoute, mode: marker.incomingMode ?? getPlannerRouteMode(marker.incomingRoute) }
@@ -906,11 +927,19 @@ export function MapAdapter({
                 anchor={STATION_MARKER_ANCHOR}
                 centerOffset={STATION_MARKER_CENTER_OFFSET}
                 coordinate={coordinate}
-                image={getStationMarkerImage(routeBrand.label, Boolean(marker.selected))}
-                tracksViewChanges={false}
+                image={
+                  usesDynamicSelectedMarker
+                    ? undefined
+                    : getStationMarkerImage(routeBrand.label, Boolean(marker.selected))
+                }
+                tracksViewChanges={usesDynamicSelectedMarker}
                 zIndex={60}
                 onPress={handlePress}
-              />
+              >
+                {usesDynamicSelectedMarker ? (
+                  <DynamicSelectedStationMarker color={routeBrand.backgroundColor} />
+                ) : null}
+              </Marker>
               {marker.kind === 'transfer' && transferRoutes.length > 1 ? (
                 <Marker
                   accessibilityElementsHidden
@@ -1138,6 +1167,30 @@ function PlannerEndpointMarker({ marker }: { marker: PlannerMapMarker }) {
   );
 }
 
+function DynamicSelectedStationMarker({ color }: { color: string }) {
+  const styles = useThemedStyles(createStyles);
+
+  return (
+    <View collapsable={false} style={styles.selectedStationHitTarget}>
+      <View
+        collapsable={false}
+        style={[
+          styles.selectedStationHalo,
+          {
+            backgroundColor: withAlpha(color, 0.2),
+            borderColor: withAlpha(color, 0.72),
+          },
+        ]}
+      >
+        <View
+          collapsable={false}
+          style={[styles.selectedStationCore, { backgroundColor: color }]}
+        />
+      </View>
+    </View>
+  );
+}
+
 const createStyles = (palette: Palette) => StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
@@ -1243,6 +1296,27 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
     elevation: 3,
+  },
+  selectedStationHitTarget: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedStationHalo: {
+    width: 29,
+    height: 29,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedStationCore: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
   vehicleMarker: {
     width: 24,

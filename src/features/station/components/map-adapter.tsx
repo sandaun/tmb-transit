@@ -762,7 +762,7 @@ export function MapAdapter({
           );
           const visibleLineCount =
             isSelected || markerDetail === 'full'
-              ? 3
+              ? 2
               : interchangeLines.length === 2
                 ? 2
                 : 1;
@@ -1252,7 +1252,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     justifyContent: 'flex-end',
     minWidth: 34,
     minHeight: 23,
-    paddingLeft: 22,
+    paddingLeft: 26,
     paddingBottom: 11,
   },
   transferBadge: {

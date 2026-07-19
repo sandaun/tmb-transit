@@ -5,13 +5,20 @@ import {
   NativeTabs,
   VectorIcon,
 } from 'expo-router/unstable-native-tabs';
+import { DynamicColorIOS, Platform } from 'react-native';
 
 import { useAppLanguage } from '@/src/i18n';
-import { usePalette } from '@/src/design-system';
+import { dark, light, usePalette } from '@/src/design-system';
 
 export default function TabsLayout() {
   const { t } = useAppLanguage();
   const palette = usePalette();
+  const defaultLabelColor = Platform.OS === 'ios'
+    ? DynamicColorIOS({ light: light.textSubtle, dark: dark.textSubtle })
+    : palette.textSubtle;
+  const selectedLabelColor = Platform.OS === 'ios'
+    ? DynamicColorIOS({ light: light.accent, dark: dark.accent })
+    : palette.accent;
 
   return (
     <NativeTabs
@@ -19,8 +26,8 @@ export default function TabsLayout() {
       backgroundColor={palette.surface}
       iconColor={{ default: palette.textSubtle, selected: palette.accent }}
       labelStyle={{
-        default: { color: palette.textSubtle },
-        selected: { color: palette.accent },
+        default: { color: defaultLabelColor },
+        selected: { color: selectedLabelColor },
       }}
       tintColor={palette.accent}
     >

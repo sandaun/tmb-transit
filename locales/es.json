@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "MouBCN",
+    "NSLocationWhenInUseUsageDescription": "MouBCN utiliza tu ubicación mientras la aplicación está abierta para centrar el mapa, mostrar paradas cercanas y planificar rutas."
+  }
+}

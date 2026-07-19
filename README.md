@@ -178,6 +178,9 @@ The complete CI commands are `npm run ci:app` and `npm run ci:api`. See
 [Continuous Integration](./docs/ci.md) and [Security Operations](./docs/security.md) for repository
 policies and deployment constraints.
 
+The [App Store submission guide](./docs/app-store-submission.md) tracks the public privacy and
+support pages, App Privacy answers, provider rights, and release blockers for iOS distribution.
+
 ## Data sources
 
 - [TMB APIs](https://developer.tmb.cat/) for Metro and bus catalogs, arrivals, nearby stops, route
@@ -188,8 +191,8 @@ policies and deployment constraints.
   alterations. The app displays the required “Powered by TRAM Barcelona” attribution in its data
   sources preferences.
 
-Before publishing, replace the text TRAM attribution with the official certification logo required
-by the TRAM Open Data reuse conditions.
+Before publishing, replace the provisional TRAM attribution with the official certification logo
+required by the TRAM Open Data reuse conditions.
 
 Availability and accuracy depend on the upstream providers. Do not rely on this project as the only
 source of information for time-critical journeys.

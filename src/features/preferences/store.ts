@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import {
   createDefaultPreferences,
+  clearPersonalData,
   addRecentItem,
   getDeviceLanguage,
   lineKey,
@@ -32,7 +33,7 @@ interface UserPreferencesStore extends UserPreferences {
   toggleFavoriteStop: (stop: Omit<FavoriteStop, 'addedAtMs'>) => void;
   addRecentItem: (item: RecentItem) => void;
   setLastMapSelection: (selection: MapSelection) => void;
-  clearSavedData: () => void;
+  clearPersonalData: () => void;
 }
 
 function preferencesFromState(state: UserPreferencesStore): UserPreferences {
@@ -130,12 +131,8 @@ export const useUserPreferencesStore = create<UserPreferencesStore>((set, get) =
     set({ lastMapSelection: selection });
     persist(get);
   },
-  clearSavedData: () => {
-    set(() => ({
-      favoriteLines: [],
-      favoriteStops: [],
-      recentItems: [],
-    }));
+  clearPersonalData: () => {
+    set((state) => clearPersonalData(preferencesFromState(state)));
     persist(get);
   },
 }));

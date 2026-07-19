@@ -28,6 +28,11 @@ request serializer replaces these query values before writing logs:
 Logged errors contain only a sanitized name and message, without a stack. Do not add raw request
 objects, URLs, coordinates, or upstream errors to logs without extending the redaction tests.
 
+The request logger does not store client IP addresses or remote ports. The in-memory rate limiter
+uses the client IP only for its one-minute request window and does not persist it. Production hosting
+must disable or redact infrastructure request logs that retain IP addresses or location query values;
+otherwise the App Store privacy declaration and public privacy policy must be updated before release.
+
 ## Dependency policy
 
 - Dependabot checks the app and API lockfiles weekly.

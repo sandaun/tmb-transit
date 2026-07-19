@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   addRecentItem,
+  clearPersonalData,
+  createDefaultPreferences,
   getAppLanguageFromLocale,
   MAX_RECENT_ITEMS,
   normalizePreferences,
@@ -93,6 +95,46 @@ test('uses supported device languages and falls back to Catalan', () => {
   assert.equal(getAppLanguageFromLocale('es-ES'), 'es');
   assert.equal(getAppLanguageFromLocale('ca-ES'), 'ca');
   assert.equal(getAppLanguageFromLocale('fr-FR'), 'ca');
+});
+
+test('clears personal data while preserving app preferences', () => {
+  const preferences = clearPersonalData({
+    ...createDefaultPreferences(),
+    language: 'en',
+    theme: 'dark',
+    alertsTimeFilter: 'planned',
+    alertsMineOnly: true,
+    savedPlaces: {
+      home: { id: 'home', label: 'Home', lat: 41.4, lon: 2.1, updatedAtMs: 1 },
+    },
+    favoriteLines: [{ mode: 'metro', lineCode: 'L1', addedAtMs: 2 }],
+    favoriteStops: [{
+      mode: 'metro',
+      lineCode: 'L1',
+      stationCode: '101',
+      stationName: 'Hospital de Bellvitge',
+      addedAtMs: 3,
+    }],
+    recentItems: [{
+      kind: 'station',
+      mode: 'metro',
+      lineCode: 'L1',
+      stationCode: '101',
+      stationName: 'Hospital de Bellvitge',
+      visitedAtMs: 4,
+    }],
+    lastMapSelection: { mode: 'metro', lineCode: 'L1', stationCode: '101' },
+  });
+
+  assert.equal(preferences.language, 'en');
+  assert.equal(preferences.theme, 'dark');
+  assert.equal(preferences.alertsTimeFilter, 'planned');
+  assert.equal(preferences.alertsMineOnly, true);
+  assert.deepEqual(preferences.savedPlaces, {});
+  assert.deepEqual(preferences.favoriteLines, []);
+  assert.deepEqual(preferences.favoriteStops, []);
+  assert.deepEqual(preferences.recentItems, []);
+  assert.equal(preferences.lastMapSelection, null);
 });
 
 test('deduplicates recent entries and retains only the latest ten', () => {

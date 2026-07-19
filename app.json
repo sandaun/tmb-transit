@@ -8,10 +8,17 @@
     "scheme": "moubcn",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "locales": {
+      "ca": "./locales/ca.json",
+      "en": "./locales/en.json",
+      "es": "./locales/es.json"
+    },
     "ios": {
       "supportsTablet": true,
+      "buildNumber": "1",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Allow MouBCN to center the map on your current location."
+        "CFBundleAllowMixedLocalizations": true,
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "cat.oriol.moubcn"
     },
@@ -39,7 +46,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow MouBCN to access your location to show nearby stops.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationWhenInUsePermission": "Allow MouBCN to use your location while the app is open to center the map, show nearby stops, and plan routes.",
           "isIosBackgroundLocationEnabled": false
         }
       ],

@@ -101,6 +101,17 @@ export function createDefaultPreferences(): UserPreferences {
   };
 }
 
+export function clearPersonalData(preferences: UserPreferences): UserPreferences {
+  return {
+    ...preferences,
+    savedPlaces: {},
+    favoriteLines: [],
+    favoriteStops: [],
+    recentItems: [],
+    lastMapSelection: null,
+  };
+}
+
 export function isAppLanguage(value: unknown): value is AppLanguage {
   return value === 'ca' || value === 'en' || value === 'es';
 }

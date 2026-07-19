@@ -36,6 +36,7 @@ describe('safe logging', () => {
     await app.close();
 
     assert.doesNotMatch(output, /41\.387917|2\.169918/);
+    assert.doesNotMatch(output, /remoteAddress|remotePort|127\.0\.0\.1/);
     assert.match(output, /lat=redacted/);
     assert.match(output, /lon=redacted/);
   });

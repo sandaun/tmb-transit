@@ -9,9 +9,42 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { queryClient } from '@/src/core/query-client';
 import { ErrorBoundary } from '@/src/core/error-boundary';
-import { LanguageProvider } from '@/src/i18n';
+import { LanguageProvider, useAppLanguage } from '@/src/i18n';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { usePalette } from '@/src/design-system';
+
+function RootNavigator() {
+  const { t } = useAppLanguage();
+
+  return (
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="station/[lineCode]/[stationCode]" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="lines/[mode]/[lineCode]"
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="settings"
+        options={{
+          animation: 'slide_from_right',
+          headerBackTitle: t('back'),
+          headerLargeTitle: true,
+          title: t('settings_title'),
+        }}
+      />
+      <Stack.Screen
+        name="data-sources"
+        options={{
+          animation: 'slide_from_right',
+          headerBackTitle: t('back'),
+          headerLargeTitle: true,
+          title: t('sources_title'),
+        }}
+      />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -36,14 +69,7 @@ export default function RootLayout() {
           <SafeAreaProvider>
             <QueryClientProvider client={queryClient}>
               <ThemeProvider value={navigationTheme}>
-                <Stack>
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen name="station/[lineCode]/[stationCode]" options={{ headerShown: false }} />
-                  <Stack.Screen
-                    name="lines/[mode]/[lineCode]"
-                    options={{ headerShown: false, animation: 'slide_from_right' }}
-                  />
-                </Stack>
+                <RootNavigator />
                 <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
               </ThemeProvider>
             </QueryClientProvider>

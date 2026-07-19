@@ -58,8 +58,6 @@ function serializeRequest(request: FastifyRequest) {
     method: request.method,
     url: redactSensitiveQueryParameters(request.url),
     hostname: request.hostname,
-    remoteAddress: request.ip,
-    remotePort: request.socket.remotePort,
   };
 }
 

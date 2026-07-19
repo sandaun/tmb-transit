@@ -1,0 +1,116 @@
+:root {
+  color-scheme: light dark;
+  --background: #f7f3ec;
+  --surface: #fffdf9;
+  --text: #211b18;
+  --muted: #6f665f;
+  --border: #e5d9ca;
+  --accent: #ed6726;
+  --accent-soft: #fff0e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #17142a;
+    --surface: #211d37;
+    --text: #f7f1e9;
+    --muted: #bbb2c8;
+    --border: #39334f;
+    --accent: #ff8246;
+    --accent-soft: #3c2631;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+a { color: var(--accent); font-weight: 650; }
+a:hover { text-decoration-thickness: 2px; }
+
+.site-header {
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+
+.header-inner,
+.page,
+.site-footer {
+  width: min(760px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 68px;
+}
+
+.brand { color: var(--text); font-size: 20px; font-weight: 850; text-decoration: none; }
+.nav { display: flex; flex-wrap: wrap; gap: 14px; }
+.nav a { font-size: 14px; text-decoration: none; }
+
+.page { padding: 56px 0 36px; }
+h1 { margin: 0 0 8px; font-size: clamp(36px, 7vw, 54px); line-height: 1.08; letter-spacing: -1.5px; }
+h2 { margin: 38px 0 10px; font-size: 24px; line-height: 1.25; }
+h3 { margin: 24px 0 8px; font-size: 19px; }
+p, ul { margin: 0 0 16px; }
+li + li { margin-top: 7px; }
+.lede { color: var(--muted); font-size: 19px; }
+.meta { color: var(--muted); font-size: 14px; }
+
+.notice,
+.contact-card,
+.source-card {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.notice { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: var(--accent-soft); }
+.source-card h2 { margin-top: 0; }
+.source-card p:last-child, .contact-card p:last-child, .notice p:last-child { margin-bottom: 0; }
+
+.site-footer { padding: 24px 0 48px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+.footer-links { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; }
+
+.language-page {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 100vh;
+  padding: 32px;
+  text-align: center;
+}
+
+.app-mark {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 18px;
+  border-radius: 24px;
+  background: var(--accent);
+  color: white;
+  font-size: 50px;
+  font-weight: 900;
+}
+
+.language-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 20px; }
+.language-links a { padding: 10px 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); text-decoration: none; }
+
+@media (max-width: 560px) {
+  .header-inner { align-items: flex-start; flex-direction: column; padding: 14px 0; }
+  .page { padding-top: 38px; }
+}

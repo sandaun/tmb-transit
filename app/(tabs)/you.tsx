@@ -1,11 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
-import { Image } from 'expo-image';
-import { useState } from 'react';
-import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { AppLanguage, RecentItem, SavedPlaceId, ThemePreference } from '@/src/features/preferences/models';
+import type { RecentItem, SavedPlaceId } from '@/src/features/preferences/models';
 import type { TransportMode } from '@/src/domain/catalog/models';
 import { useUserPreferencesStore } from '@/src/features/preferences/store';
 import { useTransitStore } from '@/src/state/store';
@@ -15,9 +13,6 @@ import { LineBadge } from '@/src/features/catalog/components/line-badge';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 
 const TAB_BAR_CLEARANCE = 96;
-const LANGUAGES: AppLanguage[] = ['ca', 'en', 'es'];
-const THEMES: ThemePreference[] = ['system', 'light', 'dark'];
-
 function placeIcon(id: SavedPlaceId): 'home' | 'business' {
   return id === 'home' ? 'home' : 'business';
 }
@@ -26,16 +21,12 @@ export default function YouTabScreen() {
   const palette = usePalette();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
-  const { language, t } = useAppLanguage();
+  const { t } = useAppLanguage();
   const savedPlaces = useUserPreferencesStore((state) => state.savedPlaces);
   const favoriteLines = useUserPreferencesStore((state) => state.favoriteLines);
   const favoriteStops = useUserPreferencesStore((state) => state.favoriteStops);
   const recentItems = useUserPreferencesStore((state) => state.recentItems);
-  const setLanguage = useUserPreferencesStore((state) => state.setLanguage);
-  const theme = useUserPreferencesStore((state) => state.theme);
-  const setTheme = useUserPreferencesStore((state) => state.setTheme);
   const removeSavedPlace = useUserPreferencesStore((state) => state.removeSavedPlace);
-  const clearSavedData = useUserPreferencesStore((state) => state.clearSavedData);
   const setSelection = useTransitStore((state) => state.setSelection);
   const metroLinesQuery = useLinesQuery('metro');
   const busLinesQuery = useLinesQuery('bus');
@@ -47,7 +38,6 @@ export default function YouTabScreen() {
     ...(fgcLinesQuery.data ?? []),
     ...(tramLinesQuery.data ?? []),
   ];
-  const [preferencesVisible, setPreferencesVisible] = useState(false);
   const visibleRecentItems = recentItems.slice(0, 3);
 
   const openPlaceEditor = (id: SavedPlaceId) => {
@@ -79,13 +69,6 @@ export default function YouTabScreen() {
     } as never);
   };
 
-  const confirmClear = () => {
-    Alert.alert(t('saved_clear_data_title'), t('saved_clear_data_body'), [
-      { text: t('saved_cancel'), style: 'cancel' },
-      { text: t('saved_delete'), style: 'destructive', onPress: clearSavedData },
-    ]);
-  };
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
@@ -96,9 +79,9 @@ export default function YouTabScreen() {
           <Text style={styles.title}>{t('saved_title')}</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('saved_preferences')}
+            accessibilityLabel={t('settings_title')}
             style={styles.settingsButton}
-            onPress={() => setPreferencesVisible(true)}
+            onPress={() => router.push('/settings' as never)}
           >
             <MaterialIcons name="settings" size={22} color={palette.text} />
           </Pressable>
@@ -241,83 +224,6 @@ export default function YouTabScreen() {
         ) : <EmptyText text={t('saved_empty_recent')} />}
 
       </ScrollView>
-
-      <Modal
-        animationType="slide"
-        presentationStyle="pageSheet"
-        visible={preferencesVisible}
-        onRequestClose={() => setPreferencesVisible(false)}
-      >
-        <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{t('saved_preferences')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('saved_cancel')}
-              style={styles.settingsButton}
-              onPress={() => setPreferencesVisible(false)}
-            >
-              <MaterialIcons name="close" size={22} color={palette.text} />
-            </Pressable>
-          </View>
-          <View style={styles.preferencesCard}>
-            <Text style={styles.preferenceLabel}>{t('saved_language')}</Text>
-            <View style={styles.languageRow}>
-              {LANGUAGES.map((entry) => (
-                <Pressable
-                  key={entry}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: language === entry }}
-                  style={[styles.languageButton, language === entry ? styles.languageButtonActive : null]}
-                  onPress={() => setLanguage(entry)}
-                >
-                  <Text style={[styles.languageText, language === entry ? styles.languageTextActive : null]}>
-                    {t(`language_${entry}`)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.preferenceLabel}>{t('saved_theme')}</Text>
-            <View style={styles.languageRow}>
-              {THEMES.map((entry) => (
-                <Pressable
-                  key={entry}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: theme === entry }}
-                  style={[styles.languageButton, theme === entry ? styles.languageButtonActive : null]}
-                  onPress={() => setTheme(entry)}
-                >
-                  <Text style={[styles.languageText, theme === entry ? styles.languageTextActive : null]}>
-                    {t(`theme_${entry}`)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.preferenceLabel}>{t('saved_data_sources')}</Text>
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel={t('saved_powered_by_tram')}
-              style={styles.dataSourceButton}
-              onPress={() => void Linking.openURL('https://www.tram.cat')}
-            >
-              <View style={styles.dataSourceBrand}>
-                <Text style={styles.dataSourceText}>Powered by</Text>
-                <Image
-                  accessibilityIgnoresInvertColors
-                  contentFit="contain"
-                  source={require('@/assets/transport/tram.png')}
-                  style={styles.tramLogo}
-                />
-              </View>
-              <MaterialIcons name="open-in-new" size={18} color={palette.accent} />
-            </Pressable>
-            <Pressable accessibilityRole="button" style={styles.clearButton} onPress={confirmClear}>
-              <MaterialIcons name="delete-outline" size={20} color={palette.danger} />
-              <Text style={styles.clearButtonText}>{t('saved_clear_data')}</Text>
-            </Pressable>
-          </View>
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -353,20 +259,4 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   listTitle: { color: palette.text, fontSize: 15, fontWeight: '700' },
   listMeta: { color: palette.textSubtle, fontSize: 12, marginTop: 2, fontWeight: '600' },
   emptyText: { borderRadius: 14, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, color: palette.textMuted, fontSize: 14, padding: 14 },
-  preferencesCard: { gap: 12, borderRadius: 16, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, padding: 14 },
-  preferenceLabel: { color: palette.text, fontSize: 15, fontWeight: '800' },
-  languageRow: { flexDirection: 'row', gap: 8 },
-  languageButton: { flex: 1, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: palette.borderStrong, paddingVertical: 9 },
-  languageButtonActive: { borderColor: palette.accent, backgroundColor: palette.accent },
-  languageText: { color: palette.text, fontSize: 13, fontWeight: '700' },
-  languageTextActive: { color: palette.onAccent },
-  dataSourceButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 10, borderWidth: 1, borderColor: palette.borderStrong, paddingHorizontal: 12, paddingVertical: 10 },
-  dataSourceBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dataSourceText: { color: palette.accent, fontSize: 14, fontWeight: '700' },
-  tramLogo: { width: 74, height: 24 },
-  clearButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 10, borderWidth: 1, borderColor: palette.danger, backgroundColor: palette.dangerSoft, paddingHorizontal: 14, paddingVertical: 10 },
-  clearButtonText: { color: palette.danger, fontSize: 14, fontWeight: '800' },
-  modalSafeArea: { flex: 1, backgroundColor: palette.background, padding: 16 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 },
-  modalTitle: { color: palette.text, fontSize: 24, fontWeight: '800' },
 });

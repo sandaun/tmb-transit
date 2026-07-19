@@ -6,6 +6,8 @@ import {
   StyleSheet,
   View,
   type ImageRequireSource,
+  type NativeSyntheticEvent,
+  type TextLayoutEventData,
 } from 'react-native';
 import Animated, {
   type SharedValue,
@@ -157,30 +159,11 @@ const STATION_MARKER_ANCHOR = { x: 0.5, y: 0.5 };
 const STATION_MARKER_CENTER_OFFSET = { x: 0, y: 0 };
 const STATION_BADGE_ANCHOR = { x: 0, y: 1 };
 const STATION_NAME_ANCHOR = { x: 0.5, y: 0 };
+const UNSELECTED_STATION_NAME_CENTER_OFFSET = { x: 0, y: 22 };
 const STATION_NAME_CENTER_OFFSET = { x: 0, y: 26 };
+const SELECTED_STATION_NAME_CENTER_OFFSET = { x: 0, y: 30 };
+const SELECTED_MULTILINE_STATION_NAME_CENTER_OFFSET = { x: 0, y: 38 };
 const STATION_MARKER_IMAGE = require('@/assets/map/station-marker.png') as ImageRequireSource;
-const SELECTED_STATION_MARKER_IMAGES: Record<string, ImageRequireSource> = {
-  L1: require('@/assets/map/station-marker-selected-l1.png') as ImageRequireSource,
-  L2: require('@/assets/map/station-marker-selected-l2.png') as ImageRequireSource,
-  L3: require('@/assets/map/station-marker-selected-l3.png') as ImageRequireSource,
-  L4: require('@/assets/map/station-marker-selected-l4.png') as ImageRequireSource,
-  L5: require('@/assets/map/station-marker-selected-l5.png') as ImageRequireSource,
-  L9N: require('@/assets/map/station-marker-selected-l9.png') as ImageRequireSource,
-  L9S: require('@/assets/map/station-marker-selected-l9.png') as ImageRequireSource,
-  L10N: require('@/assets/map/station-marker-selected-l10.png') as ImageRequireSource,
-  L10S: require('@/assets/map/station-marker-selected-l10.png') as ImageRequireSource,
-  L11: require('@/assets/map/station-marker-selected-l11.png') as ImageRequireSource,
-  FM: require('@/assets/map/station-marker-selected-fm.png') as ImageRequireSource,
-};
-const FALLBACK_SELECTED_STATION_MARKER_IMAGE = require('@/assets/map/station-marker-selected-fallback.png') as ImageRequireSource;
-
-function getStationMarkerImage(lineLabel: string, isSelected: boolean): ImageRequireSource {
-  if (!isSelected) {
-    return STATION_MARKER_IMAGE;
-  }
-
-  return SELECTED_STATION_MARKER_IMAGES[lineLabel] ?? FALLBACK_SELECTED_STATION_MARKER_IMAGE;
-}
 
 export function MapAdapter({
   lineCode,
@@ -719,24 +702,19 @@ export function MapAdapter({
 
         {markerStations.map((station) => {
           const isSelected = station.code === selectedStationCode;
-          const usesDynamicSelectedMarker = isSelected && mode !== 'metro';
 
           return (
             <Marker
-              key={`${lineCode}:station:${station.code}:${usesDynamicSelectedMarker ? 'dynamic-selected' : 'native'}`}
+              key={`${lineCode}:station:${station.code}:${isSelected ? 'dynamic-selected' : 'native'}`}
               anchor={STATION_MARKER_ANCHOR}
               centerOffset={STATION_MARKER_CENTER_OFFSET}
               coordinate={{ latitude: station.lat, longitude: station.lon }}
-              image={
-                usesDynamicSelectedMarker
-                  ? undefined
-                  : getStationMarkerImage(lineBrand.label, isSelected)
-              }
-              tracksViewChanges={usesDynamicSelectedMarker}
+              image={isSelected ? undefined : STATION_MARKER_IMAGE}
+              tracksViewChanges={isSelected}
               zIndex={isSelected ? 20 : 10}
               onPress={() => handleStationPress(station.code)}
             >
-              {usesDynamicSelectedMarker ? (
+              {isSelected ? (
                 <DynamicSelectedStationMarker color={lineBrand.backgroundColor} />
               ) : null}
             </Marker>
@@ -762,7 +740,7 @@ export function MapAdapter({
           );
           const visibleLineCount =
             isSelected || markerDetail === 'full'
-              ? 3
+              ? 2
               : interchangeLines.length === 2
                 ? 2
                 : 1;
@@ -789,21 +767,14 @@ export function MapAdapter({
           const isSelected = station.code === selectedStationCode;
 
           return (
-            <Marker
+            <StationNameMarker
               key={`${lineCode}:station-name:${station.code}`}
-              anchor={STATION_NAME_ANCHOR}
-              centerOffset={STATION_NAME_CENTER_OFFSET}
               coordinate={{ latitude: station.lat, longitude: station.lon }}
-              tracksViewChanges={false}
-              zIndex={isSelected ? 40 : 35}
+              emphasized={isSelected}
+              lineColor={lineBrand.backgroundColor}
+              stationName={station.name}
               onPress={() => handleStationPress(station.code)}
-            >
-              <StationNameLabel
-                lineColor={lineBrand.backgroundColor}
-                stationName={station.name}
-                emphasized={isSelected}
-              />
-            </Marker>
+            />
           );
         })}
 
@@ -907,7 +878,7 @@ export function MapAdapter({
           const routeCode = marker.outgoingRoute ?? marker.incomingRoute ?? '';
           const routeMode = marker.outgoingMode ?? marker.incomingMode ?? getPlannerRouteMode(routeCode);
           const routeBrand = getLineBrand(routeMode, routeCode);
-          const usesDynamicSelectedMarker = Boolean(marker.selected) && routeMode !== 'metro';
+          const usesDynamicSelectedMarker = Boolean(marker.selected);
           const transferRoutes = [
             marker.incomingRoute
               ? { code: marker.incomingRoute, mode: marker.incomingMode ?? getPlannerRouteMode(marker.incomingRoute) }
@@ -927,11 +898,7 @@ export function MapAdapter({
                 anchor={STATION_MARKER_ANCHOR}
                 centerOffset={STATION_MARKER_CENTER_OFFSET}
                 coordinate={coordinate}
-                image={
-                  usesDynamicSelectedMarker
-                    ? undefined
-                    : getStationMarkerImage(routeBrand.label, Boolean(marker.selected))
-                }
+                image={usesDynamicSelectedMarker ? undefined : STATION_MARKER_IMAGE}
                 tracksViewChanges={usesDynamicSelectedMarker}
                 zIndex={60}
                 onPress={handlePress}
@@ -1129,10 +1096,12 @@ function StationNameLabel({
   lineColor,
   stationName,
   emphasized = false,
+  onTextLayout,
 }: {
   lineColor: string;
   stationName: string;
   emphasized?: boolean;
+  onTextLayout?: (event: NativeSyntheticEvent<TextLayoutEventData>) => void;
 }) {
   const styles = useThemedStyles(createStyles);
   return (
@@ -1145,6 +1114,7 @@ function StationNameLabel({
       ]}>
       <Text
         numberOfLines={2}
+        onTextLayout={onTextLayout}
         style={[
           styles.stationNameText,
           emphasized ? styles.stationNameTextEmphasized : null,
@@ -1152,6 +1122,55 @@ function StationNameLabel({
         {stationName}
       </Text>
     </View>
+  );
+}
+
+function StationNameMarker({
+  coordinate,
+  emphasized,
+  lineColor,
+  stationName,
+  onPress,
+}: {
+  coordinate: LatLng;
+  emphasized: boolean;
+  lineColor: string;
+  stationName: string;
+  onPress: () => void;
+}) {
+  const [lineCount, setLineCount] = useState<number | null>(null);
+  const handleTextLayout = useCallback(
+    ({ nativeEvent }: NativeSyntheticEvent<TextLayoutEventData>) => {
+      const nextLineCount = nativeEvent.lines.length;
+      setLineCount((currentLineCount) =>
+        currentLineCount === nextLineCount ? currentLineCount : nextLineCount,
+      );
+    },
+    [],
+  );
+
+  return (
+    <Marker
+      anchor={STATION_NAME_ANCHOR}
+      centerOffset={
+        !emphasized
+          ? UNSELECTED_STATION_NAME_CENTER_OFFSET
+          : lineCount !== null && lineCount > 1
+            ? SELECTED_MULTILINE_STATION_NAME_CENTER_OFFSET
+            : SELECTED_STATION_NAME_CENTER_OFFSET
+      }
+      coordinate={coordinate}
+      tracksViewChanges={emphasized && lineCount === null}
+      zIndex={emphasized ? 40 : 35}
+      onPress={onPress}
+    >
+      <StationNameLabel
+        lineColor={lineColor}
+        stationName={stationName}
+        emphasized={emphasized}
+        onTextLayout={emphasized ? handleTextLayout : undefined}
+      />
+    </Marker>
   );
 }
 
@@ -1252,7 +1271,7 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     justifyContent: 'flex-end',
     minWidth: 34,
     minHeight: 23,
-    paddingLeft: 22,
+    paddingLeft: 26,
     paddingBottom: 11,
   },
   transferBadge: {

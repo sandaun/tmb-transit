@@ -1,10 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Constants from 'expo-constants';
+import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import type { ComponentProps, ReactNode } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getLegalSiteUrl } from '@/src/config/legal-links';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 import type { AppLanguage, ThemePreference } from '@/src/features/preferences/models';
@@ -41,6 +43,7 @@ function SettingsRow({ icon, label, onPress, trailing, value }: SettingsRowProps
 }
 
 export default function SettingsScreen() {
+  const colorScheme = useColorScheme();
   const palette = usePalette();
   const styles = useThemedStyles(createStyles);
   const { language, t } = useAppLanguage();
@@ -169,7 +172,17 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.aboutCard}>
-        <Text style={styles.aboutTitle}>MouBCN</Text>
+        <View style={styles.brandLockup}>
+          <Image
+            accessible={false}
+            contentFit="contain"
+            source={colorScheme === 'dark'
+              ? require('../assets/images/moubcn-symbol-white.png')
+              : require('../assets/images/moubcn-symbol-orange.png')}
+            style={styles.brandSymbol}
+          />
+          <Text style={styles.aboutTitle}>MouBCN</Text>
+        </View>
         <Text style={styles.aboutBody}>{t('settings_about_body')}</Text>
         <Text style={styles.versionText}>
           {t('settings_version', { version, build: buildNumber })}
@@ -197,8 +210,10 @@ const createStyles = (palette: Palette) => StyleSheet.create({
   settingsRowValue: { color: palette.textMuted, fontSize: 12, marginTop: 2 },
   dangerRow: { borderBottomWidth: 0, backgroundColor: palette.dangerSoft },
   dangerText: { flex: 1, color: palette.danger, fontSize: 15, fontWeight: '800' },
-  aboutCard: { alignItems: 'center', gap: 6, marginTop: 18, paddingHorizontal: 20, paddingVertical: 18 },
-  aboutTitle: { color: palette.text, fontSize: 17, fontWeight: '800' },
+  aboutCard: { alignItems: 'center', gap: 8, marginTop: 18, paddingHorizontal: 20, paddingVertical: 18 },
+  brandLockup: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
+  brandSymbol: { width: 36, height: 36 },
+  aboutTitle: { color: palette.text, fontSize: 24, fontWeight: '600', letterSpacing: -0.5 },
   aboutBody: { color: palette.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   versionText: { color: palette.textSubtle, fontSize: 12 },
 });

@@ -16,6 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "buildNumber": "1",
+      "icon": {
+        "light": "./assets/images/icon.png",
+        "dark": "./assets/images/icon-dark.png",
+        "tinted": "./assets/images/icon-tinted.png"
+      },
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "ITSAppUsesNonExemptEncryption": false
@@ -30,11 +35,11 @@
       "adaptiveIcon": {
         "backgroundColor": "#F7F3EC",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
+      "icon": "./assets/images/icon.png",
       "package": "cat.oriol.moubcn"
     },
     "web": {
@@ -56,11 +61,19 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 280,
           "resizeMode": "contain",
           "backgroundColor": "#F7F3EC",
           "dark": {
+            "image": "./assets/images/splash-icon-dark.png",
             "backgroundColor": "#17142A"
+          },
+          "android": {
+            "image": "./assets/images/android-icon-foreground.png",
+            "imageWidth": 160,
+            "dark": {
+              "image": "./assets/images/android-splash-icon-dark.png"
+            }
           }
         }
       ],

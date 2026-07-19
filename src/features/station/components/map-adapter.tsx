@@ -38,6 +38,10 @@ import {
 } from '@/src/features/station/utils/station-interchanges';
 import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-detail';
 import { getViewportFocusedRegion } from '@/src/features/station/utils/map-camera';
+import {
+  selectStationMarkers,
+  trimSegmentToStations,
+} from '@/src/features/station/utils/map-route-geometry';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -333,8 +337,13 @@ export function MapAdapter({
     [explorationVisible, stations],
   );
 
+  const markerStations = useMemo(
+    () => selectStationMarkers(visibleStations, selectedStationCode, latitudeDelta),
+    [latitudeDelta, selectedStationCode, visibleStations],
+  );
+
   const namedStations = useMemo(() => {
-    if (visibleStations.length === 0) {
+    if (markerStations.length === 0) {
       return [];
     }
 
@@ -344,13 +353,13 @@ export function MapAdapter({
     const showEveryThreshold = mode === 'tram' ? 0.025 : mode === 'bus' ? 0.025 : 0.08;
     const showAll = latitudeDelta <= showAllThreshold;
     const showEvery = latitudeDelta <= showEveryThreshold ? (mode === 'tram' ? 4 : 3) : 0;
-    const result = new Map<string, (typeof visibleStations)[number]>();
+    const result = new Map<string, (typeof markerStations)[number]>();
 
     // Always show terminals.
-    result.set(visibleStations[0].code, visibleStations[0]);
+    result.set(markerStations[0].code, markerStations[0]);
     result.set(
-      visibleStations[visibleStations.length - 1].code,
-      visibleStations[visibleStations.length - 1],
+      markerStations[markerStations.length - 1].code,
+      markerStations[markerStations.length - 1],
     );
 
     // Always show selected station.
@@ -359,18 +368,18 @@ export function MapAdapter({
     }
 
     if (showAll) {
-      for (const station of visibleStations) {
+      for (const station of markerStations) {
         result.set(station.code, station);
       }
     } else if (showEvery > 0) {
-      for (let index = 0; index < visibleStations.length; index += showEvery) {
-        const station = visibleStations[index];
+      for (let index = 0; index < markerStations.length; index += showEvery) {
+        const station = markerStations[index];
         result.set(station.code, station);
       }
     }
 
     return Array.from(result.values());
-  }, [latitudeDelta, mode, selectedStation, visibleStations]);
+  }, [latitudeDelta, markerStations, mode, selectedStation]);
 
   // Keep Apple Maps' logo, wordmark, and "Legal" link visible. Attached sheets
   // place them above the collapsed surface; detached sheets use the gap between
@@ -417,7 +426,7 @@ export function MapAdapter({
   }, [stationInterchanges]);
   const badgeStations = useMemo(
     () =>
-      visibleStations.filter((station) => {
+      markerStations.filter((station) => {
         const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
         const isSelected = station.code === selectedStationCode;
         return (
@@ -425,7 +434,7 @@ export function MapAdapter({
           (isSelected || markerDetail === 'full')
         );
       }),
-    [interchangeByStationKey, lineCode, markerDetail, selectedStationCode, visibleStations],
+    [interchangeByStationKey, lineCode, markerDetail, markerStations, selectedStationCode],
   );
 
   const centerMap = useCallback((coordinate: LatLng, delta = 0.05) => {
@@ -627,7 +636,9 @@ export function MapAdapter({
       .filter((segment) => segment.lineCode === lineCode)
       .map((segment) => ({
         id: `segment:${segment.id}`,
-        coordinates: segment.points.map(toMapCoordinate).filter(hasFiniteCoordinate),
+        coordinates: trimSegmentToStations(segment, stations)
+          .map(toMapCoordinate)
+          .filter(hasFiniteCoordinate),
       }))
       .filter((polyline) => polyline.coordinates.length > 1);
 
@@ -706,7 +717,7 @@ export function MapAdapter({
           );
         })}
 
-        {visibleStations.map((station) => {
+        {markerStations.map((station) => {
           const isSelected = station.code === selectedStationCode;
           const usesDynamicSelectedMarker = isSelected && mode !== 'metro';
 

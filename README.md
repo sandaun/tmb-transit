@@ -8,7 +8,7 @@
   Explore Metro, bus, FGC, and TRAM lines, check live arrivals, follow service alerts,
   find nearby stops, and plan a route across the city.
 
-  [![CI](https://github.com/sandaun/tmb-transit/actions/workflows/ci.yml/badge.svg)](https://github.com/sandaun/tmb-transit/actions/workflows/ci.yml)
+  [![CI](https://github.com/sandaun/moubcn/actions/workflows/ci.yml/badge.svg)](https://github.com/sandaun/moubcn/actions/workflows/ci.yml)
   ![Expo SDK 54](https://img.shields.io/badge/Expo_SDK-54-000020?logo=expo&logoColor=white)
   ![React Native 0.81](https://img.shields.io/badge/React_Native-0.81-61DAFB?logo=react&logoColor=111827)
   ![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=node.js&logoColor=white)
@@ -34,7 +34,7 @@
 The repository contains two applications:
 
 ```text
-tmb-transit/
+moubcn/
 ├── app/              Expo Router routes
 ├── src/
 │   ├── domain/       Transport models and pure domain logic

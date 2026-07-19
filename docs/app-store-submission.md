@@ -28,9 +28,9 @@ GitHub Pages with **GitHub Actions** as the source in the repository settings an
 
 | Locale | Privacy policy | Support | Data sources |
 | --- | --- | --- | --- |
-| Catalan | `https://sandaun.github.io/tmb-transit/ca/privacy/` | `https://sandaun.github.io/tmb-transit/ca/support/` | `https://sandaun.github.io/tmb-transit/ca/sources/` |
-| English | `https://sandaun.github.io/tmb-transit/en/privacy/` | `https://sandaun.github.io/tmb-transit/en/support/` | `https://sandaun.github.io/tmb-transit/en/sources/` |
-| Spanish | `https://sandaun.github.io/tmb-transit/es/privacy/` | `https://sandaun.github.io/tmb-transit/es/support/` | `https://sandaun.github.io/tmb-transit/es/sources/` |
+| Catalan | `https://sandaun.github.io/moubcn/ca/privacy/` | `https://sandaun.github.io/moubcn/ca/support/` | `https://sandaun.github.io/moubcn/ca/sources/` |
+| English | `https://sandaun.github.io/moubcn/en/privacy/` | `https://sandaun.github.io/moubcn/en/support/` | `https://sandaun.github.io/moubcn/en/sources/` |
+| Spanish | `https://sandaun.github.io/moubcn/es/privacy/` | `https://sandaun.github.io/moubcn/es/support/` | `https://sandaun.github.io/moubcn/es/sources/` |
 
 The App Store Connect Privacy Policy URL and Support URL must be public, must not require login,
 and must work before the build is submitted. Verify that messages sent to

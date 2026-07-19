@@ -1,6 +1,6 @@
 import type { AppLanguage } from '@/src/features/preferences/models';
 
-const LEGAL_SITE_BASE_URL = 'https://sandaun.github.io/tmb-transit';
+const LEGAL_SITE_BASE_URL = 'https://sandaun.github.io/moubcn';
 
 export const PROVIDER_LINKS = {
   tmb: 'https://developer.tmb.cat/',

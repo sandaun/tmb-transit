@@ -12,6 +12,12 @@ interface StationProjection {
   station: Station;
 }
 
+interface PolylineProjection {
+  position: number;
+  distanceMeters: number;
+  point: LatLng;
+}
+
 function distanceMeters(first: LatLng, second: LatLng): number {
   const averageLatitudeRadians = ((first.lat + second.lat) / 2) * (Math.PI / 180);
   const latitudeMeters = (second.lat - first.lat) * METERS_PER_LATITUDE_DEGREE;
@@ -27,33 +33,33 @@ function isFinitePoint(point: LatLng): boolean {
   return Number.isFinite(point.lat) && Number.isFinite(point.lon);
 }
 
-function projectStationOntoRoute(
+function projectPointOntoPolyline(
   points: LatLng[],
-  station: Station,
-): StationProjection | null {
-  let closestProjection: StationProjection | null = null;
+  target: LatLng,
+): PolylineProjection | null {
+  let closestProjection: PolylineProjection | null = null;
 
   for (let index = 0; index < points.length - 1; index += 1) {
     const start = points[index];
     const end = points[index + 1];
-    const averageLatitudeRadians = ((start.lat + end.lat + station.lat) / 3) * (Math.PI / 180);
+    const averageLatitudeRadians = ((start.lat + end.lat + target.lat) / 3) * (Math.PI / 180);
     const longitudeScale = METERS_PER_LATITUDE_DEGREE * Math.cos(averageLatitudeRadians);
     const segmentX = (end.lon - start.lon) * longitudeScale;
     const segmentY = (end.lat - start.lat) * METERS_PER_LATITUDE_DEGREE;
-    const stationX = (station.lon - start.lon) * longitudeScale;
-    const stationY = (station.lat - start.lat) * METERS_PER_LATITUDE_DEGREE;
+    const targetX = (target.lon - start.lon) * longitudeScale;
+    const targetY = (target.lat - start.lat) * METERS_PER_LATITUDE_DEGREE;
     const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
     const ratio = segmentLengthSquared === 0
       ? 0
-      : Math.max(0, Math.min(1, (stationX * segmentX + stationY * segmentY) / segmentLengthSquared));
+      : Math.max(0, Math.min(1, (targetX * segmentX + targetY * segmentY) / segmentLengthSquared));
     const projectedPoint = {
       lat: start.lat + (end.lat - start.lat) * ratio,
       lon: start.lon + (end.lon - start.lon) * ratio,
     };
     const projection = {
       position: index + ratio,
-      distanceMeters: distanceMeters(station, projectedPoint),
-      station,
+      distanceMeters: distanceMeters(target, projectedPoint),
+      point: projectedPoint,
     };
 
     if (!closestProjection || projection.distanceMeters < closestProjection.distanceMeters) {
@@ -62,6 +68,54 @@ function projectStationOntoRoute(
   }
 
   return closestProjection;
+}
+
+function projectStationOntoRoute(
+  points: LatLng[],
+  station: Station,
+): StationProjection | null {
+  const projection = projectPointOntoPolyline(points, station);
+  if (!projection) {
+    return null;
+  }
+
+  return {
+    position: projection.position,
+    distanceMeters: projection.distanceMeters,
+    station,
+  };
+}
+
+// Realtime vehicle coordinates and the drawn route come from different FGC
+// datasets, so a train reported mid-track can sit tens of metres off the line.
+// Snapping keeps both consistent; beyond the threshold the raw position is
+// kept rather than inventing a location on an unrelated part of the route.
+export function snapPointToPolylines(
+  polylines: LatLng[][],
+  point: LatLng,
+  maxDistanceMeters: number,
+): LatLng {
+  if (!isFinitePoint(point)) {
+    return point;
+  }
+
+  let closestProjection: PolylineProjection | null = null;
+
+  for (const polyline of polylines) {
+    const projection = projectPointOntoPolyline(polyline.filter(isFinitePoint), point);
+    if (
+      projection &&
+      (!closestProjection || projection.distanceMeters < closestProjection.distanceMeters)
+    ) {
+      closestProjection = projection;
+    }
+  }
+
+  if (!closestProjection || closestProjection.distanceMeters > maxDistanceMeters) {
+    return point;
+  }
+
+  return closestProjection.point;
 }
 
 function appendDistinctPoint(points: LatLng[], point: LatLng): void {

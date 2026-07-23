@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import type { Station } from '@/src/domain/catalog/models';
-import type { Segment } from '@/src/domain/geo/models';
+import type { LatLng, Segment } from '@/src/domain/geo/models';
 import {
   selectStationMarkers,
+  snapPointToPolylines,
   trimSegmentToStations,
 } from '@/src/features/station/utils/map-route-geometry';
 
@@ -118,5 +119,48 @@ describe('trimSegmentToStations', () => {
       trimSegmentToStations(segment, [makeStation('start', 2), terminal]),
       [{ lat: terminal.lat, lon: terminal.lon }],
     );
+  });
+});
+
+describe('snapPointToPolylines', () => {
+  // One latitude degree is ~111320 m, so 0.0009 deg sits ~100 m off the route.
+  const route: LatLng[] = [
+    { lat: 41.4, lon: 2.1 },
+    { lat: 41.4, lon: 2.2 },
+  ];
+  const offRoutePoint: LatLng = { lat: 41.4009, lon: 2.15 };
+
+  it('snaps a vehicle that drifted off the drawn route', () => {
+    const snapped = snapPointToPolylines([route], offRoutePoint, 150);
+
+    assert.equal(snapped.lat, 41.4);
+    assert.ok(Math.abs(snapped.lon - 2.15) < 1e-9);
+  });
+
+  it('keeps the raw position when the route is further than the threshold', () => {
+    assert.deepEqual(snapPointToPolylines([route], offRoutePoint, 50), offRoutePoint);
+  });
+
+  it('snaps to the closest of several polylines', () => {
+    const farRoute: LatLng[] = [
+      { lat: 41.41, lon: 2.1 },
+      { lat: 41.41, lon: 2.2 },
+    ];
+
+    assert.equal(snapPointToPolylines([farRoute, route], offRoutePoint, 150).lat, 41.4);
+  });
+
+  it('keeps the raw position without a usable polyline', () => {
+    assert.deepEqual(snapPointToPolylines([], offRoutePoint, 150), offRoutePoint);
+    assert.deepEqual(
+      snapPointToPolylines([[{ lat: 41.4, lon: 2.1 }]], offRoutePoint, 150),
+      offRoutePoint,
+    );
+  });
+
+  it('keeps a non-finite position untouched', () => {
+    const broken: LatLng = { lat: Number.NaN, lon: 2.15 };
+
+    assert.deepEqual(snapPointToPolylines([route], broken, 150), broken);
   });
 });

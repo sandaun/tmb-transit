@@ -1,7 +1,12 @@
+// The vehicle marker uses the MaterialIcons glyph font directly instead of
+// IconSymbol: SF Symbols render as a native view, which is unreliable when
+// react-native-maps rasterises a marker with tracksViewChanges disabled.
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated as RNAnimated,
   Pressable,
   StyleSheet,
   View,
@@ -18,6 +23,7 @@ import MapView, {
   Marker,
   Polyline,
   type LatLng,
+  type MapMarker,
   type MapPressEvent,
   type Region,
   type UserLocationChangeEvent,
@@ -46,6 +52,7 @@ import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-deta
 import { getViewportFocusedRegion } from '@/src/features/station/utils/map-camera';
 import {
   selectStationMarkers,
+  snapPointToPolylines,
   trimSegmentToStations,
 } from '@/src/features/station/utils/map-route-geometry';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
@@ -168,6 +175,12 @@ const STATION_NAME_CENTER_OFFSET = { x: 0, y: 26 };
 const SELECTED_STATION_NAME_CENTER_OFFSET = { x: 0, y: 30 };
 const SELECTED_MULTILINE_STATION_NAME_CENTER_OFFSET = { x: 0, y: 38 };
 const STATION_MARKER_IMAGE = require('@/assets/map/station-marker.png') as ImageRequireSource;
+// Beyond this the reported position is not plausibly the drawn route, so the
+// raw coordinate is kept instead of snapping onto an unrelated stretch.
+const VEHICLE_SNAP_MAX_DISTANCE_METERS = 150;
+const VEHICLE_MOVE_ANIMATION_MS = 900;
+const VEHICLE_PULSE_IN_MS = 180;
+const VEHICLE_PULSE_OUT_MS = 220;
 
 export function MapAdapter({
   lineCode,
@@ -691,6 +704,29 @@ export function MapAdapter({
     const fallbackPolyline = getFallbackPolyline(stations);
     return fallbackPolyline ? [fallbackPolyline] : [];
   }, [explorationVisible, lineCode, segments, stations]);
+  const snappedVehicles = useMemo(() => {
+    const routeGeometry = routePolylines.map((polyline) =>
+      polyline.coordinates.map((coordinate) => ({
+        lat: coordinate.latitude,
+        lon: coordinate.longitude,
+      })),
+    );
+
+    return transitVehicles
+      .filter((vehicle) => Number.isFinite(vehicle.lat) && Number.isFinite(vehicle.lon))
+      .map((vehicle) => {
+        const snapped = snapPointToPolylines(
+          routeGeometry,
+          { lat: vehicle.lat, lon: vehicle.lon },
+          VEHICLE_SNAP_MAX_DISTANCE_METERS,
+        );
+
+        return {
+          vehicle,
+          coordinate: { latitude: snapped.lat, longitude: snapped.lon },
+        };
+      });
+  }, [routePolylines, transitVehicles]);
   const routeLayerKey = routePolylines
     .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
     .join('|');
@@ -853,18 +889,14 @@ export function MapAdapter({
           </Marker>
         ))}
 
-        {transitVehicles.map((vehicle) => (
-          <Marker
+        {snappedVehicles.map(({ vehicle, coordinate }) => (
+          <VehicleMarker
             key={`vehicle:${vehicle.id}`}
             accessibilityLabel={`${vehicle.lineCode}${vehicle.destination ? `, ${vehicle.destination}` : ''}`}
-            anchor={STATION_MARKER_ANCHOR}
-            coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
-            tracksViewChanges={false}
-            zIndex={50}
+            coordinate={coordinate}
+            color={lineBrand.backgroundColor}
+            iconColor={lineBrand.textColor}
           >
-            <View style={[styles.vehicleMarker, { backgroundColor: lineBrand.backgroundColor }]}>
-              <Text style={[styles.vehicleMarkerText, { color: lineBrand.textColor }]}>●</Text>
-            </View>
             <Callout tooltip>
               <View style={styles.vehicleCallout}>
                 <Text style={styles.vehicleCalloutTitle}>
@@ -887,7 +919,7 @@ export function MapAdapter({
                 ) : null}
               </View>
             </Callout>
-          </Marker>
+          </VehicleMarker>
         ))}
 
         {latitudeDelta <= 0.02
@@ -1123,6 +1155,119 @@ function NearbyStopDot({ mode, lineCode, lineColor }: { mode: TransportMode; lin
     <View
       style={[styles.nearbyDot, { backgroundColor: brand.backgroundColor }]}
     />
+  );
+}
+
+function VehicleMarker({
+  accessibilityLabel,
+  coordinate,
+  color,
+  iconColor,
+  children,
+}: {
+  accessibilityLabel: string;
+  coordinate: LatLng;
+  color: string;
+  iconColor: string;
+  children?: React.ReactNode;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const markerRef = useRef<MapMarker | null>(null);
+  const pulse = useRef(new RNAnimated.Value(0)).current;
+  const hasRenderedRef = useRef(false);
+  const targetCoordinateRef = useRef(coordinate);
+  const [isPulsing, setIsPulsing] = useState(true);
+  const [renderedCoordinate, setRenderedCoordinate] = useState(coordinate);
+
+  // Positions are polled, so the marker glides to each new coordinate instead
+  // of teleporting, and pulses to mark the move as fresh. The pulse is tied to
+  // actual movement rather than to the refresh: the upstream dataset updates
+  // more slowly than we poll, so pulsing per refresh would fire on unchanged
+  // data. The first run covers the initial render, since a marker that never
+  // tracks view changes may otherwise not rasterise its custom view.
+  useEffect(() => {
+    const target = targetCoordinateRef.current;
+    const hasMoved =
+      target.latitude !== coordinate.latitude ||
+      target.longitude !== coordinate.longitude;
+    const isFirstRender = !hasRenderedRef.current;
+    hasRenderedRef.current = true;
+
+    if (!hasMoved && !isFirstRender) {
+      return;
+    }
+
+    let moveTimer: ReturnType<typeof setTimeout> | undefined;
+    if (hasMoved) {
+      targetCoordinateRef.current = coordinate;
+      markerRef.current?.animateMarkerToCoordinate(coordinate, VEHICLE_MOVE_ANIMATION_MS);
+      // The native command moves the annotation without re-rasterising it, so
+      // the coordinate prop only catches up once the move is over — updating
+      // it earlier would snap the marker straight to the destination.
+      moveTimer = setTimeout(() => {
+        setRenderedCoordinate(coordinate);
+      }, VEHICLE_MOVE_ANIMATION_MS);
+    }
+
+    // Tracking view changes re-rasterises the marker every frame, so it stays
+    // enabled only for the length of the pulse.
+    setIsPulsing(true);
+    const animation = RNAnimated.sequence([
+      RNAnimated.timing(pulse, {
+        toValue: 1,
+        duration: VEHICLE_PULSE_IN_MS,
+        useNativeDriver: false,
+      }),
+      RNAnimated.timing(pulse, {
+        toValue: 0,
+        duration: VEHICLE_PULSE_OUT_MS,
+        useNativeDriver: false,
+      }),
+    ]);
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        setIsPulsing(false);
+      }
+    });
+
+    return () => {
+      clearTimeout(moveTimer);
+      animation.stop();
+    };
+  }, [coordinate, pulse]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      accessibilityLabel={accessibilityLabel}
+      anchor={STATION_MARKER_ANCHOR}
+      coordinate={renderedCoordinate}
+      tracksViewChanges={isPulsing}
+      zIndex={12}
+    >
+      <View style={styles.vehicleMarkerBox}>
+        <RNAnimated.View
+          style={[
+            styles.vehicleMarker,
+            {
+              backgroundColor: color,
+              transform: [
+                {
+                  scale: pulse.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.18],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <MaterialIcons name="tram" size={15} color={iconColor} />
+        </RNAnimated.View>
+      </View>
+      {children}
+    </Marker>
   );
 }
 
@@ -1398,23 +1543,26 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },
-  vehicleMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  // Sized to fit the pulsed marker so the rasterised bitmap is never clipped.
+  vehicleMarkerBox: {
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: palette.surface,
+  },
+  vehicleMarker: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
     shadowColor: palette.shadow,
     shadowOpacity: 0.32,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
-  },
-  vehicleMarkerText: {
-    fontSize: 10,
-    fontWeight: '900',
   },
   vehicleCallout: {
     width: 220,

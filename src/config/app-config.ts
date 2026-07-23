@@ -81,5 +81,8 @@ export const APP_CONFIG = {
   ...environmentConfig,
   catalogTtlMs: 7 * 24 * 60 * 60 * 1000,
   arrivalsPollIntervalMs: 30_000,
+  // Vehicle positions move continuously, so they are polled faster than
+  // arrivals. The API caches them for 8 s, which bounds the upstream load.
+  vehiclesPollIntervalMs: 10_000,
   serviceAlertsPollIntervalMs: 5 * 60_000,
 } as const;

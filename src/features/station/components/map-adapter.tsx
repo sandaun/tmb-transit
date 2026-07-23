@@ -1200,6 +1200,11 @@ function VehicleMarker({
   const secondRing = useRef(new RNAnimated.Value(0)).current;
   const lastUpdatedAtRef = useRef<number | null>(null);
   const targetCoordinateRef = useRef(coordinate);
+  // MapKit dismisses the callout whenever the marker re-renders, so while it
+  // is open every state change is suppressed (refs only — a setState here
+  // would itself close it) and deferred work is flushed on deselect.
+  const isSelectedRef = useRef(false);
+  const pendingCoordinateRef = useRef<LatLng | null>(null);
   const [isPulsing, setIsPulsing] = useState(true);
   const [renderedCoordinate, setRenderedCoordinate] = useState(coordinate);
 
@@ -1219,7 +1224,11 @@ function VehicleMarker({
     targetCoordinateRef.current = coordinate;
     markerRef.current?.animateMarkerToCoordinate(coordinate, VEHICLE_MOVE_ANIMATION_MS);
     const timer = setTimeout(() => {
-      setRenderedCoordinate(coordinate);
+      if (isSelectedRef.current) {
+        pendingCoordinateRef.current = coordinate;
+      } else {
+        setRenderedCoordinate(coordinate);
+      }
     }, VEHICLE_MOVE_ANIMATION_MS);
 
     return () => clearTimeout(timer);
@@ -1236,6 +1245,10 @@ function VehicleMarker({
     }
 
     lastUpdatedAtRef.current = updatedAt;
+    if (isSelectedRef.current) {
+      return;
+    }
+
     firstRing.setValue(0);
     secondRing.setValue(0);
     setIsPulsing(true);
@@ -1253,13 +1266,26 @@ function VehicleMarker({
     ]);
 
     animation.start(({ finished }) => {
-      if (finished) {
+      if (finished && !isSelectedRef.current) {
         setIsPulsing(false);
       }
     });
 
     return () => animation.stop();
   }, [firstRing, secondRing, updatedAt]);
+
+  const handleSelect = useCallback(() => {
+    isSelectedRef.current = true;
+  }, []);
+
+  const handleDeselect = useCallback(() => {
+    isSelectedRef.current = false;
+    setIsPulsing(false);
+    if (pendingCoordinateRef.current) {
+      setRenderedCoordinate({ ...pendingCoordinateRef.current });
+      pendingCoordinateRef.current = null;
+    }
+  }, []);
 
   const ringStyle = (ring: RNAnimated.Value) => [
     styles.vehiclePulseRing,
@@ -1288,6 +1314,8 @@ function VehicleMarker({
       coordinate={renderedCoordinate}
       tracksViewChanges={isPulsing}
       zIndex={12}
+      onSelect={handleSelect}
+      onDeselect={handleDeselect}
     >
       <View style={styles.vehicleMarkerBox}>
         <RNAnimated.View pointerEvents="none" style={ringStyle(firstRing)} />

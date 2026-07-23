@@ -38,6 +38,10 @@ import {
   prioritizeSelectedInterchangeLine,
   type StationInterchange,
 } from '@/src/features/station/utils/station-interchanges';
+import {
+  getVisibleStationAnnotationCodes,
+  type StationAnnotationCandidate,
+} from '@/src/features/station/utils/map-annotation-layout';
 import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-detail';
 import { getViewportFocusedRegion } from '@/src/features/station/utils/map-camera';
 import {
@@ -200,6 +204,7 @@ export function MapAdapter({
   const currentRegionRef = useRef<Region | null>(null);
   const lastStationFocusRequestRef = useRef(0);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapWidth, setMapWidth] = useState(0);
   const [mapHeight, setMapHeight] = useState(0);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [isWaitingForUserLocation, setIsWaitingForUserLocation] = useState(false);
@@ -235,15 +240,17 @@ export function MapAdapter({
   const lastPlannerStepFocusKeyRef = useRef<string | null>(null);
   const userLocationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [userCoordinate, setUserCoordinate] = useState<LatLng | null>(null);
-  const [latitudeDelta, setLatitudeDelta] = useState(0.05);
+  const [visibleRegion, setVisibleRegion] = useState<Region | null>(null);
   const selectedStation = stations.find(
     (station) => station.code === selectedStationCode,
   );
   const lineBrand = getLineBrand(mode, lineCode, lineColor);
+  const latitudeDelta = visibleRegion?.latitudeDelta ?? 0.05;
+  const longitudeDelta = visibleRegion?.longitudeDelta ?? 0.05;
 
   const handleRegionChangeComplete = useCallback((region: Region) => {
     currentRegionRef.current = region;
-    setLatitudeDelta(region.latitudeDelta);
+    setVisibleRegion(region);
   }, []);
 
   const initialRegion = useMemo(() => {
@@ -418,6 +425,58 @@ export function MapAdapter({
         );
       }),
     [interchangeByStationKey, lineCode, markerDetail, markerStations, selectedStationCode],
+  );
+  const annotationCandidates = useMemo<StationAnnotationCandidate[]>(() => {
+    const candidatesByCode = new Map<string, StationAnnotationCandidate>();
+
+    for (const station of namedStations) {
+      candidatesByCode.set(station.code, {
+        station,
+        hasName: true,
+        hasBadges: false,
+        selected: station.code === selectedStationCode,
+      });
+    }
+
+    for (const station of badgeStations) {
+      const candidate = candidatesByCode.get(station.code);
+      candidatesByCode.set(station.code, {
+        station,
+        hasName: candidate?.hasName ?? false,
+        hasBadges: true,
+        selected: station.code === selectedStationCode,
+      });
+    }
+
+    return Array.from(candidatesByCode.values());
+  }, [badgeStations, namedStations, selectedStationCode]);
+  const visibleAnnotationCodes = useMemo(
+    () =>
+      getVisibleStationAnnotationCodes(annotationCandidates, {
+        width: mapWidth,
+        height: mapHeight,
+        latitude: visibleRegion?.latitude ?? selectedStation?.lat ?? 41.3851,
+        longitude: visibleRegion?.longitude ?? selectedStation?.lon ?? 2.1734,
+        latitudeDelta,
+        longitudeDelta,
+      }),
+    [
+      annotationCandidates,
+      latitudeDelta,
+      longitudeDelta,
+      mapHeight,
+      mapWidth,
+      selectedStation,
+      visibleRegion,
+    ],
+  );
+  const visibleBadgeStations = useMemo(
+    () => badgeStations.filter((station) => visibleAnnotationCodes.has(station.code)),
+    [badgeStations, visibleAnnotationCodes],
+  );
+  const visibleNamedStations = useMemo(
+    () => namedStations.filter((station) => visibleAnnotationCodes.has(station.code)),
+    [namedStations, visibleAnnotationCodes],
   );
 
   const centerMap = useCallback((coordinate: LatLng, delta = 0.05) => {
@@ -647,7 +706,9 @@ export function MapAdapter({
     <View
       style={styles.root}
       onLayout={(event) => {
-        setMapHeight(event.nativeEvent.layout.height);
+        const { width, height } = event.nativeEvent.layout;
+        setMapWidth(width);
+        setMapHeight(height);
       }}
     >
       <MapView
@@ -721,7 +782,7 @@ export function MapAdapter({
           );
         })}
 
-        {badgeStations.map((station) => {
+        {visibleBadgeStations.map((station) => {
           const isSelected = station.code === selectedStationCode;
           const interchange = interchangeByStationKey.get(`${lineCode}:${station.code}`);
           const interchangeLines =
@@ -763,7 +824,7 @@ export function MapAdapter({
           );
         })}
 
-        {namedStations.map((station) => {
+        {visibleNamedStations.map((station) => {
           const isSelected = station.code === selectedStationCode;
 
           return (

@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import type { Station } from '@/src/domain/catalog/models';
-import type { Segment } from '@/src/domain/geo/models';
+import type { LatLng, Segment } from '@/src/domain/geo/models';
 import {
+  placePointOnPolylines,
   selectStationMarkers,
   trimSegmentToStations,
 } from '@/src/features/station/utils/map-route-geometry';
@@ -118,5 +119,102 @@ describe('trimSegmentToStations', () => {
       trimSegmentToStations(segment, [makeStation('start', 2), terminal]),
       [{ lat: terminal.lat, lon: terminal.lon }],
     );
+  });
+});
+
+describe('placePointOnPolylines', () => {
+  // One latitude degree is ~111320 m, so 0.0009 deg sits ~100 m off the route.
+  const route: LatLng[] = [
+    { lat: 41.4, lon: 2.1 },
+    { lat: 41.4, lon: 2.2 },
+  ];
+  const offRoutePoint: LatLng = { lat: 41.4009, lon: 2.15 };
+
+  it('snaps a vehicle that drifted off the drawn route', () => {
+    const placement = placePointOnPolylines([route], offRoutePoint, null, 150);
+
+    assert.equal(placement.point.lat, 41.4);
+    assert.ok(Math.abs(placement.point.lon - 2.15) < 1e-9);
+    assert.equal(placement.bearingDegrees, null);
+  });
+
+  it('keeps the raw position when the route is further than the threshold', () => {
+    assert.deepEqual(placePointOnPolylines([route], offRoutePoint, null, 50), {
+      point: offRoutePoint,
+      bearingDegrees: null,
+    });
+  });
+
+  it('snaps to the closest of several polylines', () => {
+    const farRoute: LatLng[] = [
+      { lat: 41.41, lon: 2.1 },
+      { lat: 41.41, lon: 2.2 },
+    ];
+
+    assert.equal(
+      placePointOnPolylines([farRoute, route], offRoutePoint, null, 150).point.lat,
+      41.4,
+    );
+  });
+
+  it('keeps the raw position without a usable polyline', () => {
+    assert.deepEqual(placePointOnPolylines([], offRoutePoint, null, 150), {
+      point: offRoutePoint,
+      bearingDegrees: null,
+    });
+    assert.deepEqual(
+      placePointOnPolylines([[{ lat: 41.4, lon: 2.1 }]], offRoutePoint, null, 150),
+      { point: offRoutePoint, bearingDegrees: null },
+    );
+  });
+
+  it('keeps a non-finite position untouched', () => {
+    const broken: LatLng = { lat: Number.NaN, lon: 2.15 };
+
+    assert.deepEqual(placePointOnPolylines([route], broken, null, 150), {
+      point: broken,
+      bearingDegrees: null,
+    });
+  });
+
+  it('points the bearing along the route towards the next stop', () => {
+    // The east-west route runs at bearing 90 (east) / 270 (west).
+    const towardsEast = placePointOnPolylines(
+      [route],
+      offRoutePoint,
+      { lat: 41.4, lon: 2.19 },
+      150,
+    );
+    const towardsWest = placePointOnPolylines(
+      [route],
+      offRoutePoint,
+      { lat: 41.4, lon: 2.11 },
+      150,
+    );
+
+    assert.equal(towardsEast.bearingDegrees, 90);
+    assert.equal(towardsWest.bearingDegrees, 270);
+  });
+
+  it('reports no bearing when the next stop sits at the vehicle position', () => {
+    const placement = placePointOnPolylines(
+      [route],
+      offRoutePoint,
+      { lat: 41.4009, lon: 2.15 },
+      150,
+    );
+
+    assert.equal(placement.bearingDegrees, null);
+  });
+
+  it('reports no bearing for an off-route vehicle even with a next stop', () => {
+    const placement = placePointOnPolylines(
+      [route],
+      offRoutePoint,
+      { lat: 41.4, lon: 2.19 },
+      50,
+    );
+
+    assert.deepEqual(placement, { point: offRoutePoint, bearingDegrees: null });
   });
 });

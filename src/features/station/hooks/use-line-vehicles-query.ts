@@ -9,7 +9,7 @@ export function useLineVehiclesQuery(mode: TransportMode, lineCode: string | nul
     queryKey: ['realtime', mode, 'vehicles', lineCode],
     queryFn: () => fetchFgcVehicles(lineCode!),
     enabled: mode === 'fgc' && Boolean(lineCode),
-    staleTime: 5_000,
-    refetchInterval: mode === 'fgc' ? APP_CONFIG.arrivalsPollIntervalMs : false,
+    staleTime: APP_CONFIG.vehiclesPollIntervalMs,
+    refetchInterval: mode === 'fgc' ? APP_CONFIG.vehiclesPollIntervalMs : false,
   });
 }

@@ -1,7 +1,12 @@
+// The vehicle marker uses the MaterialIcons glyph font directly instead of
+// IconSymbol: SF Symbols render as a native view, which is unreliable when
+// react-native-maps rasterises a marker with tracksViewChanges disabled.
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated as RNAnimated,
   Pressable,
   StyleSheet,
   View,
@@ -18,6 +23,7 @@ import MapView, {
   Marker,
   Polyline,
   type LatLng,
+  type MapMarker,
   type MapPressEvent,
   type Region,
   type UserLocationChangeEvent,
@@ -45,6 +51,7 @@ import {
 import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-detail';
 import { getViewportFocusedRegion } from '@/src/features/station/utils/map-camera';
 import {
+  placePointOnPolylines,
   selectStationMarkers,
   trimSegmentToStations,
 } from '@/src/features/station/utils/map-route-geometry';
@@ -89,6 +96,7 @@ interface MapAdapterProps {
   stations: Station[];
   segments: Segment[];
   transitVehicles?: TransitVehicle[];
+  transitVehiclesUpdatedAt?: number;
   selectedStationCode: string;
   stationFocusRequestId?: number;
   stationInterchanges?: StationInterchange[];
@@ -168,6 +176,14 @@ const STATION_NAME_CENTER_OFFSET = { x: 0, y: 26 };
 const SELECTED_STATION_NAME_CENTER_OFFSET = { x: 0, y: 30 };
 const SELECTED_MULTILINE_STATION_NAME_CENTER_OFFSET = { x: 0, y: 38 };
 const STATION_MARKER_IMAGE = require('@/assets/map/station-marker.png') as ImageRequireSource;
+// Beyond this the reported position is not plausibly the drawn route, so the
+// raw coordinate is kept instead of snapping onto an unrelated stretch.
+const VEHICLE_SNAP_MAX_DISTANCE_METERS = 150;
+const VEHICLE_MOVE_ANIMATION_MS = 900;
+// Two slow sonar rings per data refresh read as a heartbeat while keeping the
+// expensive tracksViewChanges window bounded (~2 s out of every poll cycle).
+const VEHICLE_PULSE_RING_MS = 1_600;
+const VEHICLE_PULSE_STAGGER_MS = 500;
 
 export function MapAdapter({
   lineCode,
@@ -176,6 +192,7 @@ export function MapAdapter({
   stations,
   segments,
   transitVehicles = [],
+  transitVehiclesUpdatedAt = 0,
   selectedStationCode,
   stationFocusRequestId = 0,
   stationInterchanges = [],
@@ -691,6 +708,42 @@ export function MapAdapter({
     const fallbackPolyline = getFallbackPolyline(stations);
     return fallbackPolyline ? [fallbackPolyline] : [];
   }, [explorationVisible, lineCode, segments, stations]);
+  const placedVehicles = useMemo(() => {
+    const routeGeometry = routePolylines.map((polyline) =>
+      polyline.coordinates.map((coordinate) => ({
+        lat: coordinate.latitude,
+        lon: coordinate.longitude,
+      })),
+    );
+    const stationByCode = new Map(stations.map((station) => [station.code, station]));
+
+    return transitVehicles
+      .filter((vehicle) => Number.isFinite(vehicle.lat) && Number.isFinite(vehicle.lon))
+      .map((vehicle) => {
+        // The feed lists upcoming stops in travel order using catalog station
+        // codes, so the first one orients the vehicle along the route.
+        const nextStop = vehicle.nextStops.length
+          ? stationByCode.get(vehicle.nextStops[0])
+          : undefined;
+        const placement = placePointOnPolylines(
+          routeGeometry,
+          { lat: vehicle.lat, lon: vehicle.lon },
+          nextStop && Number.isFinite(nextStop.lat) && Number.isFinite(nextStop.lon)
+            ? { lat: nextStop.lat, lon: nextStop.lon }
+            : null,
+          VEHICLE_SNAP_MAX_DISTANCE_METERS,
+        );
+
+        return {
+          vehicle,
+          coordinate: {
+            latitude: placement.point.lat,
+            longitude: placement.point.lon,
+          },
+          bearingDegrees: placement.bearingDegrees,
+        };
+      });
+  }, [routePolylines, stations, transitVehicles]);
   const routeLayerKey = routePolylines
     .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
     .join('|');
@@ -853,18 +906,16 @@ export function MapAdapter({
           </Marker>
         ))}
 
-        {transitVehicles.map((vehicle) => (
-          <Marker
+        {placedVehicles.map(({ vehicle, coordinate, bearingDegrees }) => (
+          <VehicleMarker
             key={`vehicle:${vehicle.id}`}
             accessibilityLabel={`${vehicle.lineCode}${vehicle.destination ? `, ${vehicle.destination}` : ''}`}
-            anchor={STATION_MARKER_ANCHOR}
-            coordinate={{ latitude: vehicle.lat, longitude: vehicle.lon }}
-            tracksViewChanges={false}
-            zIndex={50}
+            coordinate={coordinate}
+            bearingDegrees={bearingDegrees}
+            color={lineBrand.backgroundColor}
+            iconColor={lineBrand.textColor}
+            updatedAt={transitVehiclesUpdatedAt}
           >
-            <View style={[styles.vehicleMarker, { backgroundColor: lineBrand.backgroundColor }]}>
-              <Text style={[styles.vehicleMarkerText, { color: lineBrand.textColor }]}>●</Text>
-            </View>
             <Callout tooltip>
               <View style={styles.vehicleCallout}>
                 <Text style={styles.vehicleCalloutTitle}>
@@ -887,7 +938,7 @@ export function MapAdapter({
                 ) : null}
               </View>
             </Callout>
-          </Marker>
+          </VehicleMarker>
         ))}
 
         {latitudeDelta <= 0.02
@@ -1123,6 +1174,169 @@ function NearbyStopDot({ mode, lineCode, lineColor }: { mode: TransportMode; lin
     <View
       style={[styles.nearbyDot, { backgroundColor: brand.backgroundColor }]}
     />
+  );
+}
+
+function VehicleMarker({
+  accessibilityLabel,
+  coordinate,
+  bearingDegrees,
+  color,
+  iconColor,
+  updatedAt,
+  children,
+}: {
+  accessibilityLabel: string;
+  coordinate: LatLng;
+  bearingDegrees: number | null;
+  color: string;
+  iconColor: string;
+  updatedAt: number;
+  children?: React.ReactNode;
+}) {
+  const styles = useThemedStyles(createStyles);
+  const markerRef = useRef<MapMarker | null>(null);
+  const firstRing = useRef(new RNAnimated.Value(0)).current;
+  const secondRing = useRef(new RNAnimated.Value(0)).current;
+  const lastUpdatedAtRef = useRef<number | null>(null);
+  const targetCoordinateRef = useRef(coordinate);
+  // MapKit dismisses the callout whenever the marker re-renders, so while it
+  // is open every state change is suppressed (refs only — a setState here
+  // would itself close it) and deferred work is flushed on deselect.
+  const isSelectedRef = useRef(false);
+  const pendingCoordinateRef = useRef<LatLng | null>(null);
+  const [isPulsing, setIsPulsing] = useState(true);
+  const [renderedCoordinate, setRenderedCoordinate] = useState(coordinate);
+
+  // Positions are polled, so the marker glides to each new coordinate instead
+  // of teleporting. The native command moves the annotation without
+  // re-rasterising it, which is why the coordinate prop only catches up once
+  // the move is over — updating it earlier would snap the marker to the end.
+  useEffect(() => {
+    const target = targetCoordinateRef.current;
+    if (
+      target.latitude === coordinate.latitude &&
+      target.longitude === coordinate.longitude
+    ) {
+      return;
+    }
+
+    targetCoordinateRef.current = coordinate;
+    markerRef.current?.animateMarkerToCoordinate(coordinate, VEHICLE_MOVE_ANIMATION_MS);
+    const timer = setTimeout(() => {
+      if (isSelectedRef.current) {
+        pendingCoordinateRef.current = coordinate;
+      } else {
+        setRenderedCoordinate(coordinate);
+      }
+    }, VEHICLE_MOVE_ANIMATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [coordinate]);
+
+  // Two staggered sonar rings fire on every refresh — the live heartbeat.
+  // Tracking view changes re-rasterises the marker each frame, so it stays
+  // enabled only while the rings run; that window also captures heading
+  // changes, which land together with refreshed data. The first run covers
+  // the initial render.
+  useEffect(() => {
+    if (lastUpdatedAtRef.current === updatedAt) {
+      return;
+    }
+
+    lastUpdatedAtRef.current = updatedAt;
+    if (isSelectedRef.current) {
+      return;
+    }
+
+    firstRing.setValue(0);
+    secondRing.setValue(0);
+    setIsPulsing(true);
+    const animation = RNAnimated.stagger(VEHICLE_PULSE_STAGGER_MS, [
+      RNAnimated.timing(firstRing, {
+        toValue: 1,
+        duration: VEHICLE_PULSE_RING_MS,
+        useNativeDriver: false,
+      }),
+      RNAnimated.timing(secondRing, {
+        toValue: 1,
+        duration: VEHICLE_PULSE_RING_MS,
+        useNativeDriver: false,
+      }),
+    ]);
+
+    animation.start(({ finished }) => {
+      if (finished && !isSelectedRef.current) {
+        setIsPulsing(false);
+      }
+    });
+
+    return () => animation.stop();
+  }, [firstRing, secondRing, updatedAt]);
+
+  const handleSelect = useCallback(() => {
+    isSelectedRef.current = true;
+  }, []);
+
+  const handleDeselect = useCallback(() => {
+    isSelectedRef.current = false;
+    setIsPulsing(false);
+    if (pendingCoordinateRef.current) {
+      setRenderedCoordinate({ ...pendingCoordinateRef.current });
+      pendingCoordinateRef.current = null;
+    }
+  }, []);
+
+  const ringStyle = (ring: RNAnimated.Value) => [
+    styles.vehiclePulseRing,
+    {
+      backgroundColor: color,
+      opacity: ring.interpolate({
+        inputRange: [0, 0.12, 1],
+        outputRange: [0, 0.4, 0],
+      }),
+      transform: [
+        {
+          scale: ring.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.45, 1],
+          }),
+        },
+      ],
+    },
+  ];
+
+  return (
+    <Marker
+      ref={markerRef}
+      accessibilityLabel={accessibilityLabel}
+      anchor={STATION_MARKER_ANCHOR}
+      coordinate={renderedCoordinate}
+      tracksViewChanges={isPulsing}
+      zIndex={12}
+      onSelect={handleSelect}
+      onDeselect={handleDeselect}
+    >
+      <View style={styles.vehicleMarkerBox}>
+        <RNAnimated.View pointerEvents="none" style={ringStyle(firstRing)} />
+        <RNAnimated.View pointerEvents="none" style={ringStyle(secondRing)} />
+        {bearingDegrees !== null ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.vehicleHeadingBox,
+              { transform: [{ rotate: `${bearingDegrees}deg` }] },
+            ]}
+          >
+            <View style={styles.vehicleHeadingTip} />
+          </View>
+        ) : null}
+        <View style={[styles.vehicleMarker, { backgroundColor: color }]}>
+          <MaterialIcons name="tram" size={15} color={iconColor} />
+        </View>
+      </View>
+      {children}
+    </Marker>
   );
 }
 
@@ -1398,23 +1612,55 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },
-  vehicleMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  // Sized to fit the sonar rings so the rasterised bitmap is never clipped.
+  vehicleMarkerBox: {
+    width: 60,
+    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: palette.surface,
+  },
+  vehiclePulseRing: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+  },
+  // Rotated around the box centre so the tip circles the marker edge,
+  // pointing along the vehicle heading; the train glyph itself stays upright.
+  vehicleHeadingBox: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+  },
+  vehicleHeadingTip: {
+    marginTop: 8,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FFFFFF',
+  },
+  vehicleMarker: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
     shadowColor: palette.shadow,
     shadowOpacity: 0.32,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
-  },
-  vehicleMarkerText: {
-    fontSize: 10,
-    fontWeight: '900',
   },
   vehicleCallout: {
     width: 220,

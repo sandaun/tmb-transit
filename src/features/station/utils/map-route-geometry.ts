@@ -86,36 +86,83 @@ function projectStationOntoRoute(
   };
 }
 
+export interface PolylinePlacement {
+  point: LatLng;
+  bearingDegrees: number | null;
+}
+
+function bearingDegreesBetween(start: LatLng, end: LatLng): number {
+  const averageLatitudeRadians = ((start.lat + end.lat) / 2) * (Math.PI / 180);
+  const eastMeters =
+    (end.lon - start.lon) * METERS_PER_LATITUDE_DEGREE * Math.cos(averageLatitudeRadians);
+  const northMeters = (end.lat - start.lat) * METERS_PER_LATITUDE_DEGREE;
+
+  return (Math.atan2(eastMeters, northMeters) * (180 / Math.PI) + 360) % 360;
+}
+
 // Realtime vehicle coordinates and the drawn route come from different FGC
 // datasets, so a train reported mid-track can sit tens of metres off the line.
 // Snapping keeps both consistent; beyond the threshold the raw position is
 // kept rather than inventing a location on an unrelated part of the route.
-export function snapPointToPolylines(
+// The heading comes from the local route tangent, oriented towards
+// `towardPoint` (the vehicle's next stop); without it the direction of travel
+// is unknowable, so no bearing is reported rather than a 50/50 guess.
+export function placePointOnPolylines(
   polylines: LatLng[][],
   point: LatLng,
+  towardPoint: LatLng | null,
   maxDistanceMeters: number,
-): LatLng {
+): PolylinePlacement {
   if (!isFinitePoint(point)) {
-    return point;
+    return { point, bearingDegrees: null };
   }
 
-  let closestProjection: PolylineProjection | null = null;
+  let closest: { projection: PolylineProjection; points: LatLng[] } | null = null;
 
   for (const polyline of polylines) {
-    const projection = projectPointOntoPolyline(polyline.filter(isFinitePoint), point);
+    const points = polyline.filter(isFinitePoint);
+    const projection = projectPointOntoPolyline(points, point);
     if (
       projection &&
-      (!closestProjection || projection.distanceMeters < closestProjection.distanceMeters)
+      (!closest || projection.distanceMeters < closest.projection.distanceMeters)
     ) {
-      closestProjection = projection;
+      closest = { projection, points };
     }
   }
 
-  if (!closestProjection || closestProjection.distanceMeters > maxDistanceMeters) {
-    return point;
+  if (!closest || closest.projection.distanceMeters > maxDistanceMeters) {
+    return { point, bearingDegrees: null };
   }
 
-  return closestProjection.point;
+  const towardProjection = towardPoint && isFinitePoint(towardPoint)
+    ? projectPointOntoPolyline(closest.points, towardPoint)
+    : null;
+
+  // A next stop projecting onto the vehicle's own position (a train sitting at
+  // that stop) leaves the direction ambiguous.
+  if (
+    !towardProjection ||
+    Math.abs(towardProjection.position - closest.projection.position) < 1e-9
+  ) {
+    return { point: closest.projection.point, bearingDegrees: null };
+  }
+
+  const segmentIndex = Math.min(
+    Math.floor(closest.projection.position),
+    closest.points.length - 2,
+  );
+  const bearing = bearingDegreesBetween(
+    closest.points[segmentIndex],
+    closest.points[segmentIndex + 1],
+  );
+
+  return {
+    point: closest.projection.point,
+    bearingDegrees:
+      towardProjection.position >= closest.projection.position
+        ? bearing
+        : (bearing + 180) % 360,
+  };
 }
 
 function appendDistinctPoint(points: LatLng[], point: LatLng): void {

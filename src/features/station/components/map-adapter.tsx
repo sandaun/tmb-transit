@@ -51,8 +51,8 @@ import {
 import { getMapMarkerDetail } from '@/src/features/station/utils/map-marker-detail';
 import { getViewportFocusedRegion } from '@/src/features/station/utils/map-camera';
 import {
+  placePointOnPolylines,
   selectStationMarkers,
-  snapPointToPolylines,
   trimSegmentToStations,
 } from '@/src/features/station/utils/map-route-geometry';
 import { Text, type Palette, usePalette, useThemedStyles } from '@/src/design-system';
@@ -96,6 +96,7 @@ interface MapAdapterProps {
   stations: Station[];
   segments: Segment[];
   transitVehicles?: TransitVehicle[];
+  transitVehiclesUpdatedAt?: number;
   selectedStationCode: string;
   stationFocusRequestId?: number;
   stationInterchanges?: StationInterchange[];
@@ -179,8 +180,10 @@ const STATION_MARKER_IMAGE = require('@/assets/map/station-marker.png') as Image
 // raw coordinate is kept instead of snapping onto an unrelated stretch.
 const VEHICLE_SNAP_MAX_DISTANCE_METERS = 150;
 const VEHICLE_MOVE_ANIMATION_MS = 900;
-const VEHICLE_PULSE_IN_MS = 180;
-const VEHICLE_PULSE_OUT_MS = 220;
+// Two slow sonar rings per data refresh read as a heartbeat while keeping the
+// expensive tracksViewChanges window bounded (~2 s out of every poll cycle).
+const VEHICLE_PULSE_RING_MS = 1_600;
+const VEHICLE_PULSE_STAGGER_MS = 500;
 
 export function MapAdapter({
   lineCode,
@@ -189,6 +192,7 @@ export function MapAdapter({
   stations,
   segments,
   transitVehicles = [],
+  transitVehiclesUpdatedAt = 0,
   selectedStationCode,
   stationFocusRequestId = 0,
   stationInterchanges = [],
@@ -704,29 +708,42 @@ export function MapAdapter({
     const fallbackPolyline = getFallbackPolyline(stations);
     return fallbackPolyline ? [fallbackPolyline] : [];
   }, [explorationVisible, lineCode, segments, stations]);
-  const snappedVehicles = useMemo(() => {
+  const placedVehicles = useMemo(() => {
     const routeGeometry = routePolylines.map((polyline) =>
       polyline.coordinates.map((coordinate) => ({
         lat: coordinate.latitude,
         lon: coordinate.longitude,
       })),
     );
+    const stationByCode = new Map(stations.map((station) => [station.code, station]));
 
     return transitVehicles
       .filter((vehicle) => Number.isFinite(vehicle.lat) && Number.isFinite(vehicle.lon))
       .map((vehicle) => {
-        const snapped = snapPointToPolylines(
+        // The feed lists upcoming stops in travel order using catalog station
+        // codes, so the first one orients the vehicle along the route.
+        const nextStop = vehicle.nextStops.length
+          ? stationByCode.get(vehicle.nextStops[0])
+          : undefined;
+        const placement = placePointOnPolylines(
           routeGeometry,
           { lat: vehicle.lat, lon: vehicle.lon },
+          nextStop && Number.isFinite(nextStop.lat) && Number.isFinite(nextStop.lon)
+            ? { lat: nextStop.lat, lon: nextStop.lon }
+            : null,
           VEHICLE_SNAP_MAX_DISTANCE_METERS,
         );
 
         return {
           vehicle,
-          coordinate: { latitude: snapped.lat, longitude: snapped.lon },
+          coordinate: {
+            latitude: placement.point.lat,
+            longitude: placement.point.lon,
+          },
+          bearingDegrees: placement.bearingDegrees,
         };
       });
-  }, [routePolylines, transitVehicles]);
+  }, [routePolylines, stations, transitVehicles]);
   const routeLayerKey = routePolylines
     .map((polyline) => `${polyline.id}:${polyline.coordinates.length}`)
     .join('|');
@@ -889,13 +906,15 @@ export function MapAdapter({
           </Marker>
         ))}
 
-        {snappedVehicles.map(({ vehicle, coordinate }) => (
+        {placedVehicles.map(({ vehicle, coordinate, bearingDegrees }) => (
           <VehicleMarker
             key={`vehicle:${vehicle.id}`}
             accessibilityLabel={`${vehicle.lineCode}${vehicle.destination ? `, ${vehicle.destination}` : ''}`}
             coordinate={coordinate}
+            bearingDegrees={bearingDegrees}
             color={lineBrand.backgroundColor}
             iconColor={lineBrand.textColor}
+            updatedAt={transitVehiclesUpdatedAt}
           >
             <Callout tooltip>
               <View style={styles.vehicleCallout}>
@@ -1161,66 +1180,74 @@ function NearbyStopDot({ mode, lineCode, lineColor }: { mode: TransportMode; lin
 function VehicleMarker({
   accessibilityLabel,
   coordinate,
+  bearingDegrees,
   color,
   iconColor,
+  updatedAt,
   children,
 }: {
   accessibilityLabel: string;
   coordinate: LatLng;
+  bearingDegrees: number | null;
   color: string;
   iconColor: string;
+  updatedAt: number;
   children?: React.ReactNode;
 }) {
   const styles = useThemedStyles(createStyles);
   const markerRef = useRef<MapMarker | null>(null);
-  const pulse = useRef(new RNAnimated.Value(0)).current;
-  const hasRenderedRef = useRef(false);
+  const firstRing = useRef(new RNAnimated.Value(0)).current;
+  const secondRing = useRef(new RNAnimated.Value(0)).current;
+  const lastUpdatedAtRef = useRef<number | null>(null);
   const targetCoordinateRef = useRef(coordinate);
   const [isPulsing, setIsPulsing] = useState(true);
   const [renderedCoordinate, setRenderedCoordinate] = useState(coordinate);
 
   // Positions are polled, so the marker glides to each new coordinate instead
-  // of teleporting, and pulses to mark the move as fresh. The pulse is tied to
-  // actual movement rather than to the refresh: the upstream dataset updates
-  // more slowly than we poll, so pulsing per refresh would fire on unchanged
-  // data. The first run covers the initial render, since a marker that never
-  // tracks view changes may otherwise not rasterise its custom view.
+  // of teleporting. The native command moves the annotation without
+  // re-rasterising it, which is why the coordinate prop only catches up once
+  // the move is over — updating it earlier would snap the marker to the end.
   useEffect(() => {
     const target = targetCoordinateRef.current;
-    const hasMoved =
-      target.latitude !== coordinate.latitude ||
-      target.longitude !== coordinate.longitude;
-    const isFirstRender = !hasRenderedRef.current;
-    hasRenderedRef.current = true;
-
-    if (!hasMoved && !isFirstRender) {
+    if (
+      target.latitude === coordinate.latitude &&
+      target.longitude === coordinate.longitude
+    ) {
       return;
     }
 
-    let moveTimer: ReturnType<typeof setTimeout> | undefined;
-    if (hasMoved) {
-      targetCoordinateRef.current = coordinate;
-      markerRef.current?.animateMarkerToCoordinate(coordinate, VEHICLE_MOVE_ANIMATION_MS);
-      // The native command moves the annotation without re-rasterising it, so
-      // the coordinate prop only catches up once the move is over — updating
-      // it earlier would snap the marker straight to the destination.
-      moveTimer = setTimeout(() => {
-        setRenderedCoordinate(coordinate);
-      }, VEHICLE_MOVE_ANIMATION_MS);
+    targetCoordinateRef.current = coordinate;
+    markerRef.current?.animateMarkerToCoordinate(coordinate, VEHICLE_MOVE_ANIMATION_MS);
+    const timer = setTimeout(() => {
+      setRenderedCoordinate(coordinate);
+    }, VEHICLE_MOVE_ANIMATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [coordinate]);
+
+  // Two staggered sonar rings fire on every refresh — the live heartbeat.
+  // Tracking view changes re-rasterises the marker each frame, so it stays
+  // enabled only while the rings run; that window also captures heading
+  // changes, which land together with refreshed data. The first run covers
+  // the initial render.
+  useEffect(() => {
+    if (lastUpdatedAtRef.current === updatedAt) {
+      return;
     }
 
-    // Tracking view changes re-rasterises the marker every frame, so it stays
-    // enabled only for the length of the pulse.
+    lastUpdatedAtRef.current = updatedAt;
+    firstRing.setValue(0);
+    secondRing.setValue(0);
     setIsPulsing(true);
-    const animation = RNAnimated.sequence([
-      RNAnimated.timing(pulse, {
+    const animation = RNAnimated.stagger(VEHICLE_PULSE_STAGGER_MS, [
+      RNAnimated.timing(firstRing, {
         toValue: 1,
-        duration: VEHICLE_PULSE_IN_MS,
+        duration: VEHICLE_PULSE_RING_MS,
         useNativeDriver: false,
       }),
-      RNAnimated.timing(pulse, {
-        toValue: 0,
-        duration: VEHICLE_PULSE_OUT_MS,
+      RNAnimated.timing(secondRing, {
+        toValue: 1,
+        duration: VEHICLE_PULSE_RING_MS,
         useNativeDriver: false,
       }),
     ]);
@@ -1231,11 +1258,27 @@ function VehicleMarker({
       }
     });
 
-    return () => {
-      clearTimeout(moveTimer);
-      animation.stop();
-    };
-  }, [coordinate, pulse]);
+    return () => animation.stop();
+  }, [firstRing, secondRing, updatedAt]);
+
+  const ringStyle = (ring: RNAnimated.Value) => [
+    styles.vehiclePulseRing,
+    {
+      backgroundColor: color,
+      opacity: ring.interpolate({
+        inputRange: [0, 0.12, 1],
+        outputRange: [0, 0.4, 0],
+      }),
+      transform: [
+        {
+          scale: ring.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.45, 1],
+          }),
+        },
+      ],
+    },
+  ];
 
   return (
     <Marker
@@ -1247,24 +1290,22 @@ function VehicleMarker({
       zIndex={12}
     >
       <View style={styles.vehicleMarkerBox}>
-        <RNAnimated.View
-          style={[
-            styles.vehicleMarker,
-            {
-              backgroundColor: color,
-              transform: [
-                {
-                  scale: pulse.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [1, 1.18],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
+        <RNAnimated.View pointerEvents="none" style={ringStyle(firstRing)} />
+        <RNAnimated.View pointerEvents="none" style={ringStyle(secondRing)} />
+        {bearingDegrees !== null ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.vehicleHeadingBox,
+              { transform: [{ rotate: `${bearingDegrees}deg` }] },
+            ]}
+          >
+            <View style={styles.vehicleHeadingTip} />
+          </View>
+        ) : null}
+        <View style={[styles.vehicleMarker, { backgroundColor: color }]}>
           <MaterialIcons name="tram" size={15} color={iconColor} />
-        </RNAnimated.View>
+        </View>
       </View>
       {children}
     </Marker>
@@ -1543,12 +1584,41 @@ const createStyles = (palette: Palette) => StyleSheet.create({
     borderWidth: 3,
     borderColor: '#FFFFFF',
   },
-  // Sized to fit the pulsed marker so the rasterised bitmap is never clipped.
+  // Sized to fit the sonar rings so the rasterised bitmap is never clipped.
   vehicleMarkerBox: {
-    width: 34,
-    height: 34,
+    width: 60,
+    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  vehiclePulseRing: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+  },
+  // Rotated around the box centre so the tip circles the marker edge,
+  // pointing along the vehicle heading; the train glyph itself stays upright.
+  vehicleHeadingBox: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+  },
+  vehicleHeadingTip: {
+    marginTop: 8,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FFFFFF',
   },
   vehicleMarker: {
     width: 26,

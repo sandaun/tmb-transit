@@ -337,6 +337,7 @@ export function MapScreen({
         stations={stations}
         segments={segmentsQuery.data ?? []}
         transitVehicles={vehiclesQuery.data ?? []}
+        transitVehiclesUpdatedAt={vehiclesQuery.dataUpdatedAt}
         selectedStationCode={stationCode}
         stationFocusRequestId={stationFocusRequestId}
         stationInterchanges={stationInterchanges}
